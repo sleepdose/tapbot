@@ -1,0 +1,393 @@
+:root {
+    --primary: #8B4513;
+    --secondary: #CD853F;
+    --accent: #FFD700;
+    --combat: #DC143C;
+    --dark: #4a2b1f;
+    --poison: #32CD32;
+    --vampire: #8B0000;
+}
+
+* {
+    box-sizing: border-box;
+    touch-action: manipulation;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #D8BFD8;
+    color: white;
+    margin: 0;
+    min-height: 100vh;
+    text-align: center;
+    overflow-x: hidden;
+}
+
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #D8BFD8;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease;
+}
+
+.loader {
+    text-align: center;
+}
+
+.honeycomb {
+    --size: 4rem;
+    height: calc(var(--size)*1.1);
+    width: calc(var(--size)*1.1*1.732);
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 20px;
+}
+
+.honeycomb div {
+    width: var(--size);
+    height: var(--size);
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    animation: honeycomb 2s infinite;
+}
+
+@keyframes honeycomb {
+    0%, 100% { transform: translateY(0); opacity: 1; }
+    50% { transform: translateY(-30px); opacity: 0.7; }
+}
+
+.loader p {
+    color: var(--primary);
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 15px;
+}
+
+#gameScreen {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1rem 0;
+    padding: 0 1rem;
+}
+
+.stat {
+    background: rgba(0,0,0,0.3);
+    padding: 0.8rem;
+    border-radius: 10px;
+    min-width: 100px;
+    font-size: 0.9rem;
+    flex: 1 1 auto;
+}
+
+.level-progress {
+    width: 80%;
+    height: 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 5px;
+    margin: 1rem auto;
+}
+
+.level-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 5px;
+    transition: width 0.5s ease-in-out;
+}
+
+.click-area {
+    width: 250px;
+    height: 250px;
+    margin: 1rem auto;
+    cursor: pointer;
+    position: relative;
+}
+
+.hive-img {
+    width: 100%;
+    height: 100%;
+    background: url('img/human_male.png') center/contain no-repeat;
+    filter: drop-shadow(0 0 10px rgba(255,215,0,0.5));
+}
+
+.popup {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--dark);
+    padding: 1.5rem;
+    border-radius: 15px;
+    width: 95%;
+    max-width: 500px;
+    max-height: 90vh;
+    z-index: 1000;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    border: 3px solid var(--secondary);
+    overflow: hidden;
+}
+
+.popup-content {
+    position: relative;
+    padding: 20px 15px 20px 20px;
+    max-width: 100%;
+    max-height: calc(90vh - 40px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    word-break: break-word;
+    hyphens: auto;
+    scrollbar-gutter: stable both-edges;
+}
+
+.popup-content::-webkit-scrollbar {
+    width: 8px;
+    background: transparent;
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border: 2px solid var(--dark);
+    border-radius: 5px;
+}
+
+.popup-content {
+    scrollbar-color: var(--accent) transparent;
+    scrollbar-width: thin;
+}
+
+.popup-content h2 {
+    margin-top: 0;
+    font-size: 1.5em;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--combat);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-weight: bold;
+    z-index: 1001;
+}
+
+.boss-card, .shop-item, .talent {
+    background: rgba(0,0,0,0.5);
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 12px;
+    border: 2px solid var(--secondary);
+    cursor: pointer;
+    transition: transform 0.3s;
+    text-align: left;
+}
+
+.boss-card:hover, .shop-item:hover, .talent:hover {
+    transform: scale(1.02);
+}
+
+.button-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 8px 0;
+}
+
+.shop-item button, .talent button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-weight: bold;
+    width: auto;
+    min-width: 120px;
+    max-width: 200px;
+    transition: transform 0.2s;
+    font-size: 0.9em;
+}
+
+.shop-item button:hover, .talent button:hover {
+    transform: scale(1.05);
+}
+
+.combat-screen {
+    background: var(--combat);
+    padding: 1rem;
+    border-radius: 15px;
+    display: none;
+    margin: 1rem;
+    position: relative;
+}
+
+.boss-health {
+    height: 30px;
+    background: #333;
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 1rem 0;
+    position: relative;
+}
+
+.health-bar {
+    height: 100%;
+    background: #4CAF50;
+    width: 100%;
+    transition: width 0.3s;
+}
+
+.health-text {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.attack-btn {
+    background: var(--accent);
+    color: #000;
+    padding: 0.8rem;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin: 0.3rem;
+    transition: transform 0.2s;
+    width: 100%;
+    max-width: 250px;
+}
+
+.attack-btn:hover {
+    transform: scale(1.05);
+}
+
+.shop-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.shop-tab {
+    display: none;
+}
+
+.shop-tab.active {
+    display: block;
+}
+
+.hive-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    padding: 1rem 0;
+}
+
+.hive-option {
+    padding: 1rem;
+    border: 2px solid var(--secondary);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    opacity: 0.7;
+    background: rgba(0,0,0,0.3);
+}
+
+.hive-option.active {
+    opacity: 1;
+    transform: scale(1.02);
+    border-color: var(--accent);
+    background: rgba(0,0,0,0.5);
+}
+
+.combat-talents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin: 1rem 0;
+}
+}
+
+@media (max-width: 480px) {
+    .click-area {
+        width: 200px;
+        height: 200px;
+    }
+
+    .btn {
+        padding: 0.8rem;
+        margin: 0.3rem;
+        min-width: 90px;
+        font-size: 0.9rem;
+    }
+
+    .popup {
+        width: 100%!important;
+        height: 100vh!important;
+        border-radius: 0;
+        padding: 10px;
+    }
+
+    .popup-content {
+        padding: 10px 5px 10px 10px;
+        max-height: none;
+    }
+
+    .popup-content::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    .boss-card, .shop-item, .talent {
+        padding: 10px;
+        margin: 8px 0;
+    }
+
+    .attack-btn {
+        font-size: 0.9rem;
+        padding: 0.6rem;
+    }
+
+    .stat {
+        font-size: 0.8rem;
+        padding: 0.6rem;
+    }
+
+    .hive-selector {
+        grid-template-columns: 1fr;
+    }
+
+    .level-progress {
+        width: 90%;
+    }
+
+    .shop-item button,
+    .talent button {
+        min-width: 90px;
+        font-size: 0.8em;
+    }
+}
