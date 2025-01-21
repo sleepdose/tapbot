@@ -23,6 +23,13 @@ body {
     overflow-x: hidden;
 }
 
+body.popup-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
 #preloader {
     position: fixed;
     top: 0;
@@ -117,6 +124,16 @@ body {
     position: relative;
 }
 
+.click-effect {
+    animation: clickPulse 0.3s ease-out forwards;
+}
+
+@keyframes clickPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 .hive-img {
     width: 100%;
     height: 100%;
@@ -138,13 +155,31 @@ body {
     z-index: 1000;
     box-shadow: 0 0 15px rgba(0,0,0,0.5);
     overflow: hidden;
+    animation: popupOpen 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+    overscroll-behavior: contain;
+}
+
+@keyframes popupOpen {
+    0% { transform: translate(-50%, -60%); opacity: 0; }
+    100% { transform: translate(-50%, -50%); opacity: 1; }
+}
+
+.popup::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: -1;
 }
 
 .popup-content {
     position: relative;
     padding: 20px 15px 20px 20px;
     max-width: 100%;
-    max-height: calc(90vh - 40px);
+    max-height: 70vh;
     overflow-y: auto;
     box-sizing: border-box;
     word-break: break-word;
@@ -166,11 +201,6 @@ body {
 .popup-content {
     scrollbar-color: var(--accent) transparent;
     scrollbar-width: thin;
-}
-
-.popup-content h2 {
-    margin-top: 0;
-    font-size: 1.5em;
 }
 
 .close {
@@ -212,7 +242,7 @@ body {
 }
 
 .shop-item button, .talent button {
-    background: var(--accent);
+    background: linear-gradient(45deg, var(--accent), #ffec80);
     color: #000;
     border: none;
     padding: 8px 15px;
@@ -224,10 +254,23 @@ body {
     max-width: 200px;
     transition: transform 0.2s;
     font-size: 0.9em;
+    border: 2px solid #ffd700;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16);
 }
 
 .shop-item button:hover, .talent button:hover {
     transform: scale(1.05);
+}
+
+.shop-item.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.talent button:disabled {
+    opacity: 0.7;
+    background: #666;
+    cursor: not-allowed;
 }
 
 .combat-screen {
@@ -244,15 +287,13 @@ body {
     background: #333;
     border-radius: 15px;
     overflow: hidden;
-    margin: 1rem 0;
     position: relative;
 }
 
 .health-bar {
     height: 100%;
     background: #4CAF50;
-    width: 100%;
-    transition: width 0.3s;
+    transition: width 0.3s ease;
 }
 
 .health-text {
@@ -263,6 +304,7 @@ body {
     transform: translateY(-50%);
     font-weight: bold;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    pointer-events: none;
 }
 
 .attack-btn {
@@ -329,19 +371,94 @@ body {
     justify-content: center;
     margin: 1rem 0;
 }
+
+.btn {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 300px;
+    height: 300px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.5s ease;
+}
+
+.btn:active::after {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.effect-indicators {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 1000;
+}
+
+.effect-indicator {
+    background: rgba(0,0,0,0.7);
+    padding: 8px 12px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.effect-indicator.poison { border-left: 4px solid var(--poison); }
+.effect-indicator.multiclick { border-left: 4px solid var(--accent); }
+.effect-indicator.shield { border-left: 4px solid var(--combat); }
+
+.effect-time {
+    background: rgba(255,255,255,0.15);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8em;
 }
 
 @media (max-width: 480px) {
-    .click-area {
-        width: 200px;
-        height: 200px;
+    .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 0 10px;
     }
 
     .btn {
-        padding: 0.8rem;
-        margin: 0.3rem;
-        min-width: 90px;
-        font-size: 0.9rem;
+        width: 100%;
+        margin: 0;
+        padding: 12px;
+        font-size: 0.8em;
+    }
+
+    .shop-item button, .talent button {
+        min-width: 100%;
+        padding: 10px;
+    }
+
+    .boss-card, .shop-item, .talent {
+        margin: 8px 0;
+        padding: 12px;
+    }
+
+    .click-area {
+        width: 200px;
+        height: 200px;
     }
 
     .popup {
@@ -360,11 +477,6 @@ body {
         width: 5px;
     }
 
-    .boss-card, .shop-item, .talent {
-        padding: 10px;
-        margin: 8px 0;
-    }
-
     .attack-btn {
         font-size: 0.9rem;
         padding: 0.6rem;
@@ -375,17 +487,30 @@ body {
         padding: 0.6rem;
     }
 
+    .shop-item button:disabled {
+    background: #666 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.talent button.upgraded {
+    animation: upgradeGlow 1s ease;
+}
+
+@keyframes upgradeGlow {
+    0% { box-shadow: 0 0 10px var(--accent); }
+    100% { box-shadow: none; }
+}
+
     .hive-selector {
         grid-template-columns: 1fr;
     }
 
     .level-progress {
-        width: 90%;
-    }
-
-    .shop-item button,
-    .talent button {
-        min-width: 90px;
-        font-size: 0.8em;
+        width: 80%;
+        height: 10px;
+        background: rgba(0,0,0,0.3);
+        border-radius: 5px;
+        margin: 1rem auto;
     }
 }

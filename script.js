@@ -27,8 +27,7 @@ const gameConfig = {
         bear: { health: 1000, time: 90, reward: 2000 }
     },
     hivePrices: { golden: 1500, crystal: 3000, inferno: 4500 },
-    boostPrices: { energy: 1000, shield: 1200, multiclick: 800 },
-    baseEnergyRegen: 2000
+    boostPrices: { energy: 1000, shield: 1200, multiclick: 800 }
 };
 
 class GameState {
@@ -41,15 +40,15 @@ class GameState {
         this.energy = 100;
         this.maxEnergy = 100;
         this.level = 1;
-        this.nextLevelHoney = 500;
+        this.baseLevelHoney = 500;
         this.purchasedHives = ['basic'];
         this.activeHive = 'basic';
         this.inBattle = false;
         this.talents = {
-            basic: { level: 1, cost: 75 },
-            critical: { level: 0, cost: 150 },
-            poison: { level: 0, cost: 200 },
-            vampire: { level: 0, cost: 500 }
+            basic: { level: 1, damage: 10 },
+            critical: { level: 0, chance: 0.15 },
+            poison: { level: 0, damage: 0 },
+            vampire: { level: 0, percent: 0 }
         };
         this.boosts = {
             battleBonus: 1.0,
@@ -58,6 +57,9 @@ class GameState {
             multiclick: false
         };
         this.activeEffects = [];
+        this.currentBoss = null;
+        this.battleTimer = null;
+        this.energyRecoveryInterval = null;
     }
 }
 
@@ -85,97 +87,209 @@ const talentsConfig = {
 };
 
 let gameState = new GameState();
-const resources = {
-    images: [
-        'human_male.png',
-        'golden_hive.png',
-        'crystal_hive.png',
-        'inferno_hive.png'
-    ]
-};
-
-function preloadResources() {
-    return new Promise((resolve, reject) => {
-        let loaded = 0;
-        const total = resources.images.length;
-
-        if(total === 0) resolve();
-
-        resources.images.forEach(img => {
-            const image = new Image();
-            image.src = img;
-            image.onload = () => {
-                loaded++;
-                updateLoaderProgress(loaded, total);
-                if(loaded === total) resolve();
-            };
-            image.onerror = () => {
-                console.error(`Ошибка загрузки: ${img}`);
-                loaded++;
-                if(loaded === total) resolve();
-            };
-        });
-    });
-}
-
-function updateLoaderProgress(loaded, total) {
-    const progress = Math.round((loaded / total) * 100);
-    document.querySelector('.loader p').textContent = `Загрузка: ${progress}%`;
-}
 
 function initGame() {
-    try {
-        const hiveElement = document.getElementById('hive');
-        hiveElement.replaceWith(hiveElement.cloneNode(true));
-
-        document.getElementById('hive').addEventListener('click', handleHiveClick);
-
-        if (gameState.energyInterval) clearInterval(gameState.energyInterval);
-
-        gameState.energyInterval = setInterval(() => {
-            if (gameState.energy < gameState.maxEnergy) {
-                gameState.energy++;
-                updateUI(['energy']);
-            }
-        }, gameState.boosts.speed ? 1000 : 2000);
-
-        gameState.reset();
-        updateUI();
-        updateHiveDisplay();
-    } catch (error) {
-        console.error('Ошибка инициализации игры:', error);
+    if (!elements.levelProgress) {
+        console.error('Элемент прогресса уровня не найден!');
+        return;
     }
+
+    document.getElementById('hive').addEventListener('click', handleHiveClick);
+    document.querySelectorAll('.close').forEach(btn => btn.addEventListener('click', hideAllPopups));
+    document.querySelector('.shop-tabs').addEventListener('click', handleShopTabs);
+    document.getElementById('battlePopup').addEventListener('click', handleBossSelect);
+
+    document.querySelectorAll('.controls .btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const popupType = this.dataset.popup;
+            showPopup(popupType);
+        });
+    });
+
+    document.querySelectorAll('.shop-item button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const type = this.closest('.shop-item').dataset.type;
+            if (this.closest('#shopHives')) {
+                buyHive(type);
+            } else {
+                buyBoost(type);
+            }
+        });
+    });
+
+    document.querySelectorAll('.talent button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const talentType = this.closest('.talent').dataset.talent;
+            upgradeTalent(talentType);
+        });
+    });
+
+    updateHiveDisplay();
+    updateShopItems();
+    updateUI();
+    startEnergyRecovery();
 }
 
 function handleHiveClick() {
+    if (gameState.energy <= 0) return;
+
     const hive = document.getElementById('hive');
     hive.classList.add('click-effect');
-    setTimeout(() => hive.classList.remove('click-effect'), 100);
+    setTimeout(() => hive.classList.remove('click-effect'), 300);
 
-    if (gameState.energy > 0) {
-        const honeyMultiplier = gameState.boosts.multiclick ? 2 : 1;
-        gameState.honey += 1 * honeyMultiplier;
-        gameState.energy--;
-        checkLevelUp();
-        updateUI(['honey', 'energy', 'level']);
+    const multiplier = gameState.boosts.multiclick ? 2 : 1;
+    gameState.honey += 1 * multiplier;
+    gameState.energy--;
+
+    checkLevelUp();
+    updateUI(['honey', 'energy']);
+}
+
+function handleShopTabs(e) {
+    const tabBtn = e.target.closest('.tab-btn');
+    if (!tabBtn) return;
+
+    document.querySelectorAll('.shop-tab, .tab-btn').forEach(el => el.classList.remove('active'));
+    tabBtn.classList.add('active');
+    document.getElementById(`shop${tabBtn.dataset.tab.charAt(0).toUpperCase() + tabBtn.dataset.tab.slice(1)}`)
+        .classList.add('active');
+}
+
+function handleBossSelect(e) {
+    const bossCard = e.target.closest('.boss-card');
+    if (bossCard) startBattle(bossCard.dataset.boss);
+}
+
+function buyHive(type) {
+    if (!gameState.purchasedHives.includes(type) && gameState.honey >= gameConfig.hivePrices[type]) {
+        gameState.honey -= gameConfig.hivePrices[type];
+        gameState.purchasedHives.push(type);
+        switchHive(type);
+        updateHiveDisplay();
+        updateShopItems();
+        updateUI(['honey']);
     }
 }
 
-function checkLevelUp() {
-    const progress = Math.min((gameState.honey / gameState.nextLevelHoney) * 100, 100);
-    elements.levelProgress.style.width = `${progress}%`;
+function buyBoost(type) {
+    const button = event.target.closest('button');
+    if (!button || button.disabled) return;
 
-    if (gameState.honey >= gameState.nextLevelHoney) {
+    if (gameState.honey >= gameConfig.boostPrices[type]) {
+        gameState.honey -= gameConfig.boostPrices[type];
+        button.disabled = true;
+        button.textContent = 'Куплено';
+
+        setTimeout(() => {
+            button.disabled = false;
+            button.textContent = `${gameConfig.boostPrices[type]} 🍯`;
+        }, 5000);
+
+        switch(type) {
+            case 'energy':
+                gameState.maxEnergy += 40;
+                gameState.energy += 40;
+                break;
+            case 'shield':
+                gameState.boosts.shield = true;
+                break;
+            case 'multiclick':
+                gameState.boosts.multiclick = true;
+                break;
+        }
+        updateUI(['honey']);
+    }
+}
+
+function upgradeTalent(talentType) {
+    const talent = talentsConfig[talentType];
+    const currentLevel = gameState.talents[talentType].level;
+
+    if (currentLevel >= talent.maxLevel) return;
+
+    const cost = talent.getCost(currentLevel);
+    if (gameState.honey < cost) return;
+
+    gameState.honey -= cost;
+    gameState.talents[talentType].level++;
+
+    switch(talentType) {
+        case 'basic':
+            gameState.talents.basic.damage = talent.getDamage(gameState.talents.basic.level);
+            break;
+        case 'critical':
+            gameState.talents.critical.chance = talent.getChance(gameState.talents.critical.level);
+            break;
+        case 'poison':
+            gameState.talents.poison.damage = talent.getDamage(gameState.talents.poison.level);
+            break;
+        case 'vampire':
+            gameState.talents.vampire.percent = talent.getPercent(gameState.talents.vampire.level);
+            break;
+    }
+
+    const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
+    if (button) {
+        const newLevel = gameState.talents[talentType].level;
+        const newCost = newLevel < talent.maxLevel
+            ? Math.floor(talent.getCost(newLevel))
+            : 'MAX';
+        button.textContent = newLevel < talent.maxLevel ? `${newCost} 🍯` : 'MAX';
+    }
+
+    updateUI(['honey', 'talents']);
+}
+
+function checkLevelUp() {
+    let levelsGained = 0;
+    const maxPossibleLevel = Math.floor(gameState.honey / gameState.baseLevelHoney) + 1;
+
+    while (gameState.level < maxPossibleLevel) {
         gameState.level++;
-        gameState.nextLevelHoney = Math.floor(gameState.nextLevelHoney * 1.5);
-        showLevelUpEffect();
+        levelsGained++;
+    }
+
+    if (levelsGained > 0) {
+        showLevelUpEffect(levelsGained);
+        updateLevelProgress();
         updateUI(['level']);
+    } else {
+        updateLevelProgress();
+    }
+}
+
+function updateLevelProgress() {
+    if (!elements.levelProgress) return;
+
+    const currentLevel = gameState.level;
+    const prevLevelHoney = gameState.baseLevelHoney * (currentLevel - 1);
+    const neededHoney = gameState.baseLevelHoney * currentLevel;
+
+    const honeyDiff = neededHoney - prevLevelHoney;
+    if (honeyDiff <= 0) {
+        elements.levelProgress.style.width = '0%';
+        return;
+    }
+
+    const currentHoney = Math.max(0, gameState.honey - prevLevelHoney);
+    let progress = (currentHoney / honeyDiff) * 100;
+    progress = Math.max(0, Math.min(progress, 100));
+
+    try {
+        elements.levelProgress.style.width = `${progress}%`;
+    } catch (e) {
+        console.error('Ошибка обновления прогресса:', e);
     }
 }
 
 function startBattle(bossType) {
-    const boss = gameConfig.bosses[bossType];
+    if (!gameConfig.bosses[bossType] || gameState.inBattle) return;
+
+    elements.bossHealth.style.transition = 'none';
+    elements.bossHealth.style.width = '100%';
+
     gameState.inBattle = true;
+    const boss = gameConfig.bosses[bossType];
     gameState.currentBoss = {
         ...boss,
         currentHealth: boss.health,
@@ -184,38 +298,30 @@ function startBattle(bossType) {
 
     elements.currentHealth.textContent = boss.health;
     elements.maxHealth.textContent = boss.health;
+    elements.combatTimer.textContent = boss.time;
+
+    setTimeout(() => {
+        elements.bossHealth.style.transition = 'width 0.3s';
+        updateCombatUI(true);
+    }, 50);
+
     createTalentButtons();
     showCombatScreen();
     startBattleTimer(boss.time);
 }
 
-function createTalentButtons() {
-    elements.combatTalents.innerHTML = '';
-    Object.entries(gameState.talents).forEach(([key, talent]) => {
-        if(talent.level > 0) {
-            const button = document.createElement('button');
-            button.className = 'attack-btn';
-            button.onclick = () => attack(key);
-
-            switch(key) {
-                case 'basic': button.innerHTML = '🗡️ Базовый'; break;
-                case 'critical': button.innerHTML = '💥 Крит'; break;
-                case 'poison': button.innerHTML = '☠️ Яд'; break;
-                case 'vampire': button.innerHTML = '❤️ Вампир'; break;
-            }
-
-            elements.combatTalents.appendChild(button);
-        }
-    });
+function showCombatScreen() {
+    hideAllPopups();
+    elements.combatScreen.style.display = 'block';
 }
 
 function startBattleTimer(seconds) {
     let timeLeft = seconds;
-    updateTimer(timeLeft);
+    elements.combatTimer.textContent = timeLeft;
 
     gameState.battleTimer = setInterval(() => {
         timeLeft--;
-        updateTimer(timeLeft);
+        elements.combatTimer.textContent = timeLeft;
 
         if (timeLeft <= 0) {
             endBattle(false);
@@ -224,13 +330,36 @@ function startBattleTimer(seconds) {
     }, 1000);
 }
 
+function createTalentButtons() {
+    elements.combatTalents.innerHTML = '';
+    Object.entries(gameState.talents).forEach(([type, talent]) => {
+        if (talent.level > 0) {
+            const button = document.createElement('button');
+            button.className = 'attack-btn';
+            button.textContent = getTalentButtonText(type);
+            button.onclick = () => attack(type);
+            elements.combatTalents.appendChild(button);
+        }
+    });
+}
+
+function getTalentButtonText(type) {
+    switch(type) {
+        case 'basic': return '🗡️ Базовый';
+        case 'critical': return '💥 Крит';
+        case 'poison': return '☠️ Яд';
+        case 'vampire': return '❤️ Вампир';
+        default: return '';
+    }
+}
+
 function attack(type) {
-    const button = event.target;
-    button.classList.add('attack-pulse');
-    setTimeout(() => button.classList.remove('attack-pulse'), 200);
+    if (!gameState.currentBoss || !gameState.inBattle) return;
 
     let damage = 0;
-    switch (type) {
+    let bossReward = 0;
+
+    switch(type) {
         case 'basic':
             damage = calculateBasicDamage();
             break;
@@ -243,112 +372,114 @@ function attack(type) {
             }
             break;
         case 'poison':
-            damage = gameState.talents.poison.damage;
+            damage = gameState.talents.poison.damage * 3;
+            const poisonInterval = setInterval(() => {
+                gameState.currentBoss.currentHealth -= gameState.talents.poison.damage;
+                updateCombatUI();
+            }, 1000);
             gameState.activeEffects.push({
                 type: 'poison',
-                damage: damage,
+                interval: poisonInterval,
                 duration: 3
             });
+            setTimeout(() => clearInterval(poisonInterval), 3000);
             break;
     }
 
     if (gameState.talents.vampire.level > 0) {
-        const heal = damage * gameState.talents.vampire.percent;
+        const heal = Math.floor(damage * gameState.talents.vampire.percent);
         gameState.energy = Math.min(gameState.energy + heal, gameState.maxEnergy);
+        updateUI(['energy']);
     }
 
-    gameState.currentBoss.currentHealth -= damage;
+    gameState.currentBoss.currentHealth = Math.max(gameState.currentBoss.currentHealth - damage, 0);
     updateCombatUI();
 
     if (gameState.currentBoss.currentHealth <= 0) {
+        bossReward = gameState.currentBoss.reward;
+        const bonusMultiplier = gameState.boosts.battleBonus;
+        const totalReward = Math.floor(bossReward * bonusMultiplier);
+
         endBattle(true);
-        const reward = Math.floor(gameState.currentBoss.reward * gameState.boosts.battleBonus);
-        showBattleResult(`Победа! Получено ${reward} 🍯`);
+
+        gameState.honey += totalReward;
+        checkLevelUp();
+        showBattleResult(`Победа! Получено ${totalReward} 🍯`);
+        updateUI(['honey', 'level']);
     }
 }
 
 function endBattle(victory) {
     clearInterval(gameState.battleTimer);
+    gameState.activeEffects.forEach(effect => {
+        if (effect.interval) clearInterval(effect.interval);
+    });
+    gameState.activeEffects = [];
     gameState.inBattle = false;
 
-    if (victory) {
-        const baseReward = gameState.currentBoss.reward;
-        const totalReward = Math.floor(baseReward * gameState.boosts.battleBonus);
-        gameState.honey += totalReward;
-        checkLevelUp();
-    }
-
-    gameState.currentBoss = null;
-    elements.combatScreen.style.display = 'none';
-    updateUI();
+    setTimeout(() => {
+        gameState.currentBoss = null;
+        elements.combatScreen.style.display = 'none';
+    }, 100);
 }
 
-function buyHive(type) {
-    if (!gameState.purchasedHives.includes(type) && gameState.honey >= gameConfig.hivePrices[type]) {
-        gameState.honey -= gameConfig.hivePrices[type];
-        gameState.purchasedHives.push(type);
-        updateHiveDisplay();
-        updateUI(['honey']);
-    }
-}
-
-function switchHive(type) {
-    if (gameState.purchasedHives.includes(type)) {
-        gameState.activeHive = type;
-        gameState.boosts = {
-            battleBonus: 1.0,
-            attackSpeed: 1.0,
-            shield: false,
-            multiclick: false
-        };
-
-        let hiveName = '';
-        let bonusText = '';
-        switch(type) {
-            case 'golden':
-                gameState.boosts.attackSpeed = 1.15;
-                hiveName = 'Золотой';
-                bonusText = '+15% скорости атак';
-                break;
-            case 'crystal':
-                gameState.boosts.battleBonus = 1.3;
-                hiveName = 'Кристальный';
-                bonusText = '+30% награды за бои';
-                break;
-            case 'inferno':
-                gameState.boosts.fireDamage = 1.25;
-                hiveName = '🔥 Пламенный';
-                bonusText = '+25% к урону огнем';
-                break;
-            default:
-                hiveName = 'Обычный';
-                bonusText = 'Без специальных бонусов';
+function updateUI(changedKeys = ['all']) {
+    const updates = {
+        honey: () => elements.honey.textContent = Math.floor(gameState.honey),
+        energy: () => {
+            elements.energy.textContent = Math.floor(gameState.energy);
+            elements.maxEnergy.textContent = gameState.maxEnergy;
+        },
+        level: () => {
+            elements.level.textContent = gameState.level;
+            updateLevelProgress();
+        },
+        talents: () => {
+            elements.basicLevel.textContent = gameState.talents.basic.level;
+            elements.basicDmg.textContent = gameState.talents.basic.damage;
+            elements.critLevel.textContent = gameState.talents.critical.level;
+            elements.critChance.textContent = `${Math.round(gameState.talents.critical.chance * 100)}%`;
+            elements.poisonLevel.textContent = gameState.talents.poison.level;
+            elements.poisonDmg.textContent = gameState.talents.poison.damage;
+            elements.vampireLevel.textContent = gameState.talents.vampire.level;
+            elements.vampirePercent.textContent = `${Math.round(gameState.talents.vampire.percent * 100)}%`;
         }
+    };
 
-        elements.activeHiveName.textContent = hiveName;
-        elements.activeHiveBonus.textContent = bonusText;
-        updateHiveDisplay();
-        hidePopup('hives');
-        updateUI();
+    if (changedKeys.includes('all')) {
+        Object.values(updates).forEach(update => update());
+    } else {
+        changedKeys.forEach(key => updates[key]?.());
     }
+}
+
+function showPopup(popupType) {
+    const popupId = `${popupType}Popup`;
+    const popup = document.getElementById(popupId);
+    if (!popup) return;
+
+    hideAllPopups();
+    popup.style.display = 'block';
+    document.body.classList.add('popup-open');
+}
+
+function hideAllPopups() {
+    document.querySelectorAll('.popup').forEach(p => p.style.display = 'none');
+    document.body.classList.remove('popup-open');
 }
 
 function updateHiveDisplay() {
-    const hiveSelector = document.querySelector('.hive-selector');
-    hiveSelector.innerHTML = '';
+    const selector = document.querySelector('.hive-selector');
+    selector.innerHTML = '';
 
-    if (gameState.purchasedHives.length === 0) {
-        hiveSelector.innerHTML = '<p>Купите улей в магазине!</p>';
-        return;
-    }
-
-    gameState.purchasedHives.forEach(hive => {
+    gameState.purchasedHives.forEach(type => {
         const div = document.createElement('div');
-        div.className = `hive-option ${hive === gameState.activeHive ? 'active' : ''}`;
-        div.onclick = () => switchHive(hive);
+        div.className = `hive-option ${type === gameState.activeHive ? 'active' : ''}`;
+        div.dataset.type = type;
+        div.onclick = () => switchHive(type);
 
         let content = '';
-        switch(hive) {
+        switch(type) {
             case 'basic': content = '<h3>Обычный</h3><p>Без бонусов</p>'; break;
             case 'golden': content = '<h3>Золотой</h3><p>+15% скорости атак</p>'; break;
             case 'crystal': content = '<h3>Кристальный</h3><p>+30% награды за бои</p>'; break;
@@ -356,93 +487,63 @@ function updateHiveDisplay() {
         }
 
         div.innerHTML = content;
-        hiveSelector.appendChild(div);
+        selector.appendChild(div);
     });
 }
 
-function buyBoost(type) {
-    if (gameState.honey >= gameConfig.boostPrices[type]) {
-        gameState.honey -= gameConfig.boostPrices[type];
-
-        switch(type) {
-            case 'energy':
-                gameState.maxEnergy += 40;
-                gameState.energy += 40;
-                break;
-            case 'shield':
-                gameState.boosts.shield = true;
-                break;
-            case 'multiclick':
-                gameState.activeEffects.push({
-                    type: 'multiclick',
-                    duration: 30
-                });
-                break;
+function updateShopItems() {
+    document.querySelectorAll('.shop-item').forEach(item => {
+        const type = item.dataset.type;
+        if (type && gameState.purchasedHives.includes(type)) {
+            item.classList.add('disabled');
+            item.querySelector('button').disabled = true;
+            item.querySelector('button').textContent = 'Куплено';
         }
+    });
+}
+
+function switchHive(type) {
+    if (gameState.purchasedHives.includes(type)) {
+        gameState.activeHive = type;
+        gameState.boosts.attackSpeed = type === 'golden' ? 1.15 : 1.0;
+        gameState.boosts.battleBonus = type === 'crystal' ? 1.3 : 1.0;
         updateUI();
     }
 }
 
-function upgradeTalent(type) {
-    const config = talentsConfig[type];
-    const talent = gameState.talents[type];
+function startEnergyRecovery() {
+    if (gameState.energyRecoveryInterval) return;
 
-    if (!config || talent.level >= config.maxLevel) return;
-
-    const cost = Math.floor(config.getCost(talent.level));
-    if (gameState.honey < cost) {
-        showErrorEffect('Недостаточно мёда!');
-        return;
-    }
-
-    gameState.honey -= cost;
-    talent.level++;
-    talent.cost = Math.floor(config.getCost(talent.level));
-
-    switch(type) {
-        case 'critical':
-            talent.chance = config.getChance(talent.level);
-            break;
-        case 'poison':
-            talent.damage = config.getDamage(talent.level);
-            break;
-        case 'vampire':
-            talent.percent = config.getPercent(talent.level);
-            break;
-    }
-    updateUI(['talents']);
+    gameState.energyRecoveryInterval = setInterval(() => {
+        if (gameState.energy < gameState.maxEnergy) {
+            gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
+            updateUI(['energy']);
+        }
+    }, 2000);
 }
 
-const UIUpdateMap = {
-    honey: value => elements.honey.textContent = value,
-    energy: value => {
-        elements.energy.textContent = value;
-        elements.maxEnergy.textContent = gameState.maxEnergy;
-    },
-    level: value => {
-        elements.level.textContent = value;
-        elements.levelProgress.style.width =
-            `${Math.min((gameState.honey / gameState.nextLevelHoney) * 100, 100)}%`;
-    },
-    talents: () => {
-        elements.basicLevel.textContent = gameState.talents.basic.level;
-        elements.basicDmg.textContent = calculateBasicDamage();
-        elements.critLevel.textContent = gameState.talents.critical.level;
-        elements.critChance.textContent = Math.round(gameState.talents.critical.chance * 100);
-        elements.poisonLevel.textContent = gameState.talents.poison.level;
-        elements.poisonDmg.textContent = gameState.talents.poison.damage;
-        elements.vampireLevel.textContent = gameState.talents.vampire.level;
-        elements.vampirePercent.textContent = Math.round(gameState.talents.vampire.percent * 100);
-    }
-};
+function showLevelUpEffect(levels) {
+    const div = document.createElement('div');
+    div.className = 'level-up';
+    div.textContent = `Уровень +${levels}!`;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 2000);
+}
 
-function updateUI(changedKeys = ['all']) {
-    if (changedKeys.includes('all')) {
-        Object.keys(UIUpdateMap).forEach(key => UIUpdateMap[key](gameState[key]));
-        return;
-    }
+function showBattleResult(text) {
+    const div = document.createElement('div');
+    div.className = 'battle-result';
+    div.textContent = text;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 3000);
+}
 
-    changedKeys.forEach(key => UIUpdateMap[key]?.(gameState[key]));
+function showMissEffect() {
+    const div = document.createElement('div');
+    div.className = 'miss-effect';
+    div.textContent = 'Промах!';
+    elements.combatScreen.appendChild(div);
+    setTimeout(() => div.remove(), 1000);
 }
 
 function calculateBasicDamage() {
@@ -456,124 +557,49 @@ function calculateCriticalDamage() {
     return calculateBasicDamage() * 3;
 }
 
-function updateTimer(time) {
-    elements.combatTimer.textContent = time;
-}
+function updateCombatUI(forceUpdate = false) {
+    if (!gameState.currentBoss) return;
 
-function updateCombatUI() {
     const healthPercent = (gameState.currentBoss.currentHealth / gameState.currentBoss.maxHealth) * 100;
+
+    if(forceUpdate) {
+        elements.bossHealth.style.width = `${healthPercent}%`;
+        elements.bossHealth.offsetHeight;
+    }
+
     elements.bossHealth.style.width = `${healthPercent}%`;
     elements.currentHealth.textContent = gameState.currentBoss.currentHealth;
 }
 
-function showCombatScreen() {
-    hideAllPopups();
-    elements.combatScreen.style.display = 'block';
-    updateCombatUI();
-}
-
-function showPopup(type) {
-    hideAllPopups();
-    const popup = document.getElementById(`${type}Popup`);
-    popup.style.display = 'block';
-
-    if (window.innerWidth <= 480) {
-        popup.style.top = '50%';
-        popup.style.transform = 'translate(-50%, -50%)';
-    }
-
-    if (type === 'hives') updateHiveDisplay();
-}
-
-function hidePopup(type) {
-    document.getElementById(`${type}Popup`).style.display = 'none';
-}
-
-function hideAllPopups() {
-    document.querySelectorAll('.popup').forEach(p => p.style.display = 'none');
-}
-
-function showBattleResult(text) {
-    const resultDiv = document.createElement('div');
-    resultDiv.className = 'battle-result';
-    resultDiv.textContent = text;
-    document.body.appendChild(resultDiv);
-    setTimeout(() => resultDiv.remove(), 3000);
-}
-
-function showMissEffect() {
-    const missDiv = document.createElement('div');
-    missDiv.className = 'miss-effect';
-    missDiv.textContent = 'Промах!';
-    elements.combatScreen.appendChild(missDiv);
-    setTimeout(() => missDiv.remove(), 1000);
-}
-
-function showLevelUpEffect() {
-    const levelUpDiv = document.createElement('div');
-    levelUpDiv.className = 'level-up';
-    levelUpDiv.textContent = `Уровень ${gameState.level}!`;
-    document.body.appendChild(levelUpDiv);
-    setTimeout(() => levelUpDiv.remove(), 2000);
-}
-
-function showErrorEffect(text) {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message';
-    errorDiv.textContent = text;
-    document.body.appendChild(errorDiv);
-    setTimeout(() => errorDiv.remove(), 1500);
-}
-
-function showShopTab(tabName) {
-    document.querySelectorAll('.shop-tab').forEach(tab => tab.style.display = 'none');
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`shop${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).style.display = 'block';
-    event.target.classList.add('active');
-}
-
 window.addEventListener('load', () => {
-    preloadResources()
-        .then(() => {
-            document.getElementById('preloader').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('preloader').style.display = 'none';
-                document.getElementById('gameScreen').style.display = 'block';
-                initGame();
-            }, 500);
-        })
-        .catch(error => {
-            console.error('Ошибка загрузки:', error);
-            document.querySelector('.loader p').textContent =
-                'Ошибка загрузки ресурсов. Попробуйте перезагрузить страницу.';
-            document.querySelector('.honeycomb').style.display = 'none';
-        });
+    preloadResources().then(() => {
+        document.getElementById('preloader').style.display = 'none';
+        document.getElementById('gameScreen').style.display = 'block';
+        initGame();
+    });
 });
 
-window.onclick = function(e) {
-    if (e.target.classList.contains('popup')) {
-        hideAllPopups();
-    }
-};
+function preloadResources() {
+    return new Promise((resolve) => {
+        const images = [
+            'img/human_male.png',
+            'img/golden_hive.png',
+            'img/crystal_hive.png',
+            'img/inferno_hive.png'
+        ];
+        let loaded = 0;
 
-setInterval(() => {
-    gameState.activeEffects = gameState.activeEffects.filter(effect => {
-        effect.duration--;
-        if(effect.duration <= 0) return false;
-
-        switch(effect.type) {
-            case 'multiclick':
-                gameState.boosts.multiclick = true;
-                break;
-            case 'poison':
-                gameState.currentBoss.currentHealth -= effect.damage;
-                updateCombatUI();
-                break;
-        }
-        return true;
+        images.forEach(img => {
+            const image = new Image();
+            image.src = img;
+            image.onload = () => {
+                loaded++;
+                if (loaded === images.length) resolve();
+            };
+            image.onerror = () => {
+                loaded++;
+                if (loaded === images.length) resolve();
+            };
+        });
     });
-
-    if (!gameState.activeEffects.some(e => e.type === 'multiclick')) {
-        gameState.boosts.multiclick = false;
-    }
-}, 1000);
+}
