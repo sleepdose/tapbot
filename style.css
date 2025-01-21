@@ -176,7 +176,7 @@ body {
 .close {
     position: absolute;
     top: 5px;
-    right: 1px;
+    right: 5px;
     background: var(--combat);
     color: white;
     width: 30px;
