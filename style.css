@@ -131,14 +131,12 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
     background: var(--dark);
-    padding: 1.5rem;
     border-radius: 15px;
     width: 95%;
     max-width: 500px;
     max-height: 90vh;
     z-index: 1000;
     box-shadow: 0 0 15px rgba(0,0,0,0.5);
-    border: 3px solid var(--secondary);
     overflow: hidden;
 }
 
@@ -177,8 +175,8 @@ body {
 
 .close {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 5px;
+    right: 1px;
     background: var(--combat);
     color: white;
     width: 30px;
