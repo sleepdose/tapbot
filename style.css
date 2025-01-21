@@ -147,7 +147,7 @@ body.popup-open {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: var(--dark);
+    background: #9F9597;
     border-radius: 15px;
     width: 95%;
     max-width: 500px;
@@ -199,7 +199,7 @@ body.popup-open {
 }
 
 .popup-content {
-    scrollbar-color: var(--accent) transparent;
+    scrollbar-color: #aca4a4 transparent;
     scrollbar-width: thin;
 }
 
@@ -274,7 +274,7 @@ body.popup-open {
 }
 
 .combat-screen {
-    background: var(--combat);
+    background: #9F9597;
     padding: 1rem;
     border-radius: 15px;
     display: none;
@@ -292,7 +292,7 @@ body.popup-open {
 
 .health-bar {
     height: 100%;
-    background: #4CAF50;
+    background: #F00;
     transition: width 0.3s ease;
 }
 
@@ -360,7 +360,7 @@ body.popup-open {
 .hive-option.active {
     opacity: 1;
     transform: scale(1.02);
-    border-color: var(--accent);
+    border-color: var(--secondary);
     background: rgba(0,0,0,0.5);
 }
 
