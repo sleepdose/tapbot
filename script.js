@@ -392,6 +392,7 @@ function startBattleTimer(seconds) {
 }
 
 function attack(type) {
+      if (!gameState.inBattle) return; // Если бой завершен - не даем атаковать
     if (!gameState.currentBoss || !gameState.inBattle || isAnimating) return;
 
     const attackButton = document.querySelector(`.attack-btn[data-type="${type}"]`);
@@ -462,6 +463,8 @@ function updateBossHealth(damage) {
 }
 
 function endBattle(victory) {
+  gameState.inBattle = false; // Блокируем бой сразу
+   document.querySelectorAll('.attack-btn').forEach(btn => btn.style.pointerEvents = 'none'); // Отключаем кнопки
     clearInterval(gameState.battleTimer);
     gameState.activeEffects.poison.forEach(effect => clearInterval(effect.interval));
     gameState.activeEffects.poison = [];
