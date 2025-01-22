@@ -4,6 +4,8 @@ const elements = {
     energy: document.getElementById('energy'),
     maxEnergy: document.getElementById('maxEnergy'),
     level: document.getElementById('level'),
+    xp: document.getElementById('xp'),
+    xpToNextLevel: document.getElementById('xpToNextLevel'),
     basicLevel: document.getElementById('basicLevel'),
     basicDmg: document.getElementById('basicDmg'),
     critLevel: document.getElementById('critLevel'),
@@ -28,13 +30,15 @@ const gameConfig = {
         wasp: {
             health: 500,
             time: 60,
-            reward: 1000,
+            honeyReward: 1000,
+            xpReward: 200,
             image: 'https://cdn-icons-png.flaticon.com/512/4471/4471916.png'
         },
         bear: {
             health: 1000,
             time: 90,
-            reward: 2000,
+            honeyReward: 2000,
+            xpReward: 500,
             image: 'https://cdn-icons-png.flaticon.com/512/4471/4471927.png'
         }
     },
@@ -57,20 +61,16 @@ class GameState {
             crystal: { battleBonus: 1.3 },
             inferno: { fireDamage: 1.25 }
         };
-        this.activeEffects = {
-            poison: [],
-            shield: null,
-            multiclick: null
-        };
+        this.activeEffects = { poison: [], shield: null, multiclick: null };
     }
 
     reset() {
         this.honey = 0;
+        this.xp = 0;
+        this.level = 1;
         this.energy = 100;
         this.maxEnergy = 100;
-        this.level = 1;
-        this.baseLevelHoney = 500;
-        this.levelHoneyFactor = 1.5;
+        this.xpToNextLevel = this.calculateXPRequired(1);
         this.purchasedHives = ['basic'];
         this.activeHive = 'basic';
         this.inBattle = false;
@@ -86,18 +86,13 @@ class GameState {
             shield: false,
             multiclick: false
         };
-        this.activeEffects = {
-            poison: [],
-            shield: null,
-            multiclick: null
-        };
         this.currentBoss = null;
         this.battleTimer = null;
         this.energyRecoveryInterval = null;
     }
 
-    calculateNeededHoney() {
-        return this.baseLevelHoney * Math.pow(this.levelHoneyFactor, this.level - 1);
+    calculateXPRequired(level) {
+        return Math.floor(100 * Math.pow(1.2, level - 1));
     }
 }
 
@@ -140,7 +135,6 @@ function initGame() {
         hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
     }
 
-    // Обработчики событий
     document.getElementById('hive').addEventListener('click', handleHiveClick);
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => showPopup(btn.dataset.popup));
@@ -167,6 +161,13 @@ function initGame() {
     startEnergyRecovery();
 }
 
+function startEnergyRecovery() {
+    gameState.energyRecoveryInterval = setInterval(() => {
+        gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
+        updateUI(['energy']);
+    }, 3000);
+}
+
 // =================== ОБРАБОТЧИКИ СОБЫТИЙ ===================
 function handleHiveClick() {
     if (isAnimating || gameState.energy <= 0) {
@@ -180,8 +181,6 @@ function handleHiveClick() {
     try {
         gameState.honey += 1 * multiplier;
         gameState.energy = Math.max(0, gameState.energy - 1);
-
-        checkLevelUp();
         updateUI(['honey', 'energy']);
 
         const hive = document.getElementById('hive');
@@ -200,7 +199,6 @@ function handleShopButton(button) {
     const shopItem = button.closest('.shop-item');
     const type = shopItem?.dataset.type;
     if (!type) return;
-
     shopItem.closest('#shopHives') ? buyHive(type) : buyBoost(type);
 }
 
@@ -224,7 +222,7 @@ function handleBossSelect(e) {
     if (bossCard) startBattle(bossCard.dataset.boss);
 }
 
-// =================== СИСТЕМА МАГАЗИНА ===================
+// =================== МАГАЗИН И ТАЛАНТЫ ===================
 function buyHive(type) {
     if (gameState.purchasedHives.includes(type)) {
         showMessage('Этот улей уже куплен!');
@@ -281,7 +279,6 @@ function buyBoost(type) {
     }
 }
 
-// =================== СИСТЕМА ТАЛАНТОВ ===================
 function upgradeTalent(talentType) {
     const talent = talentsConfig[talentType];
     const currentLevel = gameState.talents[talentType].level;
@@ -323,37 +320,6 @@ function upgradeTalent(talentType) {
     showMessage('Талант улучшен!');
 }
 
-// =================== СИСТЕМА УРОВНЕЙ ===================
-function checkLevelUp() {
-    let levelsGained = 0;
-    let neededHoney = gameState.calculateNeededHoney();
-
-    while (gameState.honey >= neededHoney) {
-        gameState.honey -= neededHoney;
-        gameState.level++;
-        levelsGained++;
-        neededHoney = gameState.calculateNeededHoney();
-    }
-
-    if (levelsGained > 0) {
-        showLevelUpEffect(levelsGained);
-        updateLevelProgress();
-        updateUI(['level']);
-    }
-}
-
-function updateLevelProgress() {
-    const currentLevel = gameState.level;
-    const prevLevelHoney = currentLevel === 1 ? 0
-        : gameState.baseLevelHoney * Math.pow(gameState.levelHoneyFactor, currentLevel - 2);
-    const neededHoney = gameState.calculateNeededHoney();
-
-    const progress = Math.min(100,
-        ((gameState.honey - prevLevelHoney) / (neededHoney - prevLevelHoney)) * 100
-    );
-    elements.levelProgress.style.width = `${progress}%`;
-}
-
 // =================== БОЕВАЯ СИСТЕМА ===================
 function startBattle(bossType) {
     if (!gameConfig.bosses[bossType] || gameState.inBattle) return;
@@ -363,11 +329,12 @@ function startBattle(bossType) {
     gameState.currentBoss = {
         ...boss,
         currentHealth: boss.health,
-        maxHealth: boss.health
+        maxHealth: boss.health,
+        type: bossType
     };
 
     document.getElementById('bossSelection').style.display = 'none';
-    document.getElementById('combatScreen').style.display = 'block';
+    elements.combatScreen.style.display = 'block';
     elements.bossCombatImage.src = boss.image;
     elements.battleReward.style.display = 'none';
     document.getElementById('backToBossSelection').style.display = 'none';
@@ -500,10 +467,16 @@ function endBattle(victory) {
     gameState.activeEffects.poison = [];
 
     if (victory) {
-        const reward = gameState.currentBoss.reward * gameState.boosts.battleBonus;
-        gameState.honey += Math.floor(reward);
-        gameState.energy = Math.min(gameState.energy + 20, gameState.maxEnergy);
-        showBattleResult(`Победа! +${Math.floor(reward)} 🍯`, 'victory');
+        const boss = gameConfig.bosses[gameState.currentBoss.type];
+        const honeyReward = Math.floor(boss.honeyReward * gameState.boosts.battleBonus);
+        const xpReward = Math.floor(boss.xpReward * (1 + gameState.level * 0.05));
+
+        gameState.honey += honeyReward;
+        gameState.xp += xpReward;
+
+        checkLevelUp();
+        updateUI(['honey', 'xp']);
+        showBattleResult(`Победа! +${honeyReward}🍯 +${xpReward}XP`, 'victory');
         elements.bossCombatImage.classList.add('grayscale');
     } else {
         showBattleResult('Поражение!', 'defeat');
@@ -511,26 +484,52 @@ function endBattle(victory) {
 
     setTimeout(() => {
         document.getElementById('bossSelection').style.display = 'block';
-        document.getElementById('combatScreen').style.display = 'none';
+        elements.combatScreen.style.display = 'none';
         gameState.inBattle = false;
-        updateUI(['honey', 'energy']);
     }, 3000);
+}
+
+// =================== СИСТЕМА УРОВНЕЙ ===================
+function checkLevelUp() {
+    let levelsGained = 0;
+    while (gameState.xp >= gameState.xpToNextLevel) {
+        gameState.xp -= gameState.xpToNextLevel;
+        gameState.level++;
+        levelsGained++;
+        gameState.xpToNextLevel = gameState.calculateXPRequired(gameState.level);
+    }
+
+    if (levelsGained > 0) {
+        applyLevelBonuses(levelsGained);
+        showLevelUpEffect(levelsGained);
+        updateLevelProgress();
+        updateUI(['level']);
+    }
+}
+
+function applyLevelBonuses(levels) {
+    gameState.maxEnergy += 5 * levels;
+    gameState.talents.basic.damage += 2 * levels;
+    gameState.boosts.attackSpeed += 0.03 * levels;
+}
+
+function updateLevelProgress() {
+    const progress = (gameState.xp / gameState.xpToNextLevel) * 100;
+    elements.levelProgress.style.width = `${Math.min(progress, 100)}%`;
 }
 
 // =================== ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ===================
 function updateUI(changedKeys = ['all']) {
     const updates = {
-        honey: () => {
-            elements.honey.textContent = Math.floor(gameState.honey);
-            updateLevelProgress();
-        },
+        honey: () => elements.honey.textContent = Math.floor(gameState.honey),
         energy: () => {
             elements.energy.textContent = Math.floor(gameState.energy);
             elements.maxEnergy.textContent = gameState.maxEnergy;
         },
         level: () => {
             elements.level.textContent = gameState.level;
-            updateLevelProgress();
+            elements.xp.textContent = Math.floor(gameState.xp);
+            elements.xpToNextLevel.textContent = Math.floor(gameState.xpToNextLevel);
         },
         talents: () => {
             elements.basicLevel.textContent = gameState.talents.basic.level;
@@ -547,6 +546,55 @@ function updateUI(changedKeys = ['all']) {
     changedKeys.includes('all')
         ? Object.values(updates).forEach(update => update())
         : changedKeys.forEach(key => updates[key]?.());
+}
+
+// =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
+function showLevelUpEffect(levels) {
+    const div = document.createElement('div');
+    div.className = 'level-up';
+    div.textContent = `Уровень +${levels}!`;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 2000);
+}
+
+function showBattleResult(text, type) {
+    const div = document.createElement('div');
+    div.className = `battle-result ${type}`;
+    div.textContent = text;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 3000);
+}
+
+function showMissEffect() {
+    const div = document.createElement('div');
+    div.className = 'miss-effect';
+    div.textContent = 'Промах!';
+    elements.combatScreen.appendChild(div);
+    setTimeout(() => div.remove(), 1000);
+}
+
+function showHealEffect(amount) {
+    const healIndicator = document.createElement('div');
+    healIndicator.className = 'heal-effect';
+    healIndicator.textContent = `+${amount} ⚡`;
+    elements.combatScreen.appendChild(healIndicator);
+    setTimeout(() => healIndicator.remove(), 1000);
+}
+
+function showEnergyWarning() {
+    const div = document.createElement('div');
+    div.className = 'energy-warning';
+    div.textContent = 'Недостаточно энергии!';
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 1500);
+}
+
+function showMessage(text) {
+    const msg = document.createElement('div');
+    msg.className = 'game-message';
+    msg.textContent = text;
+    document.body.appendChild(msg);
+    setTimeout(() => msg.remove(), 2000);
 }
 
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
@@ -668,63 +716,6 @@ function getTalentIcon(type) {
         vampire: '❤️'
     };
     return icons[type] || '';
-}
-
-// =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
-function showLevelUpEffect(levels) {
-    const div = document.createElement('div');
-    div.className = 'level-up';
-    div.textContent = `Уровень +${levels}!`;
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 2000);
-}
-
-function showBattleResult(text, type) {
-    const div = document.createElement('div');
-    div.className = `battle-result ${type}`;
-    div.textContent = text;
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 3000);
-}
-
-function showMissEffect() {
-    const div = document.createElement('div');
-    div.className = 'miss-effect';
-    div.textContent = 'Промах!';
-    elements.combatScreen.appendChild(div);
-    setTimeout(() => div.remove(), 1000);
-}
-
-function showHealEffect(amount) {
-    const healIndicator = document.createElement('div');
-    healIndicator.className = 'heal-effect';
-    healIndicator.textContent = `+${amount} ⚡`;
-    elements.combatScreen.appendChild(healIndicator);
-    setTimeout(() => healIndicator.remove(), 1000);
-}
-
-function showEnergyWarning() {
-    const div = document.createElement('div');
-    div.className = 'energy-warning';
-    div.textContent = 'Недостаточно энергии!';
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 1500);
-}
-
-function showMessage(text) {
-    const msg = document.createElement('div');
-    msg.className = 'game-message';
-    msg.textContent = text;
-    document.body.appendChild(msg);
-    setTimeout(() => msg.remove(), 2000);
-}
-
-// =================== СИСТЕМА ВОССТАНОВЛЕНИЯ ЭНЕРГИИ ===================
-function startEnergyRecovery() {
-    gameState.energyRecoveryInterval = setInterval(() => {
-        gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
-        updateUI(['energy']);
-    }, 3000);
 }
 
 // =================== ЗАПУСК ИГРЫ ===================
