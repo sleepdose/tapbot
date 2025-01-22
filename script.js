@@ -51,8 +51,8 @@ class GameState {
     constructor() {
         this.reset();
         this.hiveImages = {
-            basic: 'img/human_male.png',
-            golden: 'https://cdn.pixabay.com/photo/2018/04/06/13/46/bee-3295620_1280.png',
+            basic: 'img/1.png',
+            golden: 'img/human_male.png',
             crystal: 'https://cdn.pixabay.com/photo/2016/09/10/13/28/diamond-1659283_1280.png',
             inferno: 'https://cdn.pixabay.com/photo/2013/07/13/12/35/flame-160034_1280.png'
         };
