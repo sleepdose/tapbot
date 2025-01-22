@@ -7,176 +7,187 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="preloader">
-        <div class="loader">
-            <div class="honeycomb">
-                <div></div><div></div><div></div>
-                <div></div><div></div><div></div>
-                <div></div>
-            </div>
-            <p>Загрузка...</p>
-        </div>
-    </div>
-
     <div class="effect-indicators"></div>
 
-    <div id="gameScreen" style="display: none;">
+    <div id="gameScreen">
         <div class="stats">
             <div class="stat">🍯 <span id="honey">0</span></div>
             <div class="stat">⚡ <span id="energy">100</span>/<span id="maxEnergy">100</span></div>
             <div class="stat">🎚️ Ур. <span id="level">1</span></div>
         </div>
 
-        <!-- Прогресс уровня -->
         <div class="level-progress">
             <div class="level-progress-bar" id="levelProgress"></div>
         </div>
 
         <div class="click-area" id="hive">
-            <div class="hive-img"></div>
+            <div class="hive-img" role="img" aria-label="Активный улей"></div>
         </div>
 
-        <div class="controls">
-            <button class="btn battle-btn" data-popup="battle">⚔️ Битвы</button>
-            <button class="btn shop-btn" data-popup="shop">🛍️ Магазин</button>
-            <button class="btn talents-btn" data-popup="talents">💫 Таланты</button>
-            <button class="btn hives-btn" data-popup="hives">🏡 Ульи</button>
-        </div>
-
-        <!-- Попап: Битвы -->
+        <!-- Попап битв -->
         <div id="battlePopup" class="popup">
-            <div class="popup-content">
-                <span class="close">×</span>
-                <h2>⚔️ Выберите босса</h2>
-                <div class="boss-card" data-boss="wasp">
-                    <h3>Королева Ос</h3>
-                    <p>❤️ 500 HP | ⏳ 60 сек | 🏆 1000 🍯</p>
-                </div>
-                <div class="boss-card" data-boss="bear">
-                    <h3>Медведь</h3>
-                    <p>❤️ 1000 HP | ⏳ 90 сек | 🏆 2000 🍯</p>
+            <div class="popup-scroll-wrapper">
+                <div class="popup-content">
+                    <div class="popup-header">
+                        <h2>⚔️ Битвы</h2>
+                        <button class="close">×</button>
+                    </div>
+                    <div id="bossSelection">
+                        <div class="boss-card" data-boss="wasp">
+                            <img src="https://cdn-icons-png.flaticon.com/512/4471/4471916.png" class="boss-image" alt="Оса">
+                            <h3>Королева Ос</h3>
+                            <p>❤️ 500 HP | ⏳ 60 сек | 🏆 1000 🍯</p>
+                        </div>
+                        <div class="boss-card" data-boss="bear">
+                            <img src="https://cdn-icons-png.flaticon.com/512/4471/4471927.png" class="boss-image" alt="Медведь">
+                            <h3>Медведь</h3>
+                            <p>❤️ 1000 HP | ⏳ 90 сек | 🏆 2000 🍯</p>
+                        </div>
+                    </div>
+
+                    <!-- Экран боя -->
+                    <div id="combatScreen" style="display: none;">
+                        <div class="combat-header">
+                            <img id="bossCombatImage" src="" class="boss-image" alt="Босс">
+                            <div class="boss-health">
+                                <div class="health-bar" id="bossHealth"></div>
+                                <div class="health-text">
+                                    <span id="currentHealth">500</span>/<span id="maxHealth">500</span> HP
+                                </div>
+                            </div>
+                            <div class="timer" id="combatTimer">60</div>
+                        </div>
+                        <div class="combat-talents" id="combatTalents"></div>
+                        <div id="battleReward" class="battle-reward"></div>
+                        <button id="backToBossSelection" class="btn">Назад к выбору боссов</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Попап: Магазин -->
+        <!-- Попап магазина -->
         <div id="shopPopup" class="popup">
-            <div class="popup-content">
-                <span class="close">×</span>
-                <h2>🛍️ Магазин</h2>
-                <div class="shop-tabs">
-                    <button class="tab-btn active" data-tab="hives">Ульи</button>
-                    <button class="tab-btn" data-tab="boosts">Бусты</button>
-                </div>
-
-                <div id="shopHives" class="shop-tab active">
-                    <div class="shop-item" data-type="golden">
-                        <h3>Золотой улей</h3>
-                        <p>+15% скорости атак</p>
-                        <div class="button-wrapper">
-                            <button class="btn">1500 🍯</button>
+            <div class="popup-scroll-wrapper">
+                <div class="popup-content">
+                    <div class="popup-header">
+                        <h2>🛍️ Магазин</h2>
+                        <button class="close">×</button>
+                    </div>
+                    <div class="shop-tabs">
+                        <button class="tab-btn active" data-tab="hives">Ульи</button>
+                        <button class="tab-btn" data-tab="boosts">Бусты</button>
+                    </div>
+                    <div id="shopHives" class="shop-tab active">
+                        <div class="shop-item" data-type="golden">
+                            <h3>Золотой улей</h3>
+                            <p>+15% скорости атак</p>
+                            <div class="button-wrapper">
+                                <button class="btn">1500 🍯</button>
+                            </div>
+                        </div>
+                        <div class="shop-item" data-type="crystal">
+                            <h3>Кристальный улей</h3>
+                            <p>+30% награды за бои</p>
+                            <div class="button-wrapper">
+                                <button class="btn">3000 🍯</button>
+                            </div>
+                        </div>
+                        <div class="shop-item" data-type="inferno">
+                            <h3>🔥 Пламенный улей</h3>
+                            <p>+25% к урону огнем</p>
+                            <div class="button-wrapper">
+                                <button class="btn">4500 🍯</button>
+                            </div>
                         </div>
                     </div>
-                    <div class="shop-item" data-type="crystal">
-                        <h3>Кристальный улей</h3>
-                        <p>+30% награды за бои</p>
-                        <div class="button-wrapper">
-                            <button class="btn">3000 🍯</button>
+                    <div id="shopBoosts" class="shop-tab">
+                        <div class="shop-item" data-type="energy">
+                            <h3>⚡ Энергетик XL</h3>
+                            <p>+40 максимальной энергии</p>
+                            <div class="button-wrapper">
+                                <button class="btn">1000 🍯</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="shop-item" data-type="inferno">
-                        <h3>🔥 Пламенный улей</h3>
-                        <p>+25% к урону огнем</p>
-                        <div class="button-wrapper">
-                            <button class="btn">4500 🍯</button>
+                        <div class="shop-item" data-type="shield">
+                            <h3>🛡️ Боевой щит</h3>
+                            <p>-30% получаемого урона</p>
+                            <div class="button-wrapper">
+                                <button class="btn">1200 🍯</button>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <div id="shopBoosts" class="shop-tab">
-                    <div class="shop-item" data-type="energy">
-                        <h3>⚡ Энергетик XL</h3>
-                        <p>+40 максимальной энергии</p>
-                        <div class="button-wrapper">
-                            <button class="btn">1000 🍯</button>
-                        </div>
-                    </div>
-                    <div class="shop-item" data-type="shield">
-                        <h3>🛡️ Боевой щит</h3>
-                        <p>-30% получаемого урона</p>
-                        <div class="button-wrapper">
-                            <button class="btn">1200 🍯</button>
-                        </div>
-                    </div>
-                    <div class="shop-item" data-type="multiclick">
-                        <h3>✨ Двойной клик</h3>
-                        <p>×2 мед за клик (30 сек)</p>
-                        <div class="button-wrapper">
-                            <button class="btn">800 🍯</button>
+                        <div class="shop-item" data-type="multiclick">
+                            <h3>✨ Двойной клик</h3>
+                            <p>×2 мед за клик (30 сек)</p>
+                            <div class="button-wrapper">
+                                <button class="btn">800 🍯</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Попап: Таланты -->
+        <!-- Попап талантов -->
         <div id="talentsPopup" class="popup">
-            <div class="popup-content">
-                <span class="close">×</span>
-                <h2>💫 Древо талантов</h2>
-                <div class="talent" data-talent="basic">
-                    <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">1</span>/10)</h3>
-                    <p>Урон: <span id="basicDmg">10</span></p>
-                    <div class="button-wrapper">
-                        <button>75 🍯</button>
+            <div class="popup-scroll-wrapper">
+                <div class="popup-content">
+                    <div class="popup-header">
+                        <h2>💫 Таланты</h2>
+                        <button class="close">×</button>
                     </div>
-                </div>
-                <div class="talent" data-talent="critical">
-                    <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>/10)</h3>
-                    <p>Шанс: <span id="critChance">15</span>%</p>
-                    <div class="button-wrapper">
-                        <button>150 🍯</button>
+                    <div class="talent" data-talent="basic">
+                        <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">1</span>/10)</h3>
+                        <p>Урон: <span id="basicDmg">10</span></p>
+                        <div class="button-wrapper">
+                            <button>75 🍯</button>
+                        </div>
                     </div>
-                </div>
-                <div class="talent" data-talent="poison">
-                    <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>/10)</h3>
-                    <p>3 сек. урона: <span id="poisonDmg">0</span>/сек</p>
-                    <div class="button-wrapper">
-                        <button>200 🍯</button>
+                    <div class="talent" data-talent="critical">
+                        <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>/10)</h3>
+                        <p>Шанс: <span id="critChance">15</span>%</p>
+                        <div class="button-wrapper">
+                            <button>150 🍯</button>
+                        </div>
                     </div>
-                </div>
-                <div class="talent" data-talent="vampire">
-                    <h3>❤️‍🩹 Вампиризм (Ур. <span id="vampireLevel">0</span>/10)</h3>
-                    <p>Кража здоровья: <span id="vampirePercent">0</span>%</p>
-                    <div class="button-wrapper">
-                        <button>500 🍯</button>
+                    <div class="talent" data-talent="poison">
+                        <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>/10)</h3>
+                        <p>3 сек. урона: <span id="poisonDmg">0</span>/сек</p>
+                        <div class="button-wrapper">
+                            <button>200 🍯</button>
+                        </div>
+                    </div>
+                    <div class="talent" data-talent="vampire">
+                        <h3>❤️‍🩹 Вампиризм (Ур. <span id="vampireLevel">0</span>/10)</h3>
+                        <p>Кража здоровья: <span id="vampirePercent">0</span>%</p>
+                        <div class="button-wrapper">
+                            <button>500 🍯</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Попап: Ульи -->
+        <!-- Попап ульев -->
         <div id="hivesPopup" class="popup">
-            <div class="popup-content">
-                <span class="close">×</span>
-                <h2>🏠 Ваши ульи</h2>
-                <div class="hive-selector"></div>
-            </div>
-        </div>
-        <!-- Экран боя -->
-        <div id="combatScreen" class="combat-screen">
-            <div class="combat-header">
-                <div class="boss-health">
-                    <div class="health-bar" id="bossHealth"></div>
-                    <div class="health-text">
-                        <span id="currentHealth">500</span>/<span id="maxHealth">500</span> HP
+            <div class="popup-scroll-wrapper">
+                <div class="popup-content">
+                    <div class="popup-header">
+                        <h2>🏡 Ульи</h2>
+                        <button class="close">×</button>
                     </div>
+                    <div class="hive-selector"></div>
                 </div>
-                <div class="timer" id="combatTimer">60</div>
             </div>
-            <div class="combat-talents" id="combatTalents"></div>
         </div>
     </div>
+
+    <!-- Нижняя навигация -->
+    <nav class="bottom-nav">
+        <button class="nav-btn" data-popup="battle">⚔️</button>
+        <button class="nav-btn" data-popup="shop">🛍️</button>
+        <button class="nav-btn" data-popup="talents">💫</button>
+        <button class="nav-btn" data-popup="hives">🏡</button>
+    </nav>
 
     <script src="script.js"></script>
 </body>

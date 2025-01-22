@@ -11,76 +11,191 @@
 * {
     box-sizing: border-box;
     touch-action: manipulation;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Arial', sans-serif;
     background: #D8BFD8;
     color: white;
-    margin: 0;
     min-height: 100vh;
-    text-align: center;
     overflow-x: hidden;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
 }
 
-body.popup-open {
-    overflow: hidden;
+.effect-indicators {
     position: fixed;
-    width: 100%;
-    height: 100%;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 1000;
+    max-width: 90vw;
 }
 
-#preloader {
+.effect-indicator {
+    background: rgba(0,0,0,0.7);
+    padding: 8px 12px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.3s ease-out;
+    white-space: nowrap;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(75, 43, 31, 0.95);
+    padding: 12px 10px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 2px solid var(--accent);
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    width: 50px;
+    height: 50px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.nav-btn.active {
+    background: var(--accent);
+    color: #000;
+    transform: scale(1.1);
+}
+
+.nav-btn:active {
+    transform: scale(0.9);
+    background: rgba(255, 215, 0, 0.2);
+}
+
+.popup {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transition: transform 0.6s ease;
+    transform: translateY(100%);
+    background: #9F9597;
+    border-radius: 20px 20px 0 0;
+    max-height: 85vh;
+    z-index: 2000;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.popup.active {
+    transform: translateY(0);
+}
+
+.popup::before {
+    content: "";
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: #D8BFD8;
-    z-index: 9999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.5s ease;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s;
 }
 
-.loader {
-    text-align: center;
+.popup.active::before {
+    opacity: 1;
 }
 
-.honeycomb {
-    --size: 4rem;
-    height: calc(var(--size)*1.1);
-    width: calc(var(--size)*1.1*1.732);
-    display: flex;
-    justify-content: center;
-    margin: 0 auto 20px;
+.popup-content {
+    padding: 25px 15px 80px;
+    max-height: 75vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) rgba(0,0,0,0.2);
+    transform: translateZ(0);
+    flex-grow: 1;
 }
 
-.honeycomb div {
-    width: var(--size);
-    height: var(--size);
+.popup-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+    border-radius: 4px;
+}
+
+.popup-content::-webkit-scrollbar-thumb {
     background: var(--accent);
-    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    animation: honeycomb 2s infinite;
+    border-radius: 4px;
+    border: 2px solid rgba(0,0,0,0.1);
 }
 
-@keyframes honeycomb {
-    0%, 100% { transform: translateY(0); opacity: 1; }
-    50% { transform: translateY(-30px); opacity: 0.7; }
+.popup-header {
+    position: relative;
+    padding: 15px;
+    background: rgba(0,0,0,0.1);
+    margin: -25px -15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
 }
 
-.loader p {
-    color: var(--primary);
-    font-size: 1.2em;
-    font-weight: bold;
-    margin-top: 15px;
+.popup-header h2 {
+    margin: 0;
+    font-size: 1.4em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.popup::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px;
 }
 
 #gameScreen {
     max-width: 800px;
     margin: 0 auto;
     padding: 1rem;
+    padding-bottom: 60px;
+    width: 100%;
+    flex-grow: 1;
 }
 
 .stats {
@@ -99,6 +214,7 @@ body.popup-open {
     min-width: 100px;
     font-size: 0.9rem;
     flex: 1 1 auto;
+    box-sizing: border-box;
 }
 
 .level-progress {
@@ -117,107 +233,38 @@ body.popup-open {
 }
 
 .click-area {
-    width: 250px;
-    height: 250px;
-    margin: 1rem auto;
+    width: min(320px, 90vw);
+    height: min(320px, 90vw);
+    margin: 1rem auto 30px;
     cursor: pointer;
     position: relative;
+    transition: transform 0.1s, opacity 0.3s;
 }
 
-.click-effect {
-    animation: clickPulse 0.3s ease-out forwards;
-}
-
-@keyframes clickPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(0.95); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
+.click-area:active {
+    transform: scale(0.95);
+    opacity: 0.8;
 }
 
 .hive-img {
     width: 100%;
     height: 100%;
-    background: url('img/human_male.png') center/contain no-repeat;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
     filter: drop-shadow(0 0 10px rgba(255,215,0,0.5));
+    transition: background-image 0.3s ease-in-out;
+    will-change: transform;
 }
 
-.popup {
-    display: none;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: #9F9597;
-    border-radius: 15px;
-    width: 95%;
-    max-width: 500px;
-    max-height: 90vh;
-    z-index: 1000;
-    box-shadow: 0 0 15px rgba(0,0,0,0.5);
-    overflow: hidden;
-    animation: popupOpen 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
-    overscroll-behavior: contain;
+.hive-change-animation {
+    animation: hivePulse 0.5s ease-out;
 }
 
-@keyframes popupOpen {
-    0% { transform: translate(-50%, -60%); opacity: 0; }
-    100% { transform: translate(-50%, -50%); opacity: 1; }
-}
-
-.popup::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: -1;
-}
-
-.popup-content {
-    position: relative;
-    padding: 20px 15px 20px 20px;
-    max-width: 100%;
-    max-height: 70vh;
-    overflow-y: auto;
-    box-sizing: border-box;
-    word-break: break-word;
-    hyphens: auto;
-    scrollbar-gutter: stable both-edges;
-}
-
-.popup-content::-webkit-scrollbar {
-    width: 8px;
-    background: transparent;
-}
-
-.popup-content::-webkit-scrollbar-thumb {
-    background: var(--accent);
-    border: 2px solid var(--dark);
-    border-radius: 5px;
-}
-
-.popup-content {
-    scrollbar-color: #aca4a4 transparent;
-    scrollbar-width: thin;
-}
-
-.close {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    background: var(--combat);
-    color: white;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-weight: bold;
-    z-index: 1001;
+@keyframes hivePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
 }
 
 .boss-card, .shop-item, .talent {
@@ -229,10 +276,37 @@ body.popup-open {
     cursor: pointer;
     transition: transform 0.3s;
     text-align: left;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .boss-card:hover, .shop-item:hover, .talent:hover {
     transform: scale(1.02);
+}
+
+.boss-image {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    margin-bottom: 10px;
+}
+
+.battle-reward {
+    background: #4CAF50;
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 15px auto;
+    width: 80%;
+    text-align: center;
+    animation: fade 3s;
+}
+
+@keyframes fade {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 .button-wrapper {
@@ -242,24 +316,45 @@ body.popup-open {
 }
 
 .shop-item button, .talent button {
-    background: linear-gradient(45deg, var(--accent), #ffec80);
+    background: linear-gradient(145deg, #ffd700, #ffaa00);
     color: #000;
     border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    margin-top: 10px;
+    padding: 12px 24px;
+    border-radius: 20px;
+    font-size: 1.1em;
     font-weight: bold;
-    width: auto;
-    min-width: 120px;
-    max-width: 200px;
-    transition: transform 0.2s;
-    font-size: 0.9em;
-    border: 2px solid #ffd700;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+    min-width: 160px;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .shop-item button:hover, .talent button:hover {
-    transform: scale(1.05);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(255, 204, 0, 0.5);
+}
+
+.shop-item button::before, .talent button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255,255,255,0.3),
+        transparent
+    );
+    transition: 0.5s;
+}
+
+.shop-item button:hover::before, .talent button:hover::before {
+    left: 100%;
 }
 
 .shop-item.disabled {
@@ -280,6 +375,8 @@ body.popup-open {
     display: none;
     margin: 1rem;
     position: relative;
+    width: calc(100% - 2rem);
+    box-sizing: border-box;
 }
 
 .boss-health {
@@ -319,6 +416,7 @@ body.popup-open {
     transition: transform 0.2s;
     width: 100%;
     max-width: 250px;
+    box-sizing: border-box;
 }
 
 .attack-btn:hover {
@@ -328,23 +426,77 @@ body.popup-open {
 .shop-tabs {
     display: flex;
     justify-content: center;
-    gap: 1rem;
+    gap: 0.5rem;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap;
 }
 
 .shop-tab {
     display: none;
+    width: 100%;
 }
 
 .shop-tab.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.tab-btn {
+    background: linear-gradient(145deg, var(--secondary), var(--primary));
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 30px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    min-width: 120px;
+    position: relative;
+    overflow: hidden;
+}
+
+.tab-btn.active {
+    background: linear-gradient(145deg, var(--accent), #ffaa00);
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(255,215,0,0.4);
+}
+
+.tab-btn:hover:not(.active) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.tab-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255,255,255,0.2),
+        transparent
+    );
+    transition: 0.5s;
+}
+
+.tab-btn:hover::after {
+    left: 100%;
 }
 
 .hive-selector {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
     padding: 1rem 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 60vh;
 }
 
 .hive-option {
@@ -355,126 +507,207 @@ body.popup-open {
     transition: all 0.3s;
     opacity: 0.7;
     background: rgba(0,0,0,0.3);
+    min-width: 0;
 }
 
 .hive-option.active {
     opacity: 1;
     transform: scale(1.02);
-    border-color: var(--secondary);
+    box-shadow: 0 0 15px rgba(255,215,0,0.3);
     background: rgba(0,0,0,0.5);
+}
+
+.hive-option p {
+    color: var(--accent);
+    margin: 5px 0;
+    font-size: 0.9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .combat-talents {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 0.5rem;
     justify-content: center;
     margin: 1rem 0;
+    overflow-y: auto;
+    max-height: 300px;
+    padding: 0 10px;
 }
 
-.btn {
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+#backToBossSelection {
+    display: none;
+    background: var(--secondary);
+    color: white;
+    border: none;
+    padding: 0.8rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-top: 15px;
+    width: 100%;
 }
 
-.btn::after {
-    content: "";
+#backToBossSelection:hover {
+    background: var(--primary);
+}
+
+.attack-btn.attacking {
+    transform: scale(0.95);
+    filter: brightness(1.2);
+    transition: all 0.2s ease;
+}
+
+.heal-effect {
     position: absolute;
+    color: #00ff00;
+    font-weight: bold;
+    font-size: 1.2em;
+    text-shadow: 0 0 3px #000;
+    animation: floatUp 1s ease-out forwards;
+}
+
+@keyframes floatUp {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-50px); opacity: 0; }
+}
+
+.battle-result {
+    position: fixed;
     top: 50%;
     left: 50%;
-    width: 300px;
-    height: 300px;
-    background: rgba(255,255,255,0.15);
-    border-radius: 50%;
-    transform: translate(-50%, -50%) scale(0);
-    transition: transform 0.5s ease;
+    transform: translate(-50%, -50%);
+    padding: 20px 40px;
+    border-radius: 15px;
+    font-size: 1.5em;
+    font-weight: bold;
+    z-index: 3000;
+    animation: fade 3s forwards;
 }
 
-.btn:active::after {
-    transform: translate(-50%, -50%) scale(1);
+.battle-result.victory {
+    background: #4CAF50;
+    border: 3px solid #2E7D32;
+    animation: victoryPulse 2s;
 }
 
-.effect-indicators {
+.battle-result.defeat {
+    background: #f44336;
+    border: 3px solid #b71c1c;
+    animation: defeatShake 0.5s;
+}
+
+@keyframes victoryPulse {
+    0% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.1); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes defeatShake {
+    0%, 100% { transform: translate(-50%, -50%); }
+    25% { transform: translate(-55%, -50%); }
+    75% { transform: translate(-45%, -50%); }
+}
+
+.game-message {
     position: fixed;
-    top: 10px;
-    right: 10px;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 25px;
+    animation: messageFloat 2s ease-out forwards;
+    z-index: 4000;
+}
+
+@keyframes messageFloat {
+    0% { opacity: 0; transform: translate(-50%, -20px); }
+    20% { opacity: 1; transform: translate(-50%, 0); }
+    80% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, 20px); }
+}
+
+.shake {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+}
+
+.talent-icon {
+    font-size: 1.5em;
+    margin-right: 10px;
+}
+
+.talent-info {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    z-index: 1000;
+    align-items: flex-start;
 }
 
-.effect-indicator {
-    background: rgba(0,0,0,0.7);
-    padding: 8px 12px;
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    animation: slideIn 0.3s ease-out;
+.cooldown-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(0,0,0,0.3);
+    margin-top: 5px;
+    position: relative;
 }
 
-@keyframes slideIn {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
+.cooldown-bar::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s linear;
 }
 
-.effect-indicator.poison { border-left: 4px solid var(--poison); }
-.effect-indicator.multiclick { border-left: 4px solid var(--accent); }
-.effect-indicator.shield { border-left: 4px solid var(--combat); }
-
-.effect-time {
-    background: rgba(255,255,255,0.15);
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.8em;
-}
-
-@media (max-width: 480px) {
-    .controls {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        padding: 0 10px;
+@media (max-width: 768px) {
+    .stats {
+        flex-direction: column;
+        align-items: center;
     }
 
-    .btn {
+    .stat {
+        max-width: 300px;
         width: 100%;
-        margin: 0;
-        padding: 12px;
-        font-size: 0.8em;
-    }
-
-    .shop-item button, .talent button {
-        min-width: 100%;
-        padding: 10px;
-    }
-
-    .boss-card, .shop-item, .talent {
-        margin: 8px 0;
-        padding: 12px;
-    }
-
-    .click-area {
-        width: 200px;
-        height: 200px;
     }
 
     .popup {
-        width: 100%!important;
-        height: 100vh!important;
         border-radius: 0;
-        padding: 10px;
+    }
+
+    .shop-tabs {
+        flex-direction: column;
+    }
+
+    .hive-selector {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .click-area {
+        width: 85vw;
+        height: 85vw;
     }
 
     .popup-content {
-        padding: 10px 5px 10px 10px;
-        max-height: none;
+        padding: 15px 10px;
     }
 
-    .popup-content::-webkit-scrollbar {
-        width: 5px;
+    .combat-screen {
+        margin: 0;
+        border-radius: 0;
+        height: calc(100vh - 100px);
     }
 
     .attack-btn {
@@ -482,35 +715,12 @@ body.popup-open {
         padding: 0.6rem;
     }
 
-    .stat {
-        font-size: 0.8rem;
-        padding: 0.6rem;
+    .hive-option {
+        padding: 0.8rem;
     }
 
-    .shop-item button:disabled {
-    background: #666 !important;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-.talent button.upgraded {
-    animation: upgradeGlow 1s ease;
-}
-
-@keyframes upgradeGlow {
-    0% { box-shadow: 0 0 10px var(--accent); }
-    100% { box-shadow: none; }
-}
-
-    .hive-selector {
-        grid-template-columns: 1fr;
-    }
-
-    .level-progress {
-        width: 80%;
-        height: 10px;
-        background: rgba(0,0,0,0.3);
-        border-radius: 5px;
-        margin: 1rem auto;
+    .shop-item button, .talent button {
+        padding: 10px;
+        font-size: 1em;
     }
 }
