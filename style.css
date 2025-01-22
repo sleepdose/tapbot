@@ -405,23 +405,27 @@ body {
     pointer-events: none;
 }
 
+/* Кнопки атак */
 .attack-btn {
-    background: var(--accent);
-    color: #000;
-    padding: 0.8rem;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 1rem;
-    margin: 0.3rem;
-    transition: transform 0.2s;
+    background: linear-gradient(145deg, #404040, #333);
+    padding: 12px;
+    border-radius: 12px;
+    color: white;
     width: 100%;
-    max-width: 250px;
-    box-sizing: border-box;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: transform 0.2s;
 }
 
-.attack-btn:hover {
-    transform: scale(1.05);
+.attack-btn:active {
+    transform: scale(0.98);
+}
+
+.talent-icon {
+    font-size: 24px;
+    filter: drop-shadow(0 0 5px rgba(255,255,255,0.2));
 }
 
 .shop-tabs {
@@ -640,11 +644,7 @@ body {
     20%, 80% { transform: translateX(2px); }
     30%, 50%, 70% { transform: translateX(-4px); }
     40%, 60% { transform: translateX(4px); }
-}
 
-.talent-icon {
-    font-size: 1.5em;
-    margin-right: 10px;
 }
 
 .talent-info {
@@ -715,7 +715,40 @@ body {
         font-size: 0.9rem;
         padding: 0.6rem;
     }
+    /* Боевой экран */
+    .combat-header {
+        background: #262626;
+        padding: 15px;
+        border-radius: 15px;
+        margin-bottom: 20px;
+        position: relative;
+    }
 
+    .health-bar {
+        height: 12px;
+        background: #333;
+        border-radius: 6px;
+        overflow: hidden;
+        margin: 10px 0;
+    }
+
+    .health-bar > div {
+        height: 100%;
+        background: linear-gradient(90deg, #ff6b6b, #ff4757);
+        transition: width 0.3s ease;
+    }
+
+    .timer {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #8a63d2;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 18px;
+        box-shadow: 0 0 10px rgba(138,99,210,0.3);
+    }
     .hive-option {
         padding: 0.8rem;
     }
