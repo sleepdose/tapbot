@@ -191,6 +191,10 @@ body {
 }
 
 #gameScreen {
+  overflow: hidden !important;
+height: 100vh; /* Занимает всю высоту экрана */
+display: flex;
+flex-direction: column;
     max-width: 800px;
     margin: 0 auto;
     padding: 1rem;
@@ -198,13 +202,44 @@ body {
     width: 100%;
     flex-grow: 1;
 }
+.stats,
+.level-progress {
+    flex-shrink: 0; /* Запрещаем сжатие */
+}
+.level-container {
+  text-align: center;
+    width: 80%;
+    margin: 1rem;
+    padding: 0.5rem 1rem;
+    text-align: center;
+}
 
+.xp-stat {
+    margin-top: -2px;
+    font-size: 0.9em;
+    padding: 0.5rem 1rem;
+    background: rgba(0,0,0,0.25);
+    border-radius: 8px;
+    display: inline-block;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .level-container {
+        width: 90%;
+    }
+
+    .xp-stat {
+        font-size: 0.8em;
+        padding: 0.4rem 0.8rem;
+    }
+}
 .stats {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 1rem;
-    padding: 0 1rem;
+    padding: 20px;
 }
 
 .stat {
@@ -233,6 +268,8 @@ body {
 
 .click-area {
     width: min(320px, 90vw);
+    flex-grow: 1; /* Занимает всё доступное пространство */
+margin-bottom: 0; /* Убираем нижний отступ */
     height: min(320px, 90vw);
     margin: 1rem auto 30px;
     cursor: pointer;
@@ -693,6 +730,22 @@ body {
 }
 
 @media (max-width: 480px) {
+    #gameScreen {
+        padding: 0.5rem;
+        padding-bottom: 60px; /* Высота навигации */
+    }
+
+    .click-area {
+        width: 85vw;
+        height: 85vw;
+        margin: 0 auto;
+    }
+
+    .stats {
+        flex-wrap: nowrap;
+
+        padding-bottom: 2px;
+    }
     .click-area {
         width: 85vw;
         height: 85vw;
