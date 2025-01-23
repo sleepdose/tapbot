@@ -709,10 +709,10 @@ function updateCombatUI(forceUpdate = false) {
 
 function getTalentButtonText(type) {
     const texts = {
-        basic: '🗡️ Базовый',
-        critical: '💥 Крит',
-        poison: '☠️ Яд',
-        vampire: '❤️ Вампир'
+        basic: 'Базовый',
+        critical: 'Крит',
+        poison: 'Яд',
+        vampire: 'Вампир'
     };
     return texts[type] || '';
 }
