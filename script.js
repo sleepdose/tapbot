@@ -162,10 +162,16 @@ function initGame() {
 }
 
 function startEnergyRecovery() {
-    gameState.energyRecoveryInterval = setInterval(() => {
-        gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
-        updateUI(['energy']);
-    }, 3000);
+gameState.energyRecoveryInterval = setInterval(() => {
+    gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
+    updateUI(['energy']);
+}, 3000);
+// Принудительно обнуляем прогресс при старте
+elements.levelProgress.style.width = "0%";
+setTimeout(() => {
+    const progress = (gameState.xp / gameState.xpToNextLevel) * 100;
+    elements.levelProgress.style.width = `${progress}%`;
+}, 100);
 }
 
 // =================== ОБРАБОТЧИКИ СОБЫТИЙ ===================
