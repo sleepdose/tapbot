@@ -32,14 +32,14 @@ const gameConfig = {
             time: 60,
             honeyReward: 1000,
             xpReward: 200,
-            image: 'https://cdn-icons-png.flaticon.com/512/4471/4471916.png'
+            image: 'img/wasp.jpg'
         },
         bear: {
             health: 1000,
             time: 90,
             honeyReward: 2000,
             xpReward: 500,
-            image: 'https://cdn-icons-png.flaticon.com/512/4471/4471927.png'
+            image: 'img/bear.jpg'
         }
     },
     hivePrices: { golden: 1500, crystal: 3000, inferno: 4500 },

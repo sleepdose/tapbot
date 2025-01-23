@@ -262,6 +262,7 @@ flex-direction: column;
 .level-progress-bar {
     height: 100%;
     background: linear-gradient(90deg, #D565E6, #D58CDB);
+    transition: width 0.5s ease-in-out; /* Плавная анимация */
     border-radius: 5px;
     transition: width 0.5s ease-in-out;
 }
@@ -315,7 +316,14 @@ margin-bottom: 0; /* Убираем нижний отступ */
     width: 100%;
     box-sizing: border-box;
 }
-
+.boss-card img {
+    border-radius: 55px; /* Скругление только сверху */
+    box-sizing: border-box;
+    }
+    #bossCombatImage {
+      border-radius: 55px; /* Скругление только сверху */
+      box-sizing: border-box;
+}
 .boss-card:hover, .shop-item:hover, .talent:hover {
     transform: scale(1.02);
 }
