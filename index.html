@@ -11,15 +11,19 @@
 
     <div id="gameScreen">
         <div class="stats">
-            <div class="stat">🍯 <span id="honey">0</span></div>
             <div class="stat">⚡ <span id="energy">100</span>/<span id="maxEnergy">100</span></div>
             <div class="stat">⭐ Ур. <span id="level">1</span></div>
-            <div class="stat">📈 <span id="xp">0</span>/<span id="xpToNextLevel">100</span></div>
+            <div class="stat">🍯 <span id="honey">0</span></div>
         </div>
 
-        <div class="level-progress">
-            <div class="level-progress-bar" id="levelProgress"></div>
-        </div>
+        <div class="level-container">
+    <div class="level-progress">
+        <div class="level-progress-bar" id="levelProgress"></div>
+    </div>
+    <div class="stat xp-stat">
+        📈 <span id="xp">0</span>/<span id="xpToNextLevel">100</span>
+    </div>
+</div>
 
         <div class="click-area" id="hive">
             <div class="hive-img" role="img" aria-label="Активный улей"></div>
