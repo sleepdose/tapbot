@@ -12,7 +12,7 @@
     <div id="gameScreen">
         <div class="stats">
             <div class="stat">⚡ <span id="energy">100</span>/<span id="maxEnergy">100</span></div>
-            <div class="stat">⭐ Ур. <span id="level">1</span></div>
+            <div class="stat">⭐ LVL <span id="level">1</span></div>
             <div class="stat">🍯 <span id="honey">0</span></div>
         </div>
 
@@ -26,7 +26,7 @@
 </div>
 
         <div class="click-area" id="hive">
-            <div class="hive-img" role="img" aria-label="Активный улей"></div>
+            <div class="hive-img" role="img" aria-label="Aiko"></div>
         </div>
 
         <!-- Попап битв -->
@@ -34,7 +34,7 @@
             <div class="popup-scroll-wrapper">
                 <div class="popup-content">
                     <div class="popup-header">
-                        <h2>⚔️ Битвы</h2>
+                        <h2>Битвы</h2>
                         <button class="close">×</button>
                     </div>
                     <div id="bossSelection">
@@ -117,7 +117,7 @@
             <div class="popup-scroll-wrapper">
                 <div class="popup-content">
                     <div class="popup-header">
-                        <h2>🛍️ Магазин</h2>
+                        <h2>Магазин</h2>
                         <button class="close">×</button>
                     </div>
                     <div class="shop-tabs">
@@ -126,21 +126,21 @@
                     </div>
                     <div id="shopHives" class="shop-tab active">
                         <div class="shop-item" data-type="golden">
-                            <h3>Золотой улей</h3>
+                            <h3>Aiko #2</h3>
                             <p>+15% скорости атак</p>
                             <div class="button-wrapper">
                                 <button class="btn">1500 🍯</button>
                             </div>
                         </div>
                         <div class="shop-item" data-type="crystal">
-                            <h3>Кристальный улей</h3>
+                            <h3>Aiko #3</h3>
                             <p>+30% награды за бои</p>
                             <div class="button-wrapper">
                                 <button class="btn">3000 🍯</button>
                             </div>
                         </div>
                         <div class="shop-item" data-type="inferno">
-                            <h3>🔥 Пламенный улей</h3>
+                            <h3>Aiko</h3>
                             <p>+25% к урону огнем</p>
                             <div class="button-wrapper">
                                 <button class="btn">4500 🍯</button>
@@ -149,21 +149,21 @@
                     </div>
                     <div id="shopBoosts" class="shop-tab">
                         <div class="shop-item" data-type="energy">
-                            <h3>⚡ Энергетик XL</h3>
+                            <h3>Энергетик XL</h3>
                             <p>+40 максимальной энергии</p>
                             <div class="button-wrapper">
                                 <button class="btn">1000 🍯</button>
                             </div>
                         </div>
                         <div class="shop-item" data-type="shield">
-                            <h3>🛡️ Боевой щит</h3>
+                            <h3>Боевой щит</h3>
                             <p>-30% получаемого урона</p>
                             <div class="button-wrapper">
                                 <button class="btn">1200 🍯</button>
                             </div>
                         </div>
                         <div class="shop-item" data-type="multiclick">
-                            <h3>✨ Двойной клик</h3>
+                            <h3>Двойной клик</h3>
                             <p>×2 мед за клик (30 сек)</p>
                             <div class="button-wrapper">
                                 <button class="btn">800 🍯</button>
@@ -179,32 +179,32 @@
             <div class="popup-scroll-wrapper">
                 <div class="popup-content">
                     <div class="popup-header">
-                        <h2>💫 Таланты</h2>
+                        <h2>Таланты</h2>
                         <button class="close">×</button>
                     </div>
                     <div class="talent" data-talent="basic">
-                        <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">1</span>/10)</h3>
+                        <h3>Базовый удар (<span id="basicLevel">1</span>/10)</h3>
                         <p>Урон: <span id="basicDmg">10</span></p>
                         <div class="button-wrapper">
                             <button>75 🍯</button>
                         </div>
                     </div>
                     <div class="talent" data-talent="critical">
-                        <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>/10)</h3>
+                        <h3>Критический удар (<span id="critLevel">0</span>/10)</h3>
                         <p>Шанс: <span id="critChance">15</span>%</p>
                         <div class="button-wrapper">
                             <button>150 🍯</button>
                         </div>
                     </div>
                     <div class="talent" data-talent="poison">
-                        <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>/10)</h3>
+                        <h3>Ядовитый удар (<span id="poisonLevel">0</span>/10)</h3>
                         <p>3 сек. урона: <span id="poisonDmg">0</span>/сек</p>
                         <div class="button-wrapper">
                             <button>200 🍯</button>
                         </div>
                     </div>
                     <div class="talent" data-talent="vampire">
-                        <h3>❤️‍🩹 Вампиризм (Ур. <span id="vampireLevel">0</span>/10)</h3>
+                        <h3>Вампиризм (<span id="vampireLevel">0</span>/10)</h3>
                         <p>Кража здоровья: <span id="vampirePercent">0</span>%</p>
                         <div class="button-wrapper">
                             <button>500 🍯</button>
@@ -219,7 +219,7 @@
             <div class="popup-scroll-wrapper">
                 <div class="popup-content">
                     <div class="popup-header">
-                        <h2>🏡 Персонаж</h2>
+                        <h2>Персонаж</h2>
                         <button class="close">×</button>
                     </div>
                     <div class="hive-selector"></div>
