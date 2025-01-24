@@ -530,7 +530,7 @@ function endBattle(victory) {
         const xpReward = Math.floor(boss.xpReward * (1 + gameState.level * 0.05));
         gameState.honey += honeyReward;
         gameState.xp += xpReward;
-
+        updateUI(['honey', 'xp']);
         elements.battleReward.innerHTML = `
             Получено: ${honeyReward}🍯 + ${xpReward}XP<br>
             +1 🔑 ${bossType === 'wasp' ? '(Медведь)' : '(Дракон)'}
