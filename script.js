@@ -73,7 +73,7 @@ class GameState {
     }
 
     reset() {
-        this.honey = 10000;
+        this.honey = 0;
         this.xp = 0;
         this.level = 1;
         this.energy = 100;
