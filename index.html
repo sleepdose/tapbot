@@ -12,7 +12,7 @@
     <div id="gameScreen">
         <div class="stats">
             <div class="stat">⚡ <span id="energy">100</span>/<span id="maxEnergy">100</span></div>
-            <div class="stat">⭐ LVL <span id="level">1</span></div>
+            <div class="stat">⭐ Ур. <span id="level">1</span></div>
             <div class="stat">🍯 <span id="honey">0</span></div>
         </div>
 
@@ -26,7 +26,7 @@
 </div>
 
         <div class="click-area" id="hive">
-            <div class="hive-img" role="img" aria-label="Aiko"></div>
+            <div class="hive-img" role="img" aria-label="Активный улей"></div>
         </div>
 
         <!-- Попап битв -->
@@ -41,7 +41,7 @@
                         <div class="boss-card" data-boss="wasp">
                           <!-- 1. Изображение -->
       <div class="boss-image-container">
-          <img src="img/wasp.jpg" class="boss-img" alt="Оса">
+          <img loading="lazy" src="img/wasp.jpg" class="boss-img" alt="Оса">
       </div>
 
       <!-- 2. Характеристики -->
@@ -67,7 +67,7 @@
                             <div class="boss-card" data-boss="bear">
                               <!-- 1. Изображение -->
                         <div class="boss-image-container">
-                        <img src="img/bear.jpg" class="boss-img" alt="Оса">
+                        <img loading="lazy" src="img/bear.jpg" class="boss-img" alt="Оса">
                         </div>
 
                         <!-- 2. Характеристики -->
@@ -89,8 +89,30 @@
                         </div>
                         </div>
                             </div>
-                            </div>
 
+                            <div class="boss-card" data-boss="dragon">
+                              <div class="boss-image-container">
+                                <img src="img/dragon.jpg" class="boss-img" alt="Дракон">
+                              </div>
+
+                              <div class="boss-stats">
+                                <div class="stat-item">
+                                  ❤️ <span class="stat-value">2500 HP</span>
+                                </div>
+                                <div class="stat-item">
+                                  ⏳ <span class="stat-value">120 сек</span>
+                                </div>
+                              </div>
+
+                              <div class="boss-reward">
+                                <div class="reward-title">Награда:</div>
+                                <div class="reward-content">
+                                  🏆 5000 🍯<br>
+                                  +1500 XP
+                                </div>
+                              </div>
+                            </div>
+                            </div>
 
                     <!-- Экран боя -->
                     <div id="combatScreen" style="display: none;">
@@ -140,8 +162,8 @@
                             </div>
                         </div>
                         <div class="shop-item" data-type="inferno">
-                            <h3>Aiko</h3>
-                            <p>+25% к урону огнем</p>
+                            <h3>Aiko #4</h3>
+                              <p>+25 к урону огнем</</p>
                             <div class="button-wrapper">
                                 <button class="btn">4500 🍯</button>
                             </div>
