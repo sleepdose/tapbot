@@ -43,10 +43,10 @@ const gameConfig = {
         },
         dragon: {
             health: 2500,
-            time: 120,       // 2 минуты на победу
+            time: 120,
             honeyReward: 5000,
             xpReward: 1500,
-            image: 'img/dragon.jpg'  // положите файл в папку img/
+            image: 'img/dragon.jpg'
         }
     },
     hivePrices: { golden: 1500, crystal: 3000, inferno: 4500 },
@@ -63,16 +63,17 @@ class GameState {
             crystal: 'https://cdn.pixabay.com/photo/2016/09/10/13/28/diamond-1659283_1280.png',
             inferno: 'https://cdn.pixabay.com/photo/2013/07/13/12/35/flame-160034_1280.png'
         };
+        this.keys = { bear: 0, dragon: 0 };
         this.hiveBonuses = {
             golden: { attackSpeed: 1.15 },
             crystal: { battleBonus: 1.3 },
-            inferno: { fireDamage: 1.25 }
+            inferno: { fireDamage: 25 }
         };
         this.activeEffects = { poison: [], shield: null, multiclick: null };
     }
 
     reset() {
-        this.honey = 0;
+        this.honey = 10000;
         this.xp = 0;
         this.level = 1;
         this.energy = 100;
@@ -83,7 +84,7 @@ class GameState {
         this.inBattle = false;
         this.talents = {
             basic: { level: 1, damage: 10 },
-            critical: { level: 0, chance: 0.15 },
+            critical: { level: 0, chance: 0 },
             poison: { level: 0, damage: 0 },
             vampire: { level: 0, percent: 0 }
         };
@@ -96,10 +97,19 @@ class GameState {
         this.currentBoss = null;
         this.battleTimer = null;
         this.energyRecoveryInterval = null;
+        this.keys = { bear: 0, dragon: 0 };
+        this.updateKeysDisplay();
     }
 
     calculateXPRequired(level) {
         return Math.floor(100 * Math.pow(1.2, level - 1));
+    }
+
+    updateKeysDisplay() {
+        document.querySelectorAll('.current-keys').forEach(el => {
+            const bossType = el.dataset.boss;
+            el.textContent = this.keys[bossType];
+        });
     }
 }
 
@@ -166,19 +176,15 @@ function initGame() {
     updateShopItems();
     updateUI();
     startEnergyRecovery();
+    gameState.updateKeysDisplay();
 }
 
 function startEnergyRecovery() {
-gameState.energyRecoveryInterval = setInterval(() => {
-    gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
-    updateUI(['energy']);
-}, 3000);
-// Принудительно обнуляем прогресс при старте
-elements.levelProgress.style.width = "0%";
-setTimeout(() => {
-    const progress = (gameState.xp / gameState.xpToNextLevel) * 100;
-    elements.levelProgress.style.width = `${progress}%`;
-}, 100);
+    gameState.energyRecoveryInterval = setInterval(() => {
+        gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
+        updateUI(['energy']);
+    }, 3000);
+    updateLevelProgress();
 }
 
 // =================== ОБРАБОТЧИКИ СОБЫТИЙ ===================
@@ -235,7 +241,7 @@ function handleBossSelect(e) {
     if (bossCard) startBattle(bossCard.dataset.boss);
 }
 
-// =================== МАГАЗИН И ТАЛАНТЫ ===================
+// =================== МАГАЗИН И ТАЛЕНТЫ ===================
 function buyHive(type) {
     if (gameState.purchasedHives.includes(type)) {
         showMessage('Этот скин уже куплен!');
@@ -266,10 +272,27 @@ function buyBoost(type) {
         button.disabled = true;
         button.textContent = 'Куплено';
 
-        setTimeout(() => {
-            button.disabled = false;
-            button.textContent = `${gameConfig.boostPrices[type]} 🍯`;
-        }, 30000);
+        const boostDuration = {
+            energy: 0,
+            shield: 60000,
+            multiclick: 30000
+        }[type];
+
+        if (boostDuration > 0) {
+            const timerElement = document.createElement('div');
+            timerElement.className = 'boost-timer';
+            document.body.appendChild(timerElement);
+
+            let timeLeft = boostDuration / 1000;
+            const timer = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = `${button.textContent.split(' ')[0]}: ${timeLeft}s`;
+                if(timeLeft <= 0) {
+                    clearInterval(timer);
+                    timerElement.remove();
+                }
+            }, 1000);
+        }
 
         switch(type) {
             case 'energy':
@@ -335,6 +358,16 @@ function upgradeTalent(talentType) {
 
 // =================== БОЕВАЯ СИСТЕМА ===================
 function startBattle(bossType) {
+    if (bossType !== 'wasp' && gameState.keys[bossType] < 3) {
+        showMessage(`Нужно 3 ключа! У вас: ${gameState.keys[bossType]}`);
+        return;
+    }
+
+    if (bossType !== 'wasp') {
+        gameState.keys[bossType] -= 3;
+        gameState.updateKeysDisplay();
+    }
+
     if (!gameConfig.bosses[bossType] || gameState.inBattle) return;
 
     gameState.inBattle = true;
@@ -405,8 +438,7 @@ function startBattleTimer(seconds) {
 }
 
 function attack(type) {
-      if (!gameState.inBattle) return; // Если бой завершен - не даем атаковать
-    if (!gameState.currentBoss || !gameState.inBattle || isAnimating) return;
+    if (!gameState.inBattle || isAnimating) return;
 
     const attackButton = document.querySelector(`.attack-btn[data-type="${type}"]`);
     attackButton.classList.add('attacking');
@@ -423,11 +455,10 @@ function attack(type) {
             damage = calculateBasicDamage();
             break;
         case 'critical':
+            damage = calculateBasicDamage();
             if (Math.random() < gameState.talents.critical.chance) {
-                damage = calculateCriticalDamage();
-            } else {
-                showMissEffect();
-                return;
+                damage *= 2;
+                showCriticalEffect(damage);
             }
             break;
         case 'poison':
@@ -476,32 +507,44 @@ function updateBossHealth(damage) {
 }
 
 function endBattle(victory) {
-  gameState.inBattle = false; // Блокируем бой сразу
-   document.querySelectorAll('.attack-btn').forEach(btn => btn.style.pointerEvents = 'none'); // Отключаем кнопки
+    gameState.inBattle = false;
+    document.querySelectorAll('.attack-btn').forEach(btn => btn.style.pointerEvents = 'none');
     clearInterval(gameState.battleTimer);
     gameState.activeEffects.poison.forEach(effect => clearInterval(effect.interval));
     gameState.activeEffects.poison = [];
 
-    if (victory) {
-        const boss = gameConfig.bosses[gameState.currentBoss.type];
-        const honeyReward = Math.floor(boss.honeyReward * gameState.boosts.battleBonus);
-        const xpReward = Math.floor(boss.xpReward * (1 + gameState.level * 0.05));
+    if (victory && gameState.currentBoss) {
+        const bossType = gameState.currentBoss.type;
+        const boss = gameConfig.bosses[bossType];
 
+        switch (bossType) {
+            case 'wasp':
+                gameState.keys.bear += 1;
+                break;
+            case 'bear':
+                gameState.keys.dragon += 1;
+                break;
+        }
+
+        const honeyReward = Math.floor(boss.honeyReward * (gameState.activeHive === 'crystal' ? 1.3 : 1));
+        const xpReward = Math.floor(boss.xpReward * (1 + gameState.level * 0.05));
         gameState.honey += honeyReward;
         gameState.xp += xpReward;
 
+        elements.battleReward.innerHTML = `
+            Получено: ${honeyReward}🍯 + ${xpReward}XP<br>
+            +1 🔑 ${bossType === 'wasp' ? '(Медведь)' : '(Дракон)'}
+        `;
+        elements.battleReward.style.display = 'block';
+
         checkLevelUp();
-        updateUI(['honey', 'xp']);
-        showBattleResult(`Победа! +${honeyReward}🍯 +${xpReward}XP`, 'victory');
-        elements.bossCombatImage.classList.add('grayscale');
-    } else {
-        showBattleResult('Поражение!', 'defeat');
+        gameState.updateKeysDisplay();
     }
 
     setTimeout(() => {
         document.getElementById('bossSelection').style.display = 'block';
         elements.combatScreen.style.display = 'none';
-        gameState.inBattle = false;
+        elements.bossCombatImage.classList.remove('grayscale');
     }, 3000);
 }
 
@@ -559,9 +602,14 @@ function updateUI(changedKeys = ['all']) {
         }
     };
 
-    changedKeys.includes('all')
-        ? Object.values(updates).forEach(update => update())
-        : changedKeys.forEach(key => updates[key]?.());
+    if (changedKeys.includes('all')) {
+        Object.values(updates).forEach(update => update());
+        updateLevelProgress();
+        gameState.updateKeysDisplay();
+    } else {
+        changedKeys.forEach(key => updates[key]?.());
+        if (changedKeys.includes('level')) updateLevelProgress();
+    }
 }
 
 // =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
@@ -573,12 +621,12 @@ function showLevelUpEffect(levels) {
     setTimeout(() => div.remove(), 2000);
 }
 
-function showBattleResult(text, type) {
+function showCriticalEffect(damage) {
     const div = document.createElement('div');
-    div.className = `battle-result ${type}`;
-    div.textContent = text;
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 3000);
+    div.className = 'critical-effect';
+    div.textContent = `CRIT! ${damage}`;
+    elements.combatScreen.appendChild(div);
+    setTimeout(() => div.remove(), 1000);
 }
 
 function showMissEffect() {
@@ -699,12 +747,9 @@ function updateShopItems() {
 function calculateBasicDamage() {
     let damage = talentsConfig.basic.getDamage(gameState.talents.basic.level);
     damage *= gameState.boosts.attackSpeed;
-    if (gameState.activeHive === 'inferno') damage *= 1.25;
+    if (gameState.activeHive === 'inferno') damage += gameState.hiveBonuses.inferno.fireDamage;
+    if (gameState.boosts.shield) damage *= 0.7;
     return Math.round(damage);
-}
-
-function calculateCriticalDamage() {
-    return calculateBasicDamage() * 3;
 }
 
 function updateCombatUI(forceUpdate = false) {
@@ -716,10 +761,10 @@ function updateCombatUI(forceUpdate = false) {
 
 function getTalentButtonText(type) {
     const texts = {
-        basic: '🗡️ Базовый',
-        critical: '💥 Крит',
-        poison: '☠️ Яд',
-        vampire: '❤️ Вампир'
+        basic: 'Базовый',
+        critical: 'Крит',
+        poison: 'Яд',
+        vampire: 'Вампир'
     };
     return texts[type] || '';
 }

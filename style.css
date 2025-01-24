@@ -25,6 +25,16 @@ body {
     display: flex;
     flex-direction: column;
 }
+.boss-requirements {
+  margin-top: 10px;
+  color: var(--accent);
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.boss-card[data-boss="wasp"] .boss-requirements {
+  display: none; /* Скрываем для первого босса */
+}
 /* Основной контейнер */
 .boss-card {
     border: 2px solid var(--color-accent);
