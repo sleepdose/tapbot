@@ -40,6 +40,13 @@ const gameConfig = {
             honeyReward: 2000,
             xpReward: 500,
             image: 'img/bear.jpg'
+        },
+        dragon: {
+            health: 2500,
+            time: 120,       // 2 минуты на победу
+            honeyReward: 5000,
+            xpReward: 1500,
+            image: 'img/dragon.jpg'  // положите файл в папку img/
         }
     },
     hivePrices: { golden: 1500, crystal: 3000, inferno: 4500 },
@@ -231,7 +238,7 @@ function handleBossSelect(e) {
 // =================== МАГАЗИН И ТАЛАНТЫ ===================
 function buyHive(type) {
     if (gameState.purchasedHives.includes(type)) {
-        showMessage('Этот улей уже куплен!');
+        showMessage('Этот скин уже куплен!');
         return;
     }
 
@@ -242,7 +249,7 @@ function buyHive(type) {
         updateHiveDisplay();
         updateShopItems();
         updateUI(['honey']);
-        showMessage('Улей успешно куплен!');
+        showMessage('Скин успешно куплен!');
     } else {
         showMessage(`Недостаточно меда! Нужно: ${gameConfig.hivePrices[type]} 🍯`);
         document.getElementById('honey').classList.add('shake');
@@ -709,10 +716,10 @@ function updateCombatUI(forceUpdate = false) {
 
 function getTalentButtonText(type) {
     const texts = {
-        basic: 'Базовый',
-        critical: 'Крит',
-        poison: 'Яд',
-        vampire: 'Вампир'
+        basic: '🗡️ Базовый',
+        critical: '💥 Крит',
+        poison: '☠️ Яд',
+        vampire: '❤️ Вампир'
     };
     return texts[type] || '';
 }
