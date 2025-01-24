@@ -893,22 +893,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
     }
     .hive-option {
         padding: 0.8rem;
-    }
-/* Центрирование текста в кнопках навигации */
-.nav-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    line-height: 1.2;
-    padding: 5px;
-}
-
-.nav-btn::after {
-    content: attr(data-popup);
-    font-size: 12px;
-    margin-top: 2px;
 }
 
 /* Центрирование характеристик боссов */
@@ -949,11 +933,11 @@ margin-bottom: 0; /* Убираем нижний отступ */
 /* Адаптация для мобильных */
 @media (max-width: 480px) {
     .nav-btn {
-        font-size: 24px;
+        font-size: 45px;
         width: 65px;
         height: 65px;
     }
-    
+
     .nav-btn::after {
         font-size: 10px;
     }
