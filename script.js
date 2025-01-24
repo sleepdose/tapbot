@@ -79,7 +79,7 @@ class GameState {
     }
 
     reset() {
-        this.honey = 0;
+        this.honey = 10000;
         this.xp = 0;
         this.level = 1;
         this.energy = 100;
@@ -90,9 +90,9 @@ class GameState {
         this.inBattle = false;
         this.talents = {
             basic: { level: 1, damage: 10 },
-            critical: { level: 0, chance: 0 },
-            poison: { level: 0, damage: 0 },
-            vampire: { level: 0, percent: 0 }
+            critical: { level: 1, chance: 0 },
+            poison: { level: 1, damage: 0 },
+            vampire: { level: 1, percent: 0 }
         };
         this.boosts = {
             battleBonus: 1.0,
