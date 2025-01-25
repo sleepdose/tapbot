@@ -1,3 +1,13 @@
+const tg = window.Telegram.WebApp;
+tg.expand(); // Раскрыть на весь экран
+tg.enableClosingConfirmation(); // Подтверждение закрытия
+
+// Получение данных пользователя
+const user = {
+  id: tg.initDataUnsafe.user?.id,
+  username: tg.initDataUnsafe.user?.username,
+  name: `${tg.initDataUnsafe.user?.first_name} ${tg.initDataUnsafe.user?.last_name}`
+}
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
