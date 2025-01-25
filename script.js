@@ -763,20 +763,17 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
 });
 
 document.getElementById('closeResultButton').addEventListener('click', () => {
-    gameState.battleResult = null; // Сбрасываем результат только здесь
+    gameState.battleResult = null;
     hidePopup('battleResult');
     document.getElementById('bossSelection').style.display = 'block';
 });
 
 document.querySelectorAll('.popup .close').forEach(btn => {
     btn.addEventListener('click', () => {
-        const popup = btn.closest('.popup');
-        if (popup.id === 'battleResultPopup') {
-            // Только скрываем окно, результат НЕ сбрасываем
-            hidePopup('battleResult');
+        if (btn.closest('#battleResultPopup')) {
+            document.getElementById('closeResultButton').click();
         } else {
-            // Обычное закрытие для других попапов
-            hidePopup(popup.id.replace('Popup', ''));
+            hidePopup(btn.closest('.popup').id.replace('Popup', ''));
         }
     });
 });
@@ -918,7 +915,7 @@ function showPopup(popupType) {
     if (popup) {
         popup.classList.add('active');
         document.body.style.overflow = 'hidden';
-        updateResultPopup(); // Обновляем данные каждый раз
+        if (popupType === 'battleResult') updateResultPopup();
     }
 }
 
@@ -1107,29 +1104,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('claimRewardButton')?.addEventListener('click', () => {
-        const reward = gameState.battleResult?.reward; // Используем данные из состояния
-
-        if (reward) {
-            gameState.honey += reward.honey;
-            gameState.xp += reward.xp;
-
-            Object.entries(reward.keys).forEach(([type, amount]) => {
-                gameState.keys[type] = (gameState.keys[type] || 0) + amount;
-            });
-
-            checkLevelUp();
-            updateUI();
-            hidePopup('battleResult');
-            document.getElementById('bossSelection').style.display = 'block';
-        }
+        const reward = JSON.parse(document.getElementById('battleResultPopup').dataset.reward);
+        gameState.honey += reward.honey;
+        gameState.xp += reward.xp;
+        Object.entries(reward.keys || {}).forEach(([type, amount]) => {
+            gameState.keys[type] = (gameState.keys[type] || 0) + amount;
+        });
+        checkLevelUp();
+        updateUI();
+        hidePopup('battleResult');
     });
 
     document.addEventListener('visibilitychange', () => {
-    if (!document.hidden &&
-        gameState.battleResult &&
-        !document.querySelector('#battleResultPopup.active')
-    ) {
-        showPopup('battleResult');
-    }
-});
+        if (!document.hidden && gameState.battleResult && !document.querySelector('#battleResultPopup.active')) {
+            updateResultPopup();
+            showPopup('battleResult');
+        }
+    });
 });
