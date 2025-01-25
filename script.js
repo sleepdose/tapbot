@@ -681,12 +681,10 @@ function endBattle(victory) {
         switch(bossType) {
             case 'wasp':
                 gameState.keys.bear += 1;
-                showMessage("Получен ключ от Медведя!");
                 break;
 
             case 'bear':
                 gameState.keys.dragon += 1;
-                showMessage("Получен ключ от Дракона!");
                 break;
         }
 

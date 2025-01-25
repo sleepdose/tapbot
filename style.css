@@ -25,6 +25,7 @@ body {
     display: flex;
     flex-direction: column;
 }
+
 .boss-requirements {
   margin-top: 10px;
   color: var(--accent);
@@ -160,7 +161,7 @@ border-radius: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 10px;
+  gap: 15px;
   background: rgba(225, 210, 210, 0.9);
   padding: 15px;
   border-radius: 30px;
@@ -172,7 +173,7 @@ border-radius: 12px;
   height: 50px;
   border-radius: 50%;
   border: none;
-  background: rgba(225, 210, 210, 0.9);
+  background: black;
   color: white;
   font-size: 1.5em;
   cursor: pointer;
@@ -403,7 +404,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
     100% { transform: scale(1); }
 }
 
-.boss-card, .shop-item, .talent {
+.boss-card, .shop-item, .talent, .attack-charge-item{
     background: rgba(0,0,0,0.5);
     padding: 15px;
     margin: 10px 0;
@@ -458,7 +459,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
     margin: 8px 0;
 }
 
-.shop-item button, .talent button {
+.shop-item button, .talent button, .btn{
     background: linear-gradient(145deg, #ffd700, #ffaa00);
     color: #000;
     border: none;
@@ -976,21 +977,16 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 .charge-counter {
-    background: rgba(255,255,255,0.1);
-    padding: 5px 10px;
-    border-radius: 15px;
-    margin-left: 100px;
-    font-size: 0.9em;
-}
-
-.attack-charge-item {
-    background: rgba(0,0,0,0.3);
-    padding: 15px;
-    margin: 10px 0;
-    border-radius: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  background: rgba(0,0,0,0.5);
+padding: 15px;
+margin: 10px 0;
+border-radius: 12px;
+border: 2px solid var(--secondary);
+cursor: pointer;
+transition: transform 0.3s;
+text-align: left;
+width: 100%;
+box-sizing: border-box;
 }
 /* Вкладки талантов */
 .talent-tabs {
@@ -1001,11 +997,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 /* Заголовок атаки */
-.attack-charge-item h3 {
-    margin: 0;
-    font-size: 1.1em;
-    color: #FFD700;
-}
 
 /* Добавить в конец style.css */
 .attack-btn.disabled {
@@ -1020,4 +1011,18 @@ margin-bottom: 0; /* Убираем нижний отступ */
 .attack-btn.disabled .talent-icon {
     filter: brightness(0.5);
     opacity: 0.7;
+}
+/* Добавить в конец файла */
+.health-critical {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+.combat-screen {
+    transition: opacity 0.3s;
 }
