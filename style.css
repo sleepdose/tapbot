@@ -205,7 +205,7 @@ border-radius: 12px;
     background: #9F9597;
     border-radius: 20px 20px 0 0;
     max-height: 85vh;
-    z-index: 2000;
+    z-index: 3000;
     box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
     overflow: hidden;
     display: flex;
@@ -1042,4 +1042,58 @@ box-sizing: border-box;
 
 .combat-screen {
     transition: opacity 0.3s;
+}
+/* Стили для попапа результатов */
+#battleResultPopup .popup-content {
+  max-width: 400px;
+}
+
+.result-boss-img {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 50%;
+  margin: 15px auto;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 20px rgba(0,0,0,0.3);
+}
+
+.reward-section {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.reward-item {
+  text-align: center;
+  background: rgba(0,0,0,0.3);
+  padding: 15px;
+  border-radius: 10px;
+}
+
+.reward-icon {
+  font-size: 24px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.reward-value {
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.victory-btn {
+  background: linear-gradient(45deg, #4CAF50, #2E7D32);
+}
+
+.defeat-btn {
+  background: linear-gradient(45deg, #f44336, #b71c1c);
 }
