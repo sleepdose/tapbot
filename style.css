@@ -436,21 +436,38 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 .battle-reward {
-    background: #4CAF50;
-    color: white;
-    padding: 15px;
-    border-radius: 10px;
-    margin: 15px auto;
-    width: 80%;
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: #fff;
+    padding: 15px 25px;
+    border-radius: 15px;
     text-align: center;
-    animation: fade 3s;
+    z-index: 1000;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    animation: rewardFloat 2.5s ease-out forwards;
+    white-space: nowrap;
 }
 
-@keyframes fade {
-    0% { opacity: 0; }
-    20% { opacity: 1; }
-    80% { opacity: 1; }
-    100% { opacity: 0; }
+@keyframes rewardFloat {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -20px);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    80% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50px);
+    }
 }
 
 .button-wrapper {
