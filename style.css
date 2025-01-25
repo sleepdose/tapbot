@@ -57,10 +57,11 @@ body {
 }
 
 .boss-img {
-    width: 100%;
+    width: 60%;
     height: auto;
-
-    border-radius: 12px;
+    display: block;
+margin: 0 auto;
+border-radius: 12px;
 }
 
 /* Характеристики */
@@ -232,7 +233,6 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: var(--accent) rgba(0,0,0,0.2);
     transform: translateZ(0);
     flex-grow: 1;
 }
@@ -336,7 +336,6 @@ flex-direction: column;
 }
 
 .stat {
-    background: rgba(0,0,0,0.3);
     padding: 0.2rem;
     border-radius: 10px;
     min-width: 100px;
@@ -467,7 +466,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
     min-width: 160px;
     position: relative;
     overflow: hidden;
-    width: 100%;
     box-sizing: border-box;
 }
 
@@ -515,6 +513,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
     position: relative;
     width: calc(100% - 2rem);
     box-sizing: border-box;
+
 }
 
 .boss-health {
@@ -786,7 +785,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
 .talent-info {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
 }
 
 .cooldown-bar {
