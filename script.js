@@ -768,12 +768,22 @@ document.getElementById('closeResultButton').addEventListener('click', () => {
     document.getElementById('bossSelection').style.display = 'block';
 });
 
+// Находим блок с обработчиками закрытия попапов и изменяем его:
 document.querySelectorAll('.popup .close').forEach(btn => {
     btn.addEventListener('click', () => {
-        if (btn.closest('#battleResultPopup')) {
-            document.getElementById('closeResultButton').click();
+        const popup = btn.closest('.popup');
+        if (popup.id === 'battleResultPopup') {
+            // Если это попап результатов
+            if (gameState.battleResult?.victory) {
+                // При победе - имитируем нажатие "Получить награду"
+                document.getElementById('claimRewardButton').click();
+            } else {
+                // При поражении - имитируем нажатие "Выйти"
+                document.getElementById('closeResultButton').click();
+            }
         } else {
-            hidePopup(btn.closest('.popup').id.replace('Popup', ''));
+            // Для других попапов обычное закрытие
+            hidePopup(popup.id.replace('Popup', ''));
         }
     });
 });
@@ -1104,15 +1114,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('claimRewardButton')?.addEventListener('click', () => {
-        const reward = JSON.parse(document.getElementById('battleResultPopup').dataset.reward);
-        gameState.honey += reward.honey;
-        gameState.xp += reward.xp;
-        Object.entries(reward.keys || {}).forEach(([type, amount]) => {
-            gameState.keys[type] = (gameState.keys[type] || 0) + amount;
-        });
-        checkLevelUp();
-        updateUI();
-        hidePopup('battleResult');
+        const reward = gameState.battleResult?.reward; // Используем данные из состояния
+
+        if (reward) {
+            gameState.honey += reward.honey;
+            gameState.xp += reward.xp;
+
+            Object.entries(reward.keys).forEach(([type, amount]) => {
+                gameState.keys[type] = (gameState.keys[type] || 0) + amount;
+            });
+
+            checkLevelUp();
+            updateUI();
+            hidePopup('battleResult');
+            document.getElementById('bossSelection').style.display = 'block';
+        }
     });
 
     document.addEventListener('visibilitychange', () => {
