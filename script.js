@@ -1,13 +1,56 @@
-// Подключение к Telegram
+// =================== ТЕЛЕГРАМ И СОХРАНЕНИЯ =================== 
 const tg = window.Telegram.WebApp;
-tg.expand(); // Растянуть игру на весь экран
+tg.expand();
 
-// Получить данные игрока
+// Получение данных игрока
 const user = {
   id: tg.initDataUnsafe.user?.id,
   name: tg.initDataUnsafe.user?.first_name
+};
+
+// Функция сохранения
+function saveGame() {
+  if (!user.id) return;
+  
+  const saveData = {
+    honey: gameState.honey,
+    level: gameState.level,
+    xp: gameState.xp,
+    purchasedHives: gameState.purchasedHives,
+    talents: gameState.talents,
+    keys: gameState.keys,
+    attackCharges: gameState.attackCharges
+  };
+  
+  localStorage.setItem(`save_${user.id}`, JSON.stringify(saveData));
 }
-console.log('Игрок:', user.name); 
+
+// Функция загрузки
+function loadGame() {
+  if (!user.id) return;
+  
+  const savedData = localStorage.getItem(`save_${user.id}`);
+  if (savedData) {
+    const loadedData = JSON.parse(savedData);
+    
+    gameState.honey = loadedData.honey ?? 10000;
+    gameState.level = loadedData.level ?? 1;
+    gameState.xp = loadedData.xp ?? 0;
+    gameState.purchasedHives = loadedData.purchasedHives ?? ['basic'];
+    gameState.talents = loadedData.talents ?? {
+      basic: { level: 1, damage: 10 },
+      critical: { level: 1, chance: 0 },
+      poison: { level: 1, damage: 0 },
+      vampire: { level: 1, percent: 0 }
+    };
+    gameState.keys = loadedData.keys ?? { bear: 0, dragon: 0 };
+    gameState.attackCharges = loadedData.attackCharges ?? {
+      basic: { charges: 10, basePrice: 50 },
+      critical: { charges: 0, basePrice: 75 },
+      poison: { charges: 0, basePrice: 100 },
+      vampire: { charges: 0, basePrice: 150 }
+    };
+  }
 }
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
