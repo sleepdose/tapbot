@@ -508,7 +508,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 .combat-screen {
-    background: #9F9597;
     padding: 1rem;
     border-radius: 15px;
     display: none;
@@ -670,12 +669,10 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 .combat-talents {
-    display: flex;
     flex-direction: column;
     gap: 0.5rem;
     justify-content: center;
     margin: 1rem 0;
-    overflow-y: auto;
     max-height: 300px;
     padding: 0 10px;
 }
@@ -860,7 +857,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
     }
 
     .combat-screen {
-        margin: 0;
         border-radius: 0;
         height: calc(100vh - 100px);
     }
@@ -968,7 +964,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
     background: rgba(255,255,255,0.1);
     padding: 5px 10px;
     border-radius: 15px;
-    margin-left: 10px;
+    margin-left: 100px;
     font-size: 0.9em;
 }
 
