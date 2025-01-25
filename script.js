@@ -8,6 +8,7 @@ const user = {
   name: tg.initDataUnsafe.user?.first_name
 }
 console.log('Игрок:', user.name); 
+}
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
