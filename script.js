@@ -1,13 +1,13 @@
+// Подключение к Telegram
 const tg = window.Telegram.WebApp;
-tg.expand(); // Раскрыть на весь экран
-tg.enableClosingConfirmation(); // Подтверждение закрытия
+tg.expand(); // Растянуть игру на весь экран
 
-// Получение данных пользователя
+// Получить данные игрока
 const user = {
   id: tg.initDataUnsafe.user?.id,
-  username: tg.initDataUnsafe.user?.username,
-  name: `${tg.initDataUnsafe.user?.first_name} ${tg.initDataUnsafe.user?.last_name}`
+  name: tg.initDataUnsafe.user?.first_name
 }
+console.log('Игрок:', user.name); 
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
