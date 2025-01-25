@@ -173,7 +173,7 @@ border-radius: 12px;
   height: 50px;
   border-radius: 50%;
   border: none;
-  background: black;
+  background: rgba(225, 210, 210, 0.9);
   color: white;
   font-size: 1.5em;
   cursor: pointer;
