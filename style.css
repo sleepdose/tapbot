@@ -160,7 +160,7 @@ border-radius: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 15px;
+  gap: 10px;
   background: rgba(225, 210, 210, 0.9);
   padding: 15px;
   border-radius: 30px;
