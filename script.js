@@ -1,3 +1,4 @@
+
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
@@ -476,12 +477,14 @@ function startBattle(bossType) {
 function createTalentButtons() {
     elements.combatTalents.innerHTML = '';
     Object.entries(gameState.talents).forEach(([type, talent]) => {
-        if (talent.level > 0) {
-            const charges = gameState.attackCharges[type].charges;
-            const button = document.createElement('button');
-            button.className = `attack-btn ${charges === 0 ? 'disabled' : ''}`;
-            button.dataset.attack = type;
-            button.innerHTML = `
+      if (talent.level > 0) {
+          const charges = gameState.attackCharges[type].charges;
+          const isDisabled = !gameState.inBattle || charges === 0;
+
+          const button = document.createElement('button');
+button.className = `attack-btn ${isDisabled ? 'disabled' : ''}`;
+button.disabled = isDisabled;
+button.innerHTML = `
                 <div class="talent-icon">${getTalentIcon(type)}</div>
                 <div class="talent-info">
                     <div>${getTalentButtonText(type)}</div>
@@ -519,6 +522,11 @@ function startBattleTimer(seconds) {
 }
 
 function attack(type) {
+  if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
+       showMessage("Бой уже завершен!");
+       return;
+   }
+
     if (Date.now() < gameState.attackCooldowns[type]) {
         const secondsLeft = Math.ceil((gameState.attackCooldowns[type] - Date.now()) / 1000);
         showMessage(`Не спеши`);
@@ -568,14 +576,30 @@ function attack(type) {
             }
             break;
 
-        case 'poison':
-            damage = gameState.talents.poison.damage * 3;
-            poisonInterval = setInterval(() => {
-                gameState.currentBoss.currentHealth -= gameState.talents.poison.damage;
-                updateCombatUI();
-            }, 1000);
-            setTimeout(() => clearInterval(poisonInterval), 3000);
-            break;
+            case 'poison':
+        // ========== НАЧАЛО ИСПРАВЛЕНИЯ ==========
+        damage = gameState.talents.poison.damage * 3;
+        const poisonEffect = {
+            interval: null,
+            damage: gameState.talents.poison.damage
+        };
+
+        poisonEffect.interval = setInterval(() => {
+            if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
+                clearInterval(poisonEffect.interval);
+                return;
+            }
+            gameState.currentBoss.currentHealth -= poisonEffect.damage;
+            updateCombatUI();
+
+            if (gameState.currentBoss.currentHealth <= 0) {
+                endBattle(true);
+            }
+        }, 1000);
+
+        gameState.activeEffects.poison.push(poisonEffect);
+        // ========== КОНЕЦ ИСПРАВЛЕНИЯ ==========
+        break;
 
         case 'vampire':
             damage = calculateBasicDamage();
@@ -607,36 +631,51 @@ function attack(type) {
 }
 
 function endBattle(victory) {
-    gameState.currentBoss.currentHealth = gameState.currentBoss.maxHealth;
+    // Сброс параметров боя
+    if (gameState.currentBoss) {
+        gameState.currentBoss.currentHealth = gameState.currentBoss.maxHealth;
+    }
     gameState.inBattle = false;
 
+    // Сброс перезарядок атак
     Object.keys(gameState.attackCooldowns).forEach(k => {
         gameState.attackCooldowns[k] = 0;
     });
 
-    document.querySelectorAll('.attack-btn').forEach(btn => btn.style.pointerEvents = 'none');
-    clearInterval(gameState.battleTimer);
-    gameState.activeEffects.poison.forEach(effect => clearInterval(effect.interval));
+    // ========== НАЧАЛО ИСПРАВЛЕНИЙ ========== //
+
+    // 1. Остановка всех активных ядовитых эффектов
+    gameState.activeEffects.poison.forEach(effect => {
+        clearInterval(effect.interval);
+    });
     gameState.activeEffects.poison = [];
 
+    // 2. Полная блокировка кнопок атак
+    document.querySelectorAll('.attack-btn').forEach(btn => {
+        btn.classList.add('disabled'); // CSS-класс для стилей
+        btn.disabled = true; // Функциональная блокировка
+        btn.style.pointerEvents = 'none'; // Игнорирование кликов
+    });
+
+    // 3. Принудительная установка здоровья в 0 при победе
+    if (victory && gameState.currentBoss) {
+        gameState.currentBoss.currentHealth = 0;
+        updateCombatUI(); // Обновим интерфейс
+    }
+
+    // ========== КОНЕЦ ИСПРАВЛЕНИЙ ========== //
+
+    // Награждение игрока за победу
     if (victory && gameState.currentBoss) {
         const bossType = gameState.currentBoss.type;
         const boss = gameConfig.bosses[bossType];
 
-        switch (bossType) {
-            case 'wasp':
-                gameState.keys.bear += 1;
-                break;
-            case 'bear':
-                gameState.keys.dragon += 1;
-                break;
-        }
-
+        // Выдача наград
         const honeyReward = Math.floor(boss.honeyReward * (gameState.activeHive === 'crystal' ? 1.3 : 1));
         const xpReward = Math.floor(boss.xpReward * (1 + gameState.level * 0.05));
+
         gameState.honey += honeyReward;
         gameState.xp += xpReward;
-        updateUI(['honey', 'xp']);
         elements.battleReward.innerHTML = `
             Получено: ${honeyReward}🍯 + ${xpReward}XP<br>
             +1 🔑 ${bossType === 'wasp' ? '(Медведь)' : '(Дракон)'}
@@ -647,12 +686,18 @@ function endBattle(victory) {
         gameState.updateKeysDisplay();
     }
 
+    // Возврат в меню выбора боссов
     setTimeout(() => {
-        document.getElementById('bossSelection').style.display = 'block';
-        elements.combatScreen.style.display = 'none';
-        elements.bossCombatImage.classList.remove('grayscale');
+        if (document.getElementById('bossSelection')) {
+            document.getElementById('bossSelection').style.display = 'block';
+        }
+        if (elements.combatScreen) {
+            elements.combatScreen.style.display = 'none';
+        }
+        if (elements.bossCombatImage) {
+            elements.bossCombatImage.classList.remove('grayscale');
+        }
     }, 3000);
-    createTalentButtons();
 }
 
 // =================== СИСТЕМА УРОВНЕЙ ===================
@@ -813,16 +858,16 @@ function updateHiveDisplay() {
         let content = '';
         switch (type) {
             case 'basic':
-                content = `<h3>Обычный</h3><p>${gameState.activeHive === type ? '✔️ Активен' : 'Нажмите чтобы активировать'}</p>`;
+                content = `<h3>Aiko #1</h3><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
                 break;
             case 'golden':
-                content = `<h3>Золотой</h3><p>+15% скорости атак</p><p>${gameState.activeHive === type ? '✔️ Активен' : ''}</p>`;
+                content = `<h3>Aiko #2</h3><p>+15% скорости атак</p><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
                 break;
             case 'crystal':
-                content = `<h3>Кристальный</h3><p>+30% награды за бои</p><p>${gameState.activeHive === type ? '✔️ Активен' : ''}</p>`;
+                content = `<h3>Aiko #3</h3><p>+30% награды за бои</p><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
                 break;
             case 'inferno':
-                content = `<h3>🔥 Пламенный</h3><p>+25% к урону огнем</p><p>${gameState.activeHive === type ? '✔️ Активен' : ''}</p>`;
+                content = `<h3>Aiko #4</h3><p>+25% к урону огнем</p><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
                 break;
         }
 
@@ -885,6 +930,9 @@ function calculateBasicDamage() {
 
 function updateCombatUI() {
     if (!gameState.currentBoss) return;
+    if (gameState.currentBoss.currentHealth < 0) {
+        gameState.currentBoss.currentHealth = 0;
+    }
     const healthPercent = (gameState.currentBoss.currentHealth / gameState.currentBoss.maxHealth) * 100;
     elements.bossHealth.style.width = `${healthPercent}%`;
     elements.currentHealth.textContent = gameState.currentBoss.currentHealth;
