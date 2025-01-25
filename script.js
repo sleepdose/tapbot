@@ -483,7 +483,7 @@ function createTalentButtons() {
                 <div class="talent-icon">${getTalentIcon(type)}</div>
                 <div class="talent-info">
                     <div>${getTalentButtonText(type)}</div>
-                    <div class="charge-counter">Осталось: ${charges}</div>
+                    <div class="charge-counter">Всего: ${charges}</div>
                 </div>
             `;
 
