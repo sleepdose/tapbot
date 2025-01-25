@@ -155,39 +155,38 @@ border-radius: 12px;
 }
 
 .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: rgba(99, 61, 125, 0.43);
-    padding: 12px 10px;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    border-top: 2px solid #caa4c2;
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+  background: rgba(225, 210, 210, 0.9);
+  padding: 15px;
+  border-radius: 30px;
     z-index: 1000;
-    backdrop-filter: blur(5px);
 }
 
 .nav-btn {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 28px;
-    width: 50px;
-    height: 50px;
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    cursor: pointer;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: none;
+  background: black;
+  color: white;
+  font-size: 1.5em;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .nav-btn.active {
-    background: var(--accent);
-    color: #000;
-    transform: scale(1.1);
+  background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+  box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
 }
 
 .nav-btn:active {
@@ -949,9 +948,23 @@ margin-bottom: 0; /* Убираем нижний отступ */
     }
 
     .nav-btn::after {
-        font-size: 10px;
+      content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 0%,
+      rgba(255, 255, 255, 0.15),
+      transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
     }
-}
+    .nav-btn:hover {
+        transform: scale(1.15) rotate(12deg);
+        box-shadow: 0 5px 20px rgba(45, 52, 54, 0.3);
+    }
+
     .shop-item button, .talent button {
         padding: 10px;
         font-size: 1em;
