@@ -226,8 +226,7 @@ function initTalentBuyTab() {
                 <h3>${getAttackName(type)}</h3>
                 <span class="charge-counter">${data.charges} шт</span>
             </div>
-            <button class="btn" data-type="${type}">
-                Купить 5 шт (${data.basePrice} 🍯)
+            <button class="btn" data-type="${type}">${data.basePrice}
             </button>
         `;
 
@@ -330,7 +329,7 @@ function buyHive(type) {
         updateUI(['honey']);
         showMessage('Скин успешно куплен!');
     } else {
-        showMessage(`Недостаточно меда! Нужно: ${gameConfig.hivePrices[type]} 🍯`);
+        showMessage(`Недостаточно меда! Нужно: ${gameConfig.hivePrices[type]}`);
         document.getElementById('honey').classList.add('shake');
         setTimeout(() => document.getElementById('honey').classList.remove('shake'), 500);
     }
@@ -384,7 +383,7 @@ function buyBoost(type) {
         updateUI(['honey']);
         showMessage('Буст активирован!');
     } else {
-        showMessage(`Недостаточно меда! Нужно: ${gameConfig.boostPrices[type]} 🍯`);
+        showMessage(`Недостаточно меда! Нужно: ${gameConfig.boostPrices[type]}`);
     }
 }
 
@@ -421,7 +420,7 @@ function upgradeTalent(talentType) {
     if (button) {
         const newLevel = gameState.talents[talentType].level;
         button.textContent = newLevel < talent.maxLevel
-            ? `${Math.floor(talent.getCost(newLevel))} 🍯`
+            ? `${Math.floor(talent.getCost(newLevel))}`
             : 'MAX';
     }
 
@@ -504,15 +503,25 @@ button.innerHTML = `
 }
 
 function startBattleTimer(seconds) {
+  // Очистка старого таймера
+    if (gameState.battleTimer) clearInterval(gameState.battleTimer); // ← Добавить эту строку
     let timeLeft = seconds;
     elements.combatTimer.textContent = timeLeft;
     elements.combatTimer.style.color = 'white';
 
     gameState.battleTimer = setInterval(() => {
+      if (!gameState.inBattle) { // ← Добавить проверку
+          clearInterval(gameState.battleTimer);
+          return;
+      }
         timeLeft--;
         elements.combatTimer.textContent = timeLeft;
         elements.combatTimer.style.color = timeLeft <= 10 ? 'red' : 'white';
-
+        // Мгновенная остановка при победе
+                if (gameState.currentBoss.currentHealth <= 0) { // ← Добавить этот блок
+                    clearInterval(gameState.battleTimer);
+                    return;
+                }
         if (timeLeft <= 0) {
             endBattle(false);
             elements.bossCombatImage.classList.add('grayscale');
@@ -664,10 +673,22 @@ function endBattle(victory) {
 
     // ========== КОНЕЦ ИСПРАВЛЕНИЙ ========== //
 
-    // Награждение игрока за победу
     if (victory && gameState.currentBoss) {
         const bossType = gameState.currentBoss.type;
         const boss = gameConfig.bosses[bossType];
+
+        // Начисление ключей
+        switch(bossType) {
+            case 'wasp':
+                gameState.keys.bear += 1;
+                showMessage("Получен ключ от Медведя!");
+                break;
+
+            case 'bear':
+                gameState.keys.dragon += 1;
+                showMessage("Получен ключ от Дракона!");
+                break;
+        }
 
         // Выдача наград
         const honeyReward = Math.floor(boss.honeyReward * (gameState.activeHive === 'crystal' ? 1.3 : 1));
