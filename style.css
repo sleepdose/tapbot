@@ -1054,8 +1054,9 @@ box-sizing: border-box;
   object-fit: cover;
   border-radius: 50%;
   margin: 15px auto;
-  border: 3px solid var(--accent);
+  border: 3px solid #6A6A6A30;
   box-shadow: 0 0 20px rgba(0,0,0,0.3);
+  animation: defeat-pulse 2s infinite;
 }
 
 .reward-section {
@@ -1088,10 +1089,6 @@ box-sizing: border-box;
   flex-direction: column;
   gap: 10px;
   margin-top: 20px;
-}
-
-.victory-btn {
-  background: linear-gradient(45deg, #4CAF50, #2E7D32);
 }
 
 .defeat-btn {
