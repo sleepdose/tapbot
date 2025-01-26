@@ -102,8 +102,8 @@ class GameState {
         this.inBattle = false;
         this.talents = {
             basic: { level: 1, damage: 10 },
-            critical: { level: 1, chance: 0 },
-            poison: { level: 1, damage: 0 }
+            critical: { level: 1, chance: 0.2 },
+            poison: { level: 1, damage: 3 }
         };
         this.boosts = {
             battleBonus: 1.0,
