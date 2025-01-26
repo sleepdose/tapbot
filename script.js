@@ -585,6 +585,8 @@ function attack(type) {
 
     gameState.attackCooldowns[type] = Date.now() + 1000;
     gameState.attackCharges[type].charges--;
+    updateTalentBuyTab(); // Добавить эту строку
+createTalentButtons();
 
     const button = document.querySelector(`[data-attack="${type}"]`);
     if (button) {
@@ -710,6 +712,16 @@ function endBattle(victory) {
 
     document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
     elements.combatScreen.style.display = 'none';
+}
+function updateTalentBuyTab() {
+    const container = document.getElementById('buyCharges');
+    if (!container) return;
+
+    container.querySelectorAll('.attack-charge-item').forEach(item => {
+        const type = item.querySelector('button').dataset.type;
+        const charges = gameState.attackCharges[type].charges;
+        item.querySelector('.charge-counter').textContent = `${charges} шт`;
+    });
 }
 
 // =================== ОБНОВЛЕНИЕ ПОПАПА РЕЗУЛЬТАТОВ ===================
