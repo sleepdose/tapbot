@@ -14,8 +14,6 @@ const elements = {
     critChanceUpgrade: document.getElementById('critChanceUpgrade'),
     poisonLevel: document.getElementById('poisonLevel'),
     poisonDmgUpgrade: document.getElementById('poisonDmgUpgrade'),
-    vampireLevel: document.getElementById('vampireLevel'),
-    vampirePercentUpgrade: document.getElementById('vampirePercentUpgrade'),
     combatTimer: document.getElementById('combatTimer'),
     bossHealth: document.getElementById('bossHealth'),
     currentHealth: document.getElementById('currentHealth'),
@@ -70,8 +68,7 @@ class GameState {
         this.attackCooldowns = {
             basic: 0,
             critical: 0,
-            poison: 0,
-            vampire: 0
+            poison: 0
         };
         this.hiveImages = {
             basic: 'img/human_male.png',
@@ -83,8 +80,7 @@ class GameState {
         this.attackCharges = {
             basic: { charges: 10, basePrice: 50 },
             critical: { charges: 0, basePrice: 75 },
-            poison: { charges: 0, basePrice: 100 },
-            vampire: { charges: 0, basePrice: 150 }
+            poison: { charges: 0, basePrice: 100 }
         };
         this.hiveBonuses = {
             golden: { attackSpeed: 1.15 },
@@ -107,8 +103,7 @@ class GameState {
         this.talents = {
             basic: { level: 1, damage: 10 },
             critical: { level: 1, chance: 0 },
-            poison: { level: 1, damage: 0 },
-            vampire: { level: 1, percent: 0 }
+            poison: { level: 1, damage: 0 }
         };
         this.boosts = {
             battleBonus: 1.0,
@@ -145,11 +140,6 @@ const talentsConfig = {
         maxLevel: 10,
         getDamage: level => 2 + level,
         getCost: level => 200 * Math.pow(1.6, level)
-    },
-    vampire: {
-        maxLevel: 10,
-        getPercent: level => 0.01 * level,
-        getCost: level => 500 * Math.pow(2, level)
     }
 };
 
@@ -445,9 +435,6 @@ function upgradeTalent(talentType) {
         case 'poison':
             gameState.talents.poison.damage = talent.getDamage(gameState.talents.poison.level);
             break;
-        case 'vampire':
-            gameState.talents.vampire.percent = talent.getPercent(gameState.talents.vampire.level);
-            break;
     }
 
     const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
@@ -642,14 +629,6 @@ createTalentButtons();
             }, 1000);
 
             gameState.activeEffects.poison.push(poisonEffect);
-            break;
-
-        case 'vampire':
-            damage = calculateBasicDamage();
-            const heal = Math.floor(damage * gameState.talents.vampire.percent);
-            gameState.energy = Math.min(gameState.energy + heal, gameState.maxEnergy);
-            showHealEffect(heal);
-            updateUI(['energy']);
             break;
     }
 
@@ -890,14 +869,7 @@ function updateUI(changedKeys = ['all']) {
             const poisonDmgElem = document.getElementById('poisonDmgUpgrade');
             if (poisonLevelElem) poisonLevelElem.textContent = gameState.talents.poison.level;
             if (poisonDmgElem) poisonDmgElem.textContent = gameState.talents.poison.damage;
-
-            const vampireLevelElem = document.getElementById('vampireLevel');
-            const vampirePercentElem = document.getElementById('vampirePercentUpgrade');
-            if (vampireLevelElem) vampireLevelElem.textContent = gameState.talents.vampire.level;
-            if (vampirePercentElem) {
-                vampirePercentElem.textContent = Math.round(gameState.talents.vampire.percent * 100);
             }
-        }
     };
 
     if (changedKeys.includes('all')) {
@@ -1054,8 +1026,7 @@ function getAttackName(type) {
     return {
         basic: 'Базовый удар',
         critical: 'Критический удар',
-        poison: 'Ядовитый удар',
-        vampire: 'Вампиризм'
+        poison: 'Ядовитый удар'
     }[type];
 }
 
@@ -1099,8 +1070,7 @@ function getTalentButtonText(type) {
     return {
         basic: 'Базовый',
         critical: 'Крит',
-        poison: 'Яд',
-        vampire: 'Вампир'
+        poison: 'Яд'
     }[type] || '';
 }
 
@@ -1108,8 +1078,7 @@ function getTalentIcon(type) {
     return {
         basic: '🗡️',
         critical: '💥',
-        poison: '☠️',
-        vampire: '❤️'
+        poison: '☠️'
     }[type] || '';
 }
 
