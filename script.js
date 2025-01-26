@@ -139,6 +139,7 @@ const talentsConfig = {
     poison: {
         maxLevel: 10,
         getDamage: level => 2 + level,
+        getDuration: level => 5 + level,
         getCost: level => 200 * Math.pow(1.6, level)
     }
 };
@@ -608,28 +609,52 @@ createTalentButtons();
             }
             break;
 
-        case 'poison':
-            damage = gameState.talents.poison.damage * 3;
-            const poisonEffect = {
-                interval: null,
-                damage: gameState.talents.poison.damage
-            };
+            case 'poison':
+                // Новая логика ядовитого эффекта
+                const poisonDamage = gameState.talents.poison.damage;
+                const duration = talentsConfig.poison.getDuration(gameState.talents.poison.level);
 
-            poisonEffect.interval = setInterval(() => {
-                if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
-                    clearInterval(poisonEffect.interval);
-                    return;
+                const poisonEffect = {
+                    damage: poisonDamage,
+                    startTime: Date.now(),
+                    duration: duration * 1000, // Конвертируем в миллисекунды
+                    timer: null,
+                    remaining: duration
+                };
+
+                // Запуск периодического урона
+                poisonEffect.timer = setInterval(() => {
+                    if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
+                        clearInterval(poisonEffect.timer);
+                        return;
+                    }
+
+                    gameState.currentBoss.currentHealth -= poisonDamage;
+                    updateCombatUI();
+
+                    if (gameState.currentBoss.currentHealth <= 0) {
+                        endBattle(true);
+                    }
+                }, 1000);
+
+                // Таймер окончания эффекта
+                setTimeout(() => {
+                    clearInterval(poisonEffect.timer);
+                    gameState.activeEffects.poison = gameState.activeEffects.poison.filter(
+                        e => e !== poisonEffect
+                    );
+                    updatePoisonTimersDisplay(); // Обновляем отображение таймеров
+                }, poisonEffect.duration);
+
+                gameState.activeEffects.poison.push(poisonEffect);
+                showPoisonTimer(duration); // Показываем таймер
+
+                // Обновление интерфейса
+                const chargeCounter = document.querySelector(`[data-attack="${type}"] .charge-counter`);
+                if (chargeCounter) {
+                    chargeCounter.textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
                 }
-                gameState.currentBoss.currentHealth -= poisonEffect.damage;
-                updateCombatUI();
-
-                if (gameState.currentBoss.currentHealth <= 0) {
-                    endBattle(true);
-                }
-            }, 1000);
-
-            gameState.activeEffects.poison.push(poisonEffect);
-            break;
+                break;
     }
 
     if (damage > 0) {
@@ -653,44 +678,68 @@ createTalentButtons();
 }
 
 function endBattle(victory) {
+    // Проверка состояния боя
     if (!gameState.inBattle || !gameState.currentBoss) return;
 
-    gameState.activeEffects.poison.forEach(e => clearInterval(e.interval));
+    // Очистка ядовитых эффектов
+    gameState.activeEffects.poison.forEach(e => {
+        clearInterval(e.timer);
+        clearTimeout(e.timeout);
+    });
     gameState.activeEffects.poison = [];
 
+    // Удаление визуальных таймеров яда
+    const poisonContainer = document.getElementById('poisonTimersContainer');
+    if (poisonContainer) poisonContainer.innerHTML = '';
+
+    // Сброс визуальных эффектов босса
+    elements.bossCombatImage?.classList.remove('grayscale');
+
+    // Настройка наград
     let reward = null;
     if (victory) {
+        const bossConfig = gameConfig.bosses[gameState.currentBoss.type];
         reward = {
-            honey: gameConfig.bosses[gameState.currentBoss.type].honeyReward,
-            xp: gameConfig.bosses[gameState.currentBoss.type].xpReward,
-            keys: {}
+            honey: bossConfig.honeyReward,
+            xp: bossConfig.xpReward,
+            keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
         };
 
-        if (gameState.currentBoss.keyReward) {
-            reward.keys[gameState.currentBoss.keyReward.type] =
-                gameState.currentBoss.keyReward.amount;
-        }
+        // Применение бонусов улья
+        if (gameState.activeHive === 'crystal') reward.honey = Math.floor(reward.honey * 1.3);
     }
 
+    // Обновление состояния игры
     gameState.battleResult = {
         victory: victory,
-        boss: {...gameState.currentBoss},
-        reward: reward ? calculateReward(gameState.currentBoss) : null
+        boss: { ...gameState.currentBoss },
+        reward: reward
     };
 
+    // Сброс боевых параметров
     gameState.inBattle = false;
     gameState.currentBoss = null;
 
-    updateResultPopup();
-    showPopup('battleResult');
-
+    // Очистка таймеров
     if (gameState.battleTimer) {
         clearInterval(gameState.battleTimer);
         gameState.battleTimer = null;
     }
 
-    document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
-    elements.combatScreen.style.display = 'none';
+    // Обновление интерфейса
+    try {
+        updateResultPopup();
+        showPopup('battleResult');
+        document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
+        elements.combatScreen.style.display = 'none';
+        document.getElementById('bossSelection').style.display = 'block';
+    } catch (e) {
+        console.error('Ошибка обновления интерфейса:', e);
+    }
+
+    // Принудительное обновление зарядов
+    updateTalentBuyTab();
+    createTalentButtons();
 }
 function updateTalentBuyTab() {
     const container = document.getElementById('buyCharges');
@@ -1122,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('claimRewardButton')?.addEventListener('click', () => {
-        const reward = gameState.battleResult?.reward; // Используем данные из состояния
+        const reward = gameState.battleResult?.reward;
 
         if (reward) {
             gameState.honey += reward.honey;
@@ -1146,3 +1195,108 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// =================== ФУНКЦИИ ТАЙМЕРОВ ЯДА ===================
+function showPoisonTimer(duration) {
+    let timerContainer = document.getElementById('poisonTimersContainer');
+    if (!timerContainer) {
+        timerContainer = document.createElement('div');
+        timerContainer.id = 'poisonTimersContainer';
+        timerContainer.className = 'poison-timers';
+        elements.combatScreen.appendChild(timerContainer);
+    }
+
+    const timerElement = document.createElement('div');
+    timerElement.className = 'poison-timer';
+    const timerId = `poison-timer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    timerElement.id = timerId;
+
+    timerElement.innerHTML = `
+        <span class="poison-icon">☠️</span>
+        <span class="poison-duration">${duration}s</span>
+        <div class="poison-progress"></div>
+    `;
+
+    const progressBar = timerElement.querySelector('.poison-progress');
+    progressBar.style.animation = `poison-progress ${duration}s linear forwards`;
+
+    timerContainer.appendChild(timerElement);
+
+    const poisonEffect = {
+        id: timerId,
+        startTime: Date.now(),
+        duration: duration * 1000,
+        timerElement: timerElement,
+        interval: null,
+        timeout: null
+    };
+
+    gameState.activeEffects.poison.push(poisonEffect);
+
+    poisonEffect.interval = setInterval(() => {
+        const currentTime = Date.now();
+        const elapsed = currentTime - poisonEffect.startTime;
+        const remaining = Math.ceil((poisonEffect.duration - elapsed) / 1000);
+
+        const durationElement = timerElement.querySelector('.poison-duration');
+        if (durationElement) {
+            durationElement.textContent = `${remaining}s`;
+
+            if (remaining <= 5) {
+                const intensity = 100 + Math.floor(30 * (remaining / 5));
+                timerElement.style.backgroundColor = `rgba(50, ${intensity}, 50, 0.9)`;
+            }
+        }
+
+        if (remaining <= 0) {
+            clearInterval(poisonEffect.interval);
+            removePoisonTimer(timerId);
+        }
+    }, 100);
+
+    poisonEffect.timeout = setTimeout(() => {
+        removePoisonTimer(timerId);
+    }, poisonEffect.duration + 500);
+
+    setTimeout(() => {
+        timerElement.style.opacity = '1';
+        timerElement.style.transform = 'translateY(0)';
+    }, 10);
+}
+
+function removePoisonTimer(timerId) {
+    const timerElement = document.getElementById(timerId);
+    if (timerElement) {
+        timerElement.style.opacity = '0';
+        timerElement.style.transform = 'translateY(-20px)';
+        setTimeout(() => timerElement.remove(), 500);
+    }
+
+    gameState.activeEffects.poison = gameState.activeEffects.poison.filter(effect => {
+        if (effect.id === timerId) {
+            clearInterval(effect.interval);
+            clearTimeout(effect.timeout);
+            return false;
+        }
+        return true;
+    });
+
+    if (gameState.inBattle) {
+        createTalentButtons();
+    }
+}
+
+function updatePoisonTimers() {
+    const activeEffects = gameState.activeEffects.poison;
+    const timerContainer = document.getElementById('poisonTimersContainer');
+    if (!timerContainer) return;
+
+    const currentTime = Date.now();
+
+    activeEffects.forEach(effect => {
+        const remaining = Math.ceil((effect.duration - (currentTime - effect.startTime)) / 1000);
+        if (remaining > 0) {
+            showPoisonTimer(remaining);
+        }
+    });
+}

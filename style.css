@@ -1122,3 +1122,22 @@ box-sizing: border-box;
   #battleResultPopup .defeat-title {
       text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
   }
+
+  /* Добавьте в ваш CSS файл */
+  .poison-timers {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 1000;
+  }
+
+  .poison-timer {
+    /* Существующие стили остаются */
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 15px;
+    border-radius: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
