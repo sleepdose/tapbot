@@ -727,38 +727,58 @@ function updateTalentBuyTab() {
 // =================== ОБНОВЛЕНИЕ ПОПАПА РЕЗУЛЬТАТОВ ===================
 function updateResultPopup() {
     if (!gameState.battleResult) return;
+
     const resultTitle = document.getElementById('resultTitle');
-        const resultBossImage = document.getElementById('resultBossImage');
-        const rewardHoney = document.getElementById('rewardHoney');
-        const rewardXP = document.getElementById('rewardXP');
-        const rewardKeys = document.getElementById('rewardKeys');
-        const claimBtn = document.getElementById('claimRewardButton');
-        const closeBtn = document.getElementById('closeResultButton');
+    const resultBossImage = document.getElementById('resultBossImage');
+    const rewardHoney = document.getElementById('rewardHoney');
+    const rewardXP = document.getElementById('rewardXP');
+    const rewardKeys = document.getElementById('rewardKeys');
+    const claimBtn = document.getElementById('claimRewardButton');
+    const closeBtn = document.getElementById('closeResultButton');
 
-        const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
+    const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
+    const reward = gameState.battleResult.reward;
 
-        // Устанавливаем правильное изображение
-        resultBossImage.src = gameState.battleResult.victory
-            ? bossConfig.image
-            : bossConfig.defeatImage;
+    // Установка изображения босса
+    resultBossImage.src = gameState.battleResult.victory
+        ? bossConfig.defeatImage
+        : bossConfig.image;
 
-        // Управляем классами
-        resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
+    // Установка стилей для результата
+    if (gameState.battleResult.victory) {
+        resultTitle.textContent = "ПОБЕДА!";
+        resultTitle.style.color = "#4CAF50";
+        claimBtn.style.display = 'block';
+        closeBtn.style.display = 'none';
 
-        // Устанавливаем текст и стили
-        if (gameState.battleResult.victory) {
-            resultTitle.textContent = "ПОБЕДА!";
-            resultTitle.style.color = "#4CAF50";
-            claimBtn.style.display = 'block';
-            closeBtn.style.display = 'none';
-        } else {
-            resultTitle.textContent = "ПОРАЖЕНИЕ";
-            resultTitle.style.color = "#f44336";
-            claimBtn.style.display = 'none';
-            closeBtn.style.display = 'block';
+        // Обновление данных наград
+        if (reward) {
+            rewardHoney.textContent = reward.honey;
+            rewardXP.textContent = reward.xp;
+
+            // Обработка ключей
+            const keys = Object.entries(reward.keys || {})
+                .map(([type, amount]) => amount)
+                .reduce((a, b) => a + b, 0);
+
+            rewardKeys.textContent = keys > 0 ? keys : '0';
         }
+    } else {
+        resultTitle.textContent = "ПОРАЖЕНИЕ";
+        resultTitle.style.color = "#f44336";
+        claimBtn.style.display = 'none';
+        closeBtn.style.display = 'block';
+
+        // Сброс значений наград при поражении
+        rewardHoney.textContent = '0';
+        rewardXP.textContent = '0';
+        rewardKeys.textContent = '0';
     }
 
+    // Анимация изображения босса
+    resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
+    resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
+}
 // =================== ОБРАБОТЧИКИ КНОПОК ===================
 document.getElementById('claimRewardButton').addEventListener('click', () => {
     if (gameState.battleResult?.reward) {
