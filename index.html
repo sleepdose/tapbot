@@ -79,7 +79,7 @@
 
                         <div class="boss-card" data-boss="dragon">
                             <div class="boss-image-container">
-                                <img src="img/dragon.jpg" class="boss-img" alt="Дракон">
+                                <img loading="lazy" src="img/dragon.jpg" class="boss-img" alt="Дракон">
                             </div>
                             <div class="boss-requirements">
                                 🔑 <span class="current-keys" data-boss="dragon">0</span>/3
@@ -266,40 +266,39 @@
     </nav>
     <!-- ▼▼▼ Код попапа результатов ▼▼▼ -->
     <div id="battleResultPopup" class="popup">
-      <div class="popup-scroll-wrapper">
+    <div class="popup-scroll-wrapper">
         <div class="popup-content">
-          <div class="popup-header">
-            <h2 id="resultTitle">Результат боя</h2>
-            <button class="close">×</button>
-          </div>
-
-          <div class="result-body">
-            <img id="resultBossImage" class="result-boss-img" alt="Босс">
-
-            <div id="victoryReward" class="reward-section">
-              <div class="reward-item">
-                <span>🍯</span>
-                <span id="rewardHoney">0</span>
-              </div>
-              <div class="reward-item">
-                <span>⭐</span>
-                <span id="rewardXP">0</span>
-              </div>
-              <div class="reward-item">
-                <span>🔑</span>
-                <span id="rewardKeys">0</span>
-              </div>
+            <div class="popup-header">
+                <h2 id="resultTitle">Результат боя</h2>
+                <button class="close">×</button>
             </div>
 
-            <div class="result-actions">
-    <!-- Только одна кнопка будет видна в зависимости от исхода -->
-    <button id="claimRewardButton" class="btn victory-btn">Получить награду</button>
-    <button id="closeResultButton" class="btn defeat-btn">Выйти</button>
-  </div>
-                  </div>
-              </div>
-          </div>
-      </div>
-      <script src="script.js"></script>
-      </body>
+            <div class="result-body">
+                <img id="resultBossImage" class="result-boss-img" alt="Босс">
+
+                <div id="victoryReward" class="reward-section">
+                    <div class="reward-item">
+                        <span>🍯</span>
+                        <span id="rewardHoney">0</span>
+                    </div>
+                    <div class="reward-item">
+                        <span>⭐</span>
+                        <span id="rewardXP">0</span>
+                    </div>
+                    <div class="reward-item">
+                        <span>🔑</span>
+                        <span id="rewardKeys">0</span>
+                    </div>
+                </div>
+
+                <div class="result-actions">
+                    <button id="claimRewardButton" class="btn victory-btn">Получить награду</button>
+                    <button id="closeResultButton" class="btn defeat-btn">Выйти</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="script.js"></script>
+</body>
 </html>

@@ -1103,3 +1103,22 @@ box-sizing: border-box;
       transform 0.3s ease;
   transform-origin: center;
   }
+  /* Стили для изображения при поражении */
+  .defeat-image {
+      filter: grayscale(80%) brightness(0.6);
+      border: 3px solid #ff0000;
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+      animation: defeat-pulse 2s infinite;
+  }
+
+  /* Анимация пульсации */
+  @keyframes defeat-pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.98); }
+      100% { transform: scale(1); }
+  }
+
+  /* Стиль для текста поражения */
+  #battleResultPopup .defeat-title {
+      text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+  }

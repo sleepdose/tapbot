@@ -35,7 +35,8 @@ const gameConfig = {
             honeyReward: 1000,
             xpReward: 200,
             keyReward: { type: 'bear', amount: 1 },
-            image: 'img/wasp.jpg'
+            image: 'img/wasp.jpg',
+            defeatImage: 'img/wasp_kill.jpg'
         },
         bear: {
             health: 1000,
@@ -44,7 +45,8 @@ const gameConfig = {
             requiredKeys: 3,
             keyReward: { type: 'dragon', amount: 1 },
             xpReward: 500,
-            image: 'img/bear.jpg'
+            image: 'img/bear.jpg',
+            defeatImage: 'img/bear_kill.jpg'
         },
         dragon: {
             health: 2500,
@@ -52,7 +54,8 @@ const gameConfig = {
             honeyReward: 5000,
             requiredKeys: 3,
             xpReward: 1500,
-            image: 'img/dragon.jpg'
+            image: 'img/dragon.jpg',
+            defeatImage: 'img/dragon_kill.jpg'
         }
     },
     hivePrices: { golden: 1500, crystal: 3000, inferno: 4500 },
@@ -712,33 +715,37 @@ function endBattle(victory) {
 // =================== ОБНОВЛЕНИЕ ПОПАПА РЕЗУЛЬТАТОВ ===================
 function updateResultPopup() {
     if (!gameState.battleResult) return;
-
     const resultTitle = document.getElementById('resultTitle');
-    const resultBossImage = document.getElementById('resultBossImage');
-    const rewardHoney = document.getElementById('rewardHoney');
-    const rewardXP = document.getElementById('rewardXP');
-    const rewardKeys = document.getElementById('rewardKeys');
-    const claimBtn = document.getElementById('claimRewardButton');
-    const closeBtn = document.getElementById('closeResultButton');
+        const resultBossImage = document.getElementById('resultBossImage');
+        const rewardHoney = document.getElementById('rewardHoney');
+        const rewardXP = document.getElementById('rewardXP');
+        const rewardKeys = document.getElementById('rewardKeys');
+        const claimBtn = document.getElementById('claimRewardButton');
+        const closeBtn = document.getElementById('closeResultButton');
 
-    if (gameState.battleResult.victory) {
-        resultTitle.textContent = "ПОБЕДА!";
-        resultBossImage.src = gameState.battleResult.boss.image;
-        rewardHoney.textContent = gameState.battleResult.reward.honey;
-        rewardXP.textContent = gameState.battleResult.reward.xp;
+        const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
 
-        const keys = gameState.battleResult.reward?.keys || {};
-        const totalKeys = Object.values(keys).reduce((a, b) => a + b, 0);
-        rewardKeys.textContent = totalKeys;
+        // Устанавливаем правильное изображение
+        resultBossImage.src = gameState.battleResult.victory
+            ? bossConfig.image
+            : bossConfig.defeatImage;
 
-        claimBtn.style.display = 'block';
-        closeBtn.style.display = 'none';
-    } else {
-        resultTitle.textContent = "ПОРАЖЕНИЕ";
-        claimBtn.style.display = 'none';
-        closeBtn.style.display = 'block';
+        // Управляем классами
+        resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
+
+        // Устанавливаем текст и стили
+        if (gameState.battleResult.victory) {
+            resultTitle.textContent = "ПОБЕДА!";
+            resultTitle.style.color = "#4CAF50";
+            claimBtn.style.display = 'block';
+            closeBtn.style.display = 'none';
+        } else {
+            resultTitle.textContent = "ПОРАЖЕНИЕ";
+            resultTitle.style.color = "#f44336";
+            claimBtn.style.display = 'none';
+            closeBtn.style.display = 'block';
+        }
     }
-}
 
 // =================== ОБРАБОТЧИКИ КНОПОК ===================
 document.getElementById('claimRewardButton').addEventListener('click', () => {
