@@ -902,24 +902,18 @@ function updateUI(changedKeys = ['all']) {
             }
         },
         talents: () => {
-            const basicLevelElem = document.getElementById('basicLevel');
-            const basicDmgElem = document.getElementById('basicDmg');
-            if (basicLevelElem) basicLevelElem.textContent = gameState.talents.basic.level;
-            if (basicDmgElem) basicDmgElem.textContent = gameState.talents.basic.damage;
-
-            const critLevelElem = document.getElementById('critLevel');
-            const critChanceElem = document.getElementById('critChanceUpgrade');
-            if (critLevelElem) critLevelElem.textContent = gameState.talents.critical.level;
-            if (critChanceElem) {
-                critChanceElem.textContent = Math.round(gameState.talents.critical.chance * 100);
-            }
-
-            const poisonLevelElem = document.getElementById('poisonLevel');
-            const poisonDmgElem = document.getElementById('poisonDmgUpgrade');
-            if (poisonLevelElem) poisonLevelElem.textContent = gameState.talents.poison.level;
-            if (poisonDmgElem) poisonDmgElem.textContent = gameState.talents.poison.damage;
-            }
+            updateTalentUI('basic', 'basicLevel', 'basicDmg');
+            updateTalentUI('critical', 'critLevel', 'critChanceUpgrade');
+            updateTalentUI('poison', 'poisonLevel', 'poisonDmgUpgrade');
+        }
     };
+
+    function updateTalentUI(talentType, levelElementId, statElementId) {
+        const levelElem = document.getElementById(levelElementId);
+        const statElem = document.getElementById(statElementId);
+        if (levelElem) levelElem.textContent = gameState.talents[talentType].level;
+        if (statElem) statElem.textContent = gameState.talents[talentType][talentType === 'critical' ? 'chance' : 'damage'];
+    }
 
     if (changedKeys.includes('all')) {
         Object.values(updates).forEach(update => update());
@@ -934,7 +928,6 @@ function updateUI(changedKeys = ['all']) {
 
     updateLevelProgress();
 }
-
 // =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
 function showLevelUpEffect(levels) {
     const div = document.createElement('div');
@@ -985,10 +978,20 @@ function showPopup(popupType) {
     if (popup) {
         popup.classList.add('active');
         document.body.style.overflow = 'hidden';
+
+        // Активируем первую вкладку магазина
+        if (popupType === 'shop') {
+            document.querySelector('#shopPopup .tab-btn[data-tab="hives"]').click();
+        }
+
+        // Активируем первую вкладку талантов
+        if (popupType === 'talents') {
+            document.querySelector('#talentsPopup .tab-btn[data-tab="buyCharges"]').click();
+        }
+
         if (popupType === 'battleResult') updateResultPopup();
     }
 }
-
 function hidePopup(type) {
     const popup = document.getElementById(`${type}Popup`);
     if (popup) {
