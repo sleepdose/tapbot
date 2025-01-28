@@ -51,9 +51,29 @@ const gameConfig = {
             time: 120,
             honeyReward: 5000,
             requiredKeys: 3,
+            keyReward: { type: 'hydra', amount: 1 },
             xpReward: 1500,
             image: 'img/dragon.jpg',
             defeatImage: 'img/dragon_kill.jpg'
+        },
+        hydra: {
+            health: 4000,
+            time: 150,
+            honeyReward: 7500,
+            requiredKeys: 3,
+            keyReward: { type: 'kraken', amount: 1 },
+            xpReward: 2500,
+            image: 'img/hydra.jpg',
+            defeatImage: 'img/hydra_kill.jpg'
+        },
+        kraken: {
+            health: 6000,
+            time: 180,
+            honeyReward: 10000,
+            requiredKeys: 3,
+            xpReward: 4000,
+            image: 'img/kraken.jpg',
+            defeatImage: 'img/kraken_kill.jpg'
         }
     },
     hivePrices: { golden: 1500, crystal: 3000, inferno: 4500 },
@@ -76,7 +96,7 @@ class GameState {
             crystal: 'https://cdn.pixabay.com/photo/2016/09/10/13/28/diamond-1659283_1280.png',
             inferno: 'https://cdn.pixabay.com/photo/2013/07/13/12/35/flame-160034_1280.png'
         };
-        this.keys = { bear: 0, dragon: 0 };
+        this.keys = { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
         this.attackCharges = {
             basic: { charges: 10, basePrice: 50 },
             critical: { charges: 10, basePrice: 75 },
@@ -91,7 +111,7 @@ class GameState {
     }
 
     reset() {
-        this.honey = 10000;
+        this.honey = 100000;
         this.xp = 0;
         this.level = 1;
         this.energy = 100;
