@@ -612,7 +612,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
     cursor: pointer;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    min-width: 120px;
     position: relative;
     overflow: hidden;
 }
