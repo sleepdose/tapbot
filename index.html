@@ -238,53 +238,92 @@
     </div>
 
     <!-- Попап талантов -->
-    <div id="talentsPopup" class="popup">
-        <div class="popup-scroll-wrapper">
-            <div class="popup-content">
-                <div class="popup-header">
-                    <h2>Таланты</h2>
-                    <button class="close">×</button>
+<div id="talentsPopup" class="popup">
+    <div class="popup-scroll-wrapper">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h2>Таланты</h2>
+                <button class="close">×</button>
+            </div>
+
+            <!-- Вкладки -->
+            <div class="talent-tabs">
+                <button data-tab="buyCharges" class="tab-btn active">Купить</button>
+                <button data-tab="upgradeTalents" class="tab-btn">Улучшить</button>
+                <button data-tab="crafting" class="tab-btn">Крафтинг</button>
+            </div>
+
+            <!-- Контейнеры контента -->
+            <div id="buyCharges" class="shop-tab active">
+                <!-- Покупка зарядов (существующий контент) -->
+                <div class="attack-charge-item">
+                    <div>
+                        <h3>Базовый удар</h3>
+                        <span class="charge-counter">15 шт</span>
+                    </div>
+                    <button class="btn" data-type="basic">50</button>
                 </div>
-                <div class="talent-tabs">
-                    <button data-tab="buyCharges" class="tab-btn active">Купить атаки</button>
-                    <button data-tab="upgradeTalents" class="tab-btn">Улучшить</button>
+                <div class="attack-charge-item">
+                    <div>
+                        <h3>Критический удар</h3>
+                        <span class="charge-counter">15 шт</span>
+                    </div>
+                    <button class="btn" data-type="critical">75</button>
                 </div>
-                <div id="buyCharges" class="shop-tab active"></div>
-                <div id="upgradeTalents" class="shop-tab">
-                    <div class="talent" data-talent="basic">
-                        <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">0</span>)</h3>
-                        <div class="talent-info">
-                            <span class="stat">📈 Урон: <span id="basicDmg">19</span></span>
-                            <span class="stat">💸 Стоимость: <span id="basicUpgradeCost">75</span></span>
-                        </div>
-                        <div class="button-wrapper">
-                            <button class="btn">Улучшить</button>
-                        </div>
+                <div class="attack-charge-item">
+                    <div>
+                        <h3>Ядовитый удар</h3>
+                        <span class="charge-counter">15 шт</span>
                     </div>
-                    <div class="talent" data-talent="critical">
-                        <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>)</h3>
-                        <div class="talent-info">
-                            <span class="stat">📈 Шанс: <span id="critChanceUpgrade">0</span>%</span>
-                            <span class="stat">💸 Стоимость: <span id="critUpgradeCost">150</span></span>
-                        </div>
-                        <div class="button-wrapper">
-                            <button class="btn">Улучшить</button>
-                        </div>
+                    <button class="btn" data-type="poison">100</button>
+                </div>
+            </div>
+
+            <div id="upgradeTalents" class="shop-tab">
+                <!-- Улучшение талантов -->
+                <div class="talent" data-talent="basic">
+                    <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">0</span>)</h3>
+                    <div class="talent-info">
+                        <span class="stat">📈 Урон: <span id="basicDmg">19</span></span>
+                        <span class="stat">💸 Стоимость: <span id="basicUpgradeCost">75</span></span>
                     </div>
-                    <div class="talent" data-talent="poison">
-                        <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>)</h3>
-                        <div class="talent-info">
-                            <span class="stat">📈 Урон: <span id="poisonDmgUpgrade">0</span>/сек</span>
-                            <span class="stat">💸 Стоимость: <span id="poisonUpgradeCost">200</span></span>
-                        </div>
-                        <div class="button-wrapper">
-                            <button class="btn">Улучшить</button>
-                        </div>
+                    <div class="button-wrapper">
+                        <button class="btn">Улучшить</button>
                     </div>
+                </div>
+
+                <div class="talent" data-talent="critical">
+                    <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>)</h3>
+                    <div class="talent-info">
+                        <span class="stat">📈 Шанс: <span id="critChanceUpgrade">0</span>%</span>
+                        <span class="stat">💸 Стоимость: <span id="critUpgradeCost">150</span></span>
+                    </div>
+                    <div class="button-wrapper">
+                        <button class="btn">Улучшить</button>
+                    </div>
+                </div>
+
+                <div class="talent" data-talent="poison">
+                    <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>)</h3>
+                    <div class="talent-info">
+                        <span class="stat">📈 Урон: <span id="poisonDmgUpgrade">0</span>/сек</span>
+                        <span class="stat">💸 Стоимость: <span id="poisonUpgradeCost">200</span></span>
+                    </div>
+                    <div class="button-wrapper">
+                        <button class="btn">Улучшить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Новая вкладка крафтинга -->
+            <div id="crafting" class="shop-tab">
+                
+                
                 </div>
             </div>
         </div>
     </div>
+</div>
 
     <!-- Попап персонажа -->
     <div id="hivesPopup" class="popup">
