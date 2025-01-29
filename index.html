@@ -30,32 +30,41 @@
         </div>
     </div>
 
-    <!-- Попап битв -->
     <div id="battlePopup" class="popup">
-        <div class="popup-scroll-wrapper">
-            <div class="popup-content">
-                <div class="popup-header">
-                    <h2>Битвы</h2>
-                    <button class="close">×</button>
-                </div>
-                <div class="battle-container">
-                    <div id="bossSelection">
-                        <div class="boss-card" data-boss="wasp">
-                            <div class="boss-image-container">
-                                <img loading="lazy" src="img/wasp.jpg" class="boss-img" alt="Оса">
-                            </div>
-                            <div class="boss-stats">
-                                <div class="stat-item">❤️ <span class="stat-value">500 HP</span></div>
-                                <div class="stat-item">⏳ <span class="stat-value">60 сек</span></div>
-                            </div>
-                            <div class="boss-reward">
-                                <div class="reward-title">Награда:</div>
-                                <div class="reward-content">
-                                    1000<br>
-                                    +200 XP
-                                </div>
+    <div class="popup-scroll-wrapper">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h2>Битвы</h2>
+                <button class="close">×</button>
+            </div>
+            <!-- Кнопки для фильтрации боссов по сложности -->
+            <div class="battle-container">
+                                <div id="bossSelection">
+            <div class="difficulty-tabs">
+                <button data-difficulty="easy" class="tab-btn active">Легкие</button>
+                <button data-difficulty="medium" class="tab-btn">Средние</button>
+                <button data-difficulty="hard" class="tab-btn">Сложные</button>
+            </div>
+            <!-- Контейнеры для боссов по сложности -->
+            <div class="boss-container">
+                <div id="easyBosses" class="boss-selection active">
+                    <!-- Легкие боссы: Оса, Медведь, Дракон -->
+                    <div class="boss-card" data-boss="wasp">
+                        <div class="boss-image-container">
+                            <img loading="lazy" src="img/wasp.jpg" class="boss-img" alt="Оса">
+                        </div>
+                        <div class="boss-stats">
+                            <div class="stat-item">❤️ <span class="stat-value">500 HP</span></div>
+                            <div class="stat-item">⏳ <span class="stat-value">60 сек</span></div>
+                        </div>
+                        <div class="boss-reward">
+                            <div class="reward-title">Награда:</div>
+                            <div class="reward-content">
+                                1000<br>
+                                +200 XP
                             </div>
                         </div>
+                    </div>
 
                         <div class="boss-card" data-boss="bear">
                             <div class="boss-image-container">
@@ -94,9 +103,10 @@
                                     5000<br>
                                     +1500 XP
                                 </div>
+                                </div>
                             </div>
                         </div>
-                        
+                          <div id="mediumBosses" class="boss-selection">
                            <div class="boss-card" data-boss="hydra">
                             <div class="boss-image-container">
                                 <img loading="lazy" src="img/hydra.jpg" class="boss-img" alt="Гидра">
@@ -116,7 +126,8 @@
                                 </div>
                             </div>
                         </div>
-                        
+                        </div>
+                           <div id="hardBosses" class="boss-selection">
                            <div class="boss-card" data-boss="kraken">
                             <div class="boss-image-container">
                                 <img loading="lazy" src="img/kraken.jpg" class="boss-img" alt="Кракен">
@@ -137,7 +148,9 @@
                             </div>
                         </div>
                     </div>
-
+                    </div>
+</div>
+</div>
                     <div id="combatScreen" class="combat-screen" style="display: none;">
                         <div class="combat-header">
                             <img id="bossCombatImage" src="" class="boss-image" alt="Босс">

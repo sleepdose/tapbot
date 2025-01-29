@@ -201,6 +201,16 @@ function initGame() {
     document.querySelectorAll('.close').forEach(btn => {
         btn.addEventListener('click', hideAllPopups);
     });
+    document.querySelectorAll('.difficulty-tabs .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const difficulty = btn.dataset.difficulty;
+            document.querySelectorAll('.difficulty-tabs .tab-btn, .boss-selection').forEach(el => {
+                el.classList.remove('active');
+            });
+            btn.classList.add('active');
+            document.getElementById(`${difficulty}Bosses`).classList.add('active');
+        });
+    });
 
     const shopTabs = document.querySelector('.shop-tabs');
     if (shopTabs) {
@@ -492,7 +502,6 @@ function startBattle(bossType) {
         maxHealth: boss.health,
         type: bossType
     };
-
     document.getElementById('bossSelection').style.display = 'none';
     elements.combatScreen.style.display = 'block';
     elements.bossCombatImage.src = boss.image;
