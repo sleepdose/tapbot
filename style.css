@@ -597,7 +597,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
 
 .shop-tab.active {
     display: block;
-    flex-direction: column;
     animation: fadeIn 0.3s ease;
     gap: 15px;
 }
@@ -829,10 +828,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
 
     .popup {
         border-radius: 0;
-    }
-
-    .shop-tabs {
-        flex-direction: column;
     }
 
     .hive-selector {
