@@ -1194,3 +1194,7 @@ box-sizing: border-box;
 .boss-selection.active {
     display: block;
 }
+.click-area {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
