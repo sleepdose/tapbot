@@ -43,10 +43,15 @@ body {
 }
 /* Основной контейнер */
 .boss-card {
+    transition: transform 0.3s, box-shadow 0.3s;
     border: 2px solid var(--color-accent);
     background: var(--color-dark-alpha);
     padding: 15px;
     margin: 1rem 0;
+}
+.boss-card:active {
+    transform: scale(0.98);
+    box-shadow: 0 0 15px var(--accent);
 }
 
 /* Горизонтальное выравнивание элементов */
