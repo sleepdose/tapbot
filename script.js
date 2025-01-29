@@ -51,7 +51,6 @@ const gameConfig = {
             time: 120,
             honeyReward: 5000,
             requiredKeys: 3,
-            keyReward: { type: 'hydra', amount: 1 },
             xpReward: 1500,
             image: 'img/dragon.jpg',
             defeatImage: 'img/dragon_kill.jpg'
@@ -60,9 +59,8 @@ const gameConfig = {
             health: 4000,
             time: 150,
             honeyReward: 7500,
-            requiredKeys: 3,
-            keyReward: { type: 'kraken', amount: 1 },
             xpReward: 2500,
+            requiredLevel: 15,
             image: 'img/hydra.jpg',
             defeatImage: 'img/hydra_kill.jpg'
         },
@@ -70,8 +68,8 @@ const gameConfig = {
             health: 6000,
             time: 180,
             honeyReward: 10000,
-            requiredKeys: 3,
             xpReward: 4000,
+            requiredLevel: 15,
             image: 'img/kraken.jpg',
             defeatImage: 'img/kraken_kill.jpg'
         }
@@ -96,7 +94,7 @@ class GameState {
             crystal: 'https://cdn.pixabay.com/photo/2016/09/10/13/28/diamond-1659283_1280.png',
             inferno: 'https://cdn.pixabay.com/photo/2013/07/13/12/35/flame-160034_1280.png'
         };
-        this.keys = { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
+        this.keys = { bear: 0, dragon: 0 };
         this.attackCharges = {
             basic: { charges: 10, basePrice: 50 },
             critical: { charges: 10, basePrice: 75 },
@@ -482,6 +480,19 @@ function upgradeTalent(talentType) {
 
 // =================== БОЕВАЯ СИСТЕМА ===================
 function startBattle(bossType) {
+    const bossConfig = gameConfig.bosses[bossType];
+    if (!bossConfig) return;
+
+    // Проверка уровня для Hydra и Kraken
+    if (bossType === 'hydra' && gameState.level < 15) {
+        showMessage('Для сражения с Hydra требуется уровень 15!');
+        return;
+    }
+    if (bossType === 'kraken' && gameState.level < 30) {
+        showMessage('Для сражения с Kraken требуется уровень 30!');
+        return;
+    }
+
     if (bossType !== 'wasp' && gameState.keys[bossType] < 3) {
         showMessage(`Нужно 3 ключа! У вас: ${gameState.keys[bossType]}`);
         return;
@@ -492,35 +503,53 @@ function startBattle(bossType) {
         gameState.updateKeysDisplay();
     }
 
-    if (!gameConfig.bosses[bossType] || gameState.inBattle) return;
+    if (gameState.inBattle) return;
 
     gameState.inBattle = true;
-    const boss = gameConfig.bosses[bossType];
     gameState.currentBoss = {
-        ...boss,
-        currentHealth: boss.health,
-        maxHealth: boss.health,
+        ...bossConfig,
+        currentHealth: bossConfig.health,
+        maxHealth: bossConfig.health,
         type: bossType
     };
-    document.getElementById('bossSelection').style.display = 'none';
-    elements.combatScreen.style.display = 'block';
-    elements.bossCombatImage.src = boss.image;
-    elements.battleReward.style.display = 'none';
-    document.getElementById('backToBossSelection').style.display = 'none';
 
-    elements.bossHealth.style.transition = 'none';
-    elements.bossHealth.style.width = '100%';
-    elements.currentHealth.textContent = boss.health;
-    elements.maxHealth.textContent = boss.health;
-    elements.combatTimer.textContent = boss.time;
+    const bossSelection = document.getElementById('bossSelection');
+    if (bossSelection) bossSelection.style.display = 'none';
+
+    const combatScreen = document.getElementById('combatScreen');
+    if (combatScreen) combatScreen.style.display = 'block';
+
+    const bossCombatImage = document.getElementById('bossCombatImage');
+    if (bossCombatImage) bossCombatImage.src = bossConfig.image;
+
+    const battleReward = document.getElementById('battleReward');
+    if (battleReward) battleReward.style.display = 'none';
+
+    const backToBossSelection = document.getElementById('backToBossSelection');
+    if (backToBossSelection) backToBossSelection.style.display = 'none';
+
+    const bossHealth = document.getElementById('bossHealth');
+    if (bossHealth) {
+        bossHealth.style.transition = 'none';
+        bossHealth.style.width = '100%';
+    }
+
+    const currentHealth = document.getElementById('currentHealth');
+    if (currentHealth) currentHealth.textContent = bossConfig.health;
+
+    const maxHealth = document.getElementById('maxHealth');
+    if (maxHealth) maxHealth.textContent = bossConfig.health;
+
+    const combatTimer = document.getElementById('combatTimer');
+    if (combatTimer) combatTimer.textContent = bossConfig.time;
 
     setTimeout(() => {
-        elements.bossHealth.style.transition = 'width 0.3s';
+        if (bossHealth) bossHealth.style.transition = 'width 0.3s';
         updateCombatUI(true);
     }, 50);
 
     createTalentButtons();
-    startBattleTimer(boss.time);
+    startBattleTimer(bossConfig.time);
 }
 
 function createTalentButtons() {
@@ -793,7 +822,8 @@ function updateResultPopup() {
     const claimBtn = document.getElementById('claimRewardButton');
     const closeBtn = document.getElementById('closeResultButton');
 
-    const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
+    if (!gameState.battleResult || !gameState.battleResult.boss) return;
+const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
     const reward = gameState.battleResult.reward;
 
     // Установка изображения босса
