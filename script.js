@@ -69,7 +69,7 @@ const gameConfig = {
             time: 180,
             honeyReward: 10000,
             xpReward: 4000,
-            requiredLevel: 15,
+            requiredLevel: 30,
             image: 'img/kraken.jpg',
             defeatImage: 'img/kraken_kill.jpg'
         }
