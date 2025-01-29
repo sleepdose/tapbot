@@ -1203,3 +1203,46 @@ box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
 }
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #1a1a1a;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s;
+}
+
+.loader {
+    width: 200px;
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #333;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #FFD700, #FFAA00);
+    transition: width 0.3s ease;
+}
+
+.percentage {
+    margin-top: 10px;
+    color: #FFD700;
+    font-size: 1.2em;
+}
+
+#gameScreen {
+    display: none; /* Скрыть игру до загрузки */
+}
