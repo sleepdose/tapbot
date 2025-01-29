@@ -96,9 +96,9 @@ class GameState {
         };
         this.keys = { bear: 0, dragon: 0 };
         this.attackCharges = {
-            basic: { charges: 10, basePrice: 50 },
-            critical: { charges: 10, basePrice: 75 },
-            poison: { charges: 10, basePrice: 100 }
+            basic: { charges: 15, basePrice: 50 },
+            critical: { charges: 15, basePrice: 75 },
+            poison: { charges: 15, basePrice: 100 }
         };
         this.hiveBonuses = {
             golden: { attackSpeed: 1.15 },
