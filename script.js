@@ -1,83 +1,3 @@
-// =================== ПРЕЛОАДЕР ===================
-function initPreloader() {
-    const assets = [];
-    let loaded = 0;
-
-    // 1. Собираем ВСЕ ресурсы
-    // Изображения из HTML
-    document.querySelectorAll('img').forEach(img => {
-        assets.push({
-            type: 'image',
-            src: img.src,
-            promise: new Promise((resolve, reject) => {
-                if (img.complete) resolve();
-                else {
-                    img.addEventListener('load', resolve);
-                    img.addEventListener('error', () => {
-                        console.error('Error loading:', img.src);
-                        resolve(); // Продолжаем даже при ошибках
-                    });
-                }
-            })
-        });
-    });
-
-    // 2. Добавляем шрифты
-    const fontsPromise = document.fonts.ready.then(() => {
-        console.log('Fonts loaded');
-        return 'fonts';
-    }).catch(() => 'fonts-error');
-    assets.push({ type: 'fonts', promise: fontsPromise });
-
-    // 3. Общий прогресс
-    const total = assets.length;
-    console.log('Total assets to load:', total);
-
-    function updateProgress() {
-        loaded++;
-        const percent = Math.round((loaded / total) * 100);
-        console.log(`Progress: ${percent}% (${loaded}/${total})`);
-        
-        document.querySelector('.progress').style.width = `${percent}%`;
-        document.querySelector('.percentage').textContent = `${percent}%`;
-
-        if (loaded >= total) {
-            console.log('All assets loaded');
-            hidePreloader();
-        }
-    }
-
-    // 4. Запускаем загрузку
-    assets.forEach(asset => {
-        asset.promise
-            .then(() => {
-                console.log(`Loaded: ${asset.type}${asset.src ? ' - ' + asset.src : ''}`);
-                updateProgress();
-            })
-            .catch(error => {
-                console.error(`Error loading ${asset.type}:`, error);
-                updateProgress();
-            });
-    });
-
-    // 5. На случай зависания - форсированное завершение через 5 сек
-    const safetyTimer = setTimeout(() => {
-        console.warn('Forcing preloader completion after timeout');
-        hidePreloader();
-    }, 5000);
-
-    function hidePreloader() {
-        clearTimeout(safetyTimer);
-        document.getElementById('preloader').style.opacity = '0';
-        setTimeout(() => {
-            document.getElementById('preloader').remove();
-            document.getElementById('gameScreen').style.display = 'block';
-            console.log('Initializing game...');
-            initGame();
-        }, 500);
-    }
-}
-
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
@@ -1280,10 +1200,9 @@ document.getElementById('backToBossSelection').addEventListener('click', () => {
     document.getElementById('combatScreen').style.display = 'none';
 });
 
-// Новый код
 window.addEventListener('DOMContentLoaded', () => {
-    initPreloader(); // Запускаем прелоадер
-    document.getElementById('gameScreen').style.display = 'none'; // Гарантированно скрываем игру
+    document.getElementById('gameScreen').style.display = 'block';
+    initGame(); // ← Вот этот вызов нужно убрать
 });
 
 document.querySelector('#shopPopup .shop-tabs').addEventListener('click', e => {
