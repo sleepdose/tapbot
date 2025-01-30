@@ -826,11 +826,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
         flex-direction: row;
         align-items: center;
     }
-
-    .stat {
-        max-width: 300px;
-    }
-
     .popup {
         border-radius: 0;
     }
