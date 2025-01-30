@@ -264,6 +264,11 @@ function startEnergyRecovery() {
 
 function initTalentBuyTab() {
     const container = document.getElementById('buyCharges');
+    if (!container) return;
+
+    // Очищаем контейнер перед добавлением новых элементов
+    container.innerHTML = '';
+
     Object.entries(gameState.attackCharges).forEach(([type, data]) => {
         const item = document.createElement('div');
         item.className = 'attack-charge-item';
