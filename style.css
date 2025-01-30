@@ -827,7 +827,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
         align-items: center;
     }
     .popup {
-        border-radius: 0;
+        border-radius: 30px;
     }
 
     .hive-selector {
