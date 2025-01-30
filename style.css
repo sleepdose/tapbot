@@ -1201,3 +1201,14 @@ box-sizing: border-box;
 .click-area {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+}
+.close {
+   border: 1px solid transparent;
+   padding: .375rem .75rem;
+   font-size: 1rem;
+   line-height: 1.5;
+   border-radius: .25rem;
+   position:relative;
+   left: 350px;
+   top: 5px;
+ }
