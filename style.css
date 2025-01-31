@@ -1206,6 +1206,177 @@ box-sizing: border-box;
    line-height: 1.5;
    border-radius: .25rem;
    position:relative;
-   left: 330px;
+   left: 300px;
    top: 5px;
  }
+ /* Основной контейнер попапа */
+#hivesPopup .popup-content {
+    max-width: 800px;
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+/* Заголовок попапа */
+#hivesPopup .popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    padding-bottom: 15px;
+}
+
+#hivesPopup .popup-header h2 {
+    margin: 0;
+    font-size: 1.8em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Блок предпросмотра */
+.hive-preview {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+}
+
+.hive-preview-image {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 15px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 2px solid var(--secondary);
+    border-radius: 10px;
+}
+
+/* Сетка скинов */
+.hive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 20px;
+    padding: 10px;
+}
+
+/* Элемент скина */
+.hive-item {
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.hive-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* Заблокированный скин */
+.hive-item.locked {
+    opacity: 0.5;
+    filter: grayscale(80%);
+    cursor: not-allowed;
+}
+
+.hive-item.locked::after {
+    content: "🔒";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.5em;
+    filter: drop-shadow(0 0 2px black);
+}
+
+/* Выбранный для превью */
+.hive-item.selected {
+    border: 2px solid #f1c40f;
+    box-shadow: 0 0 15px rgba(241,196,15,0.3);
+}
+
+/* Миниатюра скина */
+.hive-thumbnail {
+    width: 100%;
+    height: 120px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    margin-bottom: 10px;
+    border-radius: 5px;
+}
+
+/* Информация о скине */
+.hive-info {
+    text-align: center;
+    font-size: 0.95em;
+}
+
+.hive-info span {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+/* Цена скина */
+.hive-price {
+    color: #f1c40f;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-shadow: 0 0 5px rgba(241,196,15,0.5);
+}
+
+/* Кнопка действия */
+#hiveActionButton {
+    margin-top: 20px;
+    width: 200px;
+    padding: 12px 20px;
+    font-size: 1.1em;
+    background: linear-gradient(to right, #27ae60, #219a52);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+#hiveActionButton:disabled {
+    background: linear-gradient(to right, #7f8c8d, #95a5a6);
+    cursor: not-allowed;
+}
+
+#hiveActionButton:not(:disabled):hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(39,174,96,0.5);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .hive-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+    }
+
+
+
+    #hiveActionButton {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    #hivesPopup .popup-content {
+        padding: 15px;
+    }
+
+    .hive-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .hive-thumbnail {
+        height: 100px;
+    }
+}

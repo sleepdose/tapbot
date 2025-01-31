@@ -182,31 +182,7 @@
                     <button class="close">×</button>
                 </div>
                 <div class="shop-tabs">
-                    <button data-tab="hives" class="tab-btn active">Скины</button>
                     <button data-tab="boosts" class="tab-btn">Бусты</button>
-                </div>
-                <div id="shopHives" class="shop-tab active">
-                    <div class="shop-item" data-type="golden">
-                        <h3>Aiko #2</h3>
-                        <p>+15% скорости атак</p>
-                        <div class="button-wrapper">
-                            <button class="btn">1500</button>
-                        </div>
-                    </div>
-                    <div class="shop-item" data-type="crystal">
-                        <h3>Aiko #3</h3>
-                        <p>+30% награды за бои</p>
-                        <div class="button-wrapper">
-                            <button class="btn">3000</button>
-                        </div>
-                    </div>
-                    <div class="shop-item" data-type="inferno">
-                        <h3>Aiko #4</h3>
-                        <p>+25 к урону огнем</p>
-                        <div class="button-wrapper">
-                            <button class="btn">4500</button>
-                        </div>
-                    </div>
                 </div>
                 <div id="shopBoosts" class="shop-tab">
                     <div class="shop-item" data-type="energy">
@@ -319,17 +295,33 @@
     </div>
 </div>
 
-    <!-- Попап персонажа -->
-    <div id="hivesPopup" class="popup">
-        <div class="popup-scroll-wrapper">
-            <div class="popup-content">
-                <div class="popup-header">
-                    <button class="close">×</button>
-                </div>
-                <div class="hive-selector"></div>
+<!-- Исправленный попап выбора скинов -->
+<div id="hivesPopup" class="popup">
+    <div class="popup-content">
+        <div class="popup-header">
+            <span class="close">&times;</span>
+        </div>
+
+        <div class="popup-body">
+            <!-- Блок предпросмотра -->
+            <div class="hive-preview">
+                <div id="selectedHiveImage" class="hive-preview-image"></div>
+                <h3 id="selectedHiveName"></h3>
+                <button id="hiveActionButton" class="btn big">
+                  </button>
+            </div>
+
+            <!-- Сетка скинов -->
+            <div class="hive-grid">
+                <!-- Скины будут добавляться через JS -->
             </div>
         </div>
     </div>
+</div>
+            </div>
+        </div>
+    </div>
+</div>
 
     <!-- Нижняя навигация -->
     <nav class="bottom-nav">
