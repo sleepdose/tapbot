@@ -1337,7 +1337,6 @@ box-sizing: border-box;
     width: 200px;
     padding: 12px 20px;
     font-size: 1.1em;
-    background: linear-gradient(to right, #27ae60, #219a52);
     border: none;
     transition: all 0.3s ease;
 }
