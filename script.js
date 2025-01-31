@@ -14,12 +14,12 @@ const hiveData = {
   crystal: {
     name: "Aiko #3",
     price: 3000,
-    image: 'https://cdn.pixabay.com/photo/2016/09/10/13/28/diamond-1659283_1280.png'
+    image: 'img/2.png'
   },
   inferno: {
     name: "Aiko #4",
     price: 4500,
-    image: 'https://cdn.pixabay.com/photo/2013/07/13/12/35/flame-160034_1280.png'
+    image: 'img/3.png'
   }
 };
 
