@@ -17,7 +17,8 @@
 
 body {
     font-family: 'Arial', sans-serif;
-    background: #D8BFD8;
+    background-image: url('img/fon2.jpg');
+    background-size: 400px 800px;
     color: white;
     min-height: 100vh;
     overflow-x: hidden;
