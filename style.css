@@ -17,7 +17,7 @@
 
 body {
     font-family: 'Arial', sans-serif;
-    background-image: url('img/fon2.jpg');
+    background-color: burlywood;
     background-size: 400px 800px;
     color: white;
     min-height: 100vh;
@@ -392,7 +392,6 @@ margin-bottom: 0; /* Убираем нижний отступ */
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
-    filter: drop-shadow(0 0 10px rgba(255,215,0,0.5));
     transition: background-image 0.3s ease-in-out;
     will-change: transform;
 }
