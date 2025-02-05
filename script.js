@@ -1,27 +1,5 @@
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
-const hiveData = {
-  basic: {
-    name: "Aiko #1",
-    price: 0,
-    image: 'img/human_male.png'
-  },
-  golden: {
-    name: "Aiko #2",
-    price: 1500,
-    image: 'img/1.png'
-  },
-  crystal: {
-    name: "Aiko #3",
-    price: 3000,
-    image: 'img/2.png'
-  },
-  inferno: {
-    name: "Aiko #4",
-    price: 4500,
-    image: 'img/3.png'
-  }
-};
 
 const elements = {
     honey: document.getElementById('honey'),
@@ -122,11 +100,6 @@ class GameState {
             basic: { charges: 15, basePrice: 50 },
             critical: { charges: 15, basePrice: 75 },
             poison: { charges: 15, basePrice: 100 }
-        };
-        this.hiveBonuses = {
-            golden: { attackSpeed: 1.15 },
-            crystal: { battleBonus: 1.3 },
-            inferno: { fireDamage: 25 }
         };
         this.activeEffects = { poison: [], shield: null, multiclick: null };
     }
@@ -263,27 +236,12 @@ function initGame() {
             handleTalentButton(e.target);
         }
     });
-    document.getElementById('hivesPopup').addEventListener('click', function(e) {
-    const hiveItem = e.target.closest('.hive-item');
-    const actionButton = e.target.closest('#hiveActionButton');
-
-    if(hiveItem) {
-        const type = hiveItem.dataset.type;
-        gameState.activeHive = type;
-        updateHivesPopup();
-    }
-
-    if(actionButton) {
-        handleHiveSelection(actionButton.dataset.type);
-    }
-});
 
     window.addEventListener('resize', () => {
         updateHiveDisplay();
         updateCombatUI(true);
     });
 
-    updateHiveDisplay();
     updateShopItems();
     updateUI();
     startEnergyRecovery();
@@ -410,21 +368,6 @@ function handleBossSelect(e) {
     const bossCard = e.target.closest('.boss-card');
     if (bossCard) startBattle(bossCard.dataset.boss);
 }
-
-// =================== МАГАЗИН И ТАЛЕНТЫ ===================
-function buyHive(type) {
-    const price = hiveData[type].price;
-    if (gameState.honey >= price) {
-        gameState.honey -= price;
-        gameState.purchasedHives.push(type);
-        showMessage('Скин успешно куплен!');
-        updateHivesPopup(); // Обновляем интерфейс
-        updateUI(['honey']);
-    } else {
-        showMessage('Недостаточно мёда!');
-    }
-}
-
 function buyBoost(type) {
     const button = document.querySelector(`.shop-item[data-type="${type}"] button`);
     if (!button || button.disabled) return;
@@ -799,9 +742,6 @@ function endBattle(victory) {
             xp: bossConfig.xpReward,
             keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
         };
-
-        // Применение бонусов улья
-        if (gameState.activeHive === 'crystal') reward.honey = Math.floor(reward.honey * 1.3);
     }
 
     // Обновление состояния игры
@@ -1067,171 +1007,37 @@ function showMessage(text) {
 
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
 function showPopup(popupType) {
-  if(popupType === 'hives') {
-        updateHivesPopup();
-        }
     if (popupType === 'battleResult' && !gameState.battleResult) return;
-
-    hideAllPopups();
+    hideAllPopups(); // Скрываем все другие попапы
     const popup = document.getElementById(`${popupType}Popup`);
     if (popup) {
-        popup.classList.add('active');
-        document.body.style.overflow = 'hidden';
-
-        // Активируем первую вкладку магазина
+        popup.classList.add('active'); // Добавляем класс active для отображения
+        document.body.style.overflow = 'hidden'; // Блокируем прокрутку основного контента
+        // Активируем первую вкладку магазина или талантов
         if (popupType === 'shop') {
             document.querySelector('#shopPopup .tab-btn[data-tab="boosts"]').click();
         }
-
-        // Активируем первую вкладку талантов
         if (popupType === 'talents') {
             document.querySelector('#talentsPopup .tab-btn[data-tab="buyCharges"]').click();
         }
-
-        if (popupType === 'battleResult') updateResultPopup();
-    }
-}
-// =================== ОБНОВЛЕННЫЕ ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ СКИНАМИ ===================
-function updateHivesPopup() {
-    const previewHive = gameState.previewHive;
-    const currentHive = hiveData[previewHive];
-
-    // Обновляем превью
-    document.getElementById('selectedHiveImage').style.backgroundImage =
-        `url('${currentHive.image}')`;
-    document.getElementById('selectedHiveName').textContent = currentHive.name;
-
-    // Обновляем кнопку действия
-    const actionButton = document.getElementById('hiveActionButton');
-    actionButton.dataset.type = previewHive;
-
-    // Проверяем статус скина
-    if (gameState.purchasedHives.includes(previewHive)) {
-        actionButton.textContent = (previewHive === gameState.activeHive)
-            ? 'Выбрано'
-            : 'Выбрать';
-        actionButton.disabled = (previewHive === gameState.activeHive);
-    } else {
-        actionButton.textContent = `${currentHive.price}`;
-        actionButton.disabled = gameState.honey < currentHive.price;
-    }
-
-    // Обновляем список скинов
-    const hiveGrid = document.querySelector('.hive-grid');
-    hiveGrid.innerHTML = ''; // Очищаем контейнер
-
-    Object.entries(hiveData).forEach(([type, data]) => {
-        const hiveItem = document.createElement('div');
-        hiveItem.className = `hive-item ${type === previewHive ? 'selected' : ''}
-            ${!gameState.purchasedHives.includes(type) ? 'locked' : ''}`;
-        hiveItem.dataset.type = type;
-
-        hiveItem.innerHTML = `
-            <div class="hive-thumbnail" style="background-image: url('${data.image}')"></div>
-            <div class="hive-info">
-                <span>${data.name}</span>
-                ${!gameState.purchasedHives.includes(type)
-                    ? `<div class="hive-price">${data.price}</div>`
-                    : ''}
-            </div>
-        `;
-
-        // Обработчик клика по скину в списке
-        hiveItem.addEventListener('click', () => {
-            gameState.previewHive = type; // Меняем только превью, не активный скин
-            updateHivesPopup();
-        });
-
-        hiveGrid.appendChild(hiveItem);
-    });
-}
-function handleHiveSelection(type) {
-    if (!gameState.purchasedHives.includes(type)) {
-        buyHive(type); // Только покупка
-    } else {
-        switchHive(type); // Явная активация
+        if (popupType === 'battleResult') updateResultPopup(); // Обновляем содержимое результата боя
     }
 }
 
-// =================== ОБНОВЛЕННЫЙ ОБРАБОТЧИК ПОПАПА СКИНОВ ===================
-document.getElementById('hivesPopup').addEventListener('click', function(e) {
-    const actionButton = e.target.closest('#hiveActionButton');
-
-    if(actionButton) {
-        handleHiveSelection(actionButton.dataset.type);
-    }
-
-    // Предотвращаем закрытие попапа при клике внутри
-    e.stopPropagation();
-});
-
-// Убираем обработчик закрытия попапа при клике вне области
-document.addEventListener('click', e => {
-    const isHivesPopup = e.target.closest('#hivesPopup');
-    const isNavButton = e.target.closest('.nav-btn[data-popup="hives"]');
-
-    if (!isHivesPopup && !isNavButton) {
-        hidePopup('hives');
-    }
-});
 
 function hidePopup(type) {
     const popup = document.getElementById(`${type}Popup`);
     if (popup) {
-        popup.classList.remove('active');
-        document.body.style.overflow = '';
+        popup.classList.remove('active'); // Убираем класс active
+        document.body.style.overflow = ''; // Разблокируем прокрутку основного контента
     }
 }
 
 function hideAllPopups() {
-    document.querySelectorAll('.popup:not(#battleResultPopup)').forEach(p => {
-        p.classList.remove('active');
+    document.querySelectorAll('.popup').forEach(p => {
+        p.classList.remove('active'); // Скрываем все попапы
     });
-}
-
-// =================== УПРАВЛЕНИЕ УЛЬЯМИ ===================
-function updateHiveDisplay() {
-    const selector = document.querySelector('.hive-selector');
-    if (!selector) return;
-
-    selector.innerHTML = '';
-    gameState.purchasedHives.forEach(type => {
-        const div = document.createElement('div');
-        div.className = `hive-option ${type === gameState.activeHive ? 'active' : ''}`;
-        div.dataset.type = type;
-        div.onclick = () => switchHive(type);
-
-        let content = '';
-        switch (type) {
-            case 'basic':
-                content = `<h3>Aiko #1</h3><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
-                break;
-            case 'golden':
-                content = `<h3>Aiko #2</h3><p>+15% скорости атак</p><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
-                break;
-            case 'crystal':
-                content = `<h3>Aiko #3</h3><p>+30% награды за бои</p><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
-                break;
-            case 'inferno':
-                content = `<h3>Aiko #4</h3><p>+25% к урону огнем</p><p>${gameState.activeHive === type ? '✔️ Активен' : 'Активировать'}</p>`;
-                break;
-        }
-
-        div.innerHTML = content;
-        selector.appendChild(div);
-    });
-}
-
-function switchHive(type) {
-    if (!gameState.purchasedHives.includes(type) || gameState.activeHive === type) return;
-
-    gameState.activeHive = type;
-    // Обновляем изображение улья
-    const hiveImg = document.querySelector('.hive-img');
-    if (hiveImg) {
-        hiveImg.style.backgroundImage = `url('${gameState.hiveImages[type]}')`;
-    }
-    updateHivesPopup(); // Обновляем кнопки
+    document.body.style.overflow = ''; // Разблокируем прокрутку основного контента
 }
 
 function updateShopItems() {
