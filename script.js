@@ -81,6 +81,8 @@ const gameConfig = {
 // =================== КЛАСС СОСТОЯНИЯ ИГРЫ ===================
 class GameState {
     constructor() {
+        this.purchasedBackgrounds = ['default'];
+        this.currentBackground = 'default';
         this.battleResult = null;
         this.reset();
         this.previewHive = 'basic';
@@ -1283,3 +1285,98 @@ function updatePoisonTimers() {
         }
     });
 }
+const backgrounds = [
+    {
+        name: 'default',
+        cost: 0,
+        image: 'url("img/background1.png")',
+        preview: 'img/background1.png'
+    },
+    {
+        name: 'forest',
+        cost: 1000,
+        image: 'url("img/background2.png")',
+        preview: 'img/background2.png'
+    },
+    {
+        name: 'city',
+        cost: 2500,
+        image: 'url("img/background3.png")',
+        preview: 'img/background3.png'
+    },
+    {
+        name: 'space',
+        cost: 5000,
+        image: 'url("img/bg_space.jpg")',
+        preview: 'img/bg_space_preview.jpg'
+    }
+];
+
+let currentBgIndex = 0;
+
+function updateBackgroundUI() {
+    const bgSelector = document.getElementById('backgroundSelector');
+    const bgPreview = bgSelector.querySelector('.bg-preview');
+    const actionBtn = document.getElementById('bgActionBtn');
+    const currentBg = backgrounds[currentBgIndex];
+
+    bgPreview.style.backgroundImage = `url('${currentBg.preview}')`;
+
+    const isPurchased = gameState.purchasedBackgrounds.includes(currentBg.name);
+    actionBtn.textContent = isPurchased ? 'Выбрать' : `Купить за ${currentBg.cost}`;
+    actionBtn.disabled = !isPurchased && gameState.honey < currentBg.cost;
+}
+
+document.getElementById('bgMenuBtn').addEventListener('click', () => {
+    document.getElementById('backgroundSelector').classList.add('active');
+    currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
+    updateBackgroundUI();
+});
+
+document.getElementById('bgCloseBtn').addEventListener('click', () => {
+    document.getElementById('backgroundSelector').classList.remove('active');
+});
+
+document.getElementById('bgPrevBtn').addEventListener('click', () => {
+    currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
+    updateBackgroundUI();
+});
+
+document.getElementById('bgNextBtn').addEventListener('click', () => {
+    currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
+    updateBackgroundUI();
+});
+
+document.getElementById('bgActionBtn').addEventListener('click', () => {
+    const currentBg = backgrounds[currentBgIndex];
+
+    if (!gameState.purchasedBackgrounds.includes(currentBg.name)) {
+        if (gameState.honey >= currentBg.cost) {
+            gameState.honey -= currentBg.cost;
+            gameState.purchasedBackgrounds.push(currentBg.name);
+            updateUI(['honey']);
+        } else {
+            showMessage('Недостаточно мёда!');
+            return;
+        }
+    }
+
+    gameState.currentBackground = currentBg.name;
+    document.body.style.backgroundImage = currentBg.image;
+    showMessage(`Фон "${currentBg.name}" выбран!`);
+    updateBackgroundUI();
+});
+
+// Инициализация при загрузке
+document.body.style.backgroundImage =
+    backgrounds.find(bg => bg.name === gameState.currentBackground).image;
+
+// Закрытие при клике вне меню
+document.addEventListener('click', (e) => {
+    const bgSelector = document.getElementById('backgroundSelector');
+    if (!bgSelector.contains(e.target) &&
+        e.target.id !== 'bgMenuBtn' &&
+        bgSelector.classList.contains('active')) {
+        bgSelector.classList.remove('active');
+    }
+});
