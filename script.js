@@ -1313,6 +1313,7 @@ const backgrounds = [
 ];
 
 let currentBgIndex = 0;
+let previousBg = ''; // Переменная для сохранения текущего фона перед открытием меню
 
 // Функция для обновления фона на главном экране
 function updateBackgroundUI() {
@@ -1334,14 +1335,10 @@ function updateBackgroundUI() {
 
 // Обработчик кнопки выбора фона
 document.getElementById('bgMenuBtn').addEventListener('click', () => {
+    previousBg = gameState.currentBackground; // Сохраняем текущий фон
     document.getElementById('backgroundSelector').classList.add('active');
     currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
     updateBackgroundUI();
-});
-
-// Обработчик кнопки закрытия меню
-document.getElementById('bgCloseBtn').addEventListener('click', () => {
-    document.getElementById('backgroundSelector').classList.remove('active');
 });
 
 // Обработчики кнопок переключения фонов
@@ -1386,5 +1383,9 @@ document.addEventListener('click', (e) => {
         e.target.id !== 'bgMenuBtn' &&
         bgSelector.classList.contains('active')) {
         bgSelector.classList.remove('active');
+        // Восстанавливаем фон при закрытии меню
+        if (gameState.currentBackground === previousBg) {
+            document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
+        }
     }
 });
