@@ -33,7 +33,7 @@ const gameConfig = {
             honeyReward: 1000,
             xpReward: 200,
             keyReward: { type: 'bear', amount: 1 },
-            image: 'img/wasp.jpg',
+            image: 'img/wasp.png',
             defeatImage: 'img/wasp_kill.jpg'
         },
         bear: {
