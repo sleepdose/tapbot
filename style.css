@@ -1253,11 +1253,13 @@ box-sizing: border-box;
 /* Левый стрелка */
 #bgPrevBtn {
     left: 10px;
+    text-align: center;
 }
 
 /* Правая стрелка */
 #bgNextBtn {
     right: 10px;
+    text-align: center;
 }
 
 /* Кнопка действия */
