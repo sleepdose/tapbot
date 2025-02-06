@@ -424,6 +424,8 @@ margin-bottom: 0; /* Убираем нижний отступ */
     #bossCombatImage {
       border-radius: 55px; /* Скругление только сверху */
       box-sizing: border-box;
+      width: 350px;
+      height: 330px;
 }
 .boss-card:hover, .shop-item:hover, .talent:hover {
     transform: scale(1.02);
@@ -688,6 +690,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
     display: inline-flex;
     position: fixed;
     left: -50px;
+    top: 70%;
     gap: 0.5rem;
     justify-content: center;
     margin: 1rem 0;
@@ -879,6 +882,9 @@ margin-bottom: 0; /* Убираем нижний отступ */
         border-radius: 15px;
         margin-bottom: 20px;
         position: relative;
+        height: 400px;
+        width: 377px;
+        left: -43px;
     }
 
     .health-bar {
@@ -981,7 +987,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 .charge-counter {
-  
+
 margin: 10px 0;
 cursor: pointer;
 transition: transform 0.3s;
