@@ -1260,16 +1260,10 @@ box-sizing: border-box;
     right: 10px;
 }
 
-/* Эффект при наведении */
-.bg-arrow:hover {
-    transform: scale(1.1);
-    background: var(--accent);
-}
-
 /* Кнопка действия */
 .bg-action-btn {
     position: fixed;
-    top: 80%;
+    top: 90%;
     padding: 10px 25px;
     border-radius: 20px;
     border: none;
