@@ -82,6 +82,7 @@ const gameConfig = {
 class GameState {
     constructor() {
         this.purchasedBackgrounds = ['default'];
+        this.selectedTalent = null;
         this.currentBackground = 'default';
         this.battleResult = null;
         this.reset();
@@ -207,7 +208,10 @@ function initGame() {
             document.getElementById(`${difficulty}Bosses`).classList.add('active');
         });
     });
-
+    const bossCombatImage = document.getElementById('bossCombatImage');
+        if (bossCombatImage) {
+            bossCombatImage.addEventListener('click', handleBossClick);
+        }
     const shopTabs = document.querySelector('.shop-tabs');
     if (shopTabs) {
         shopTabs.addEventListener('click', handleShopTabs);
@@ -249,6 +253,19 @@ function initGame() {
     startEnergyRecovery();
     gameState.updateKeysDisplay();
     initTalentBuyTab();
+}
+function handleBossClick() {
+    if (!gameState.inBattle || !gameState.selectedTalent) {
+        return; // Если не в бою или талант не выбран, ничего не делаем
+    }
+
+    // Наносим урон выбранным талантом
+    attack(gameState.selectedTalent);
+
+    // Добавляем анимацию для обратной связи
+    const bossImage = document.getElementById('bossCombatImage');
+    bossImage.style.transform = 'scale(0.95)';
+    setTimeout(() => bossImage.style.transform = 'scale(1)', 100);
 }
 
 function startEnergyRecovery() {
@@ -309,6 +326,23 @@ document.querySelectorAll('.talent-tabs .tab-btn').forEach(btn => {
 // =================== ОБРАБОТЧИКИ СОБЫТИЙ ===================
 let lastClick = 0;
 function handleHiveClick() {
+  if (document.querySelector('.popup.active')) {
+        showMessage('Закройте другие окна!');
+        return;
+    }
+
+    // Если в бою и выбран талант - наносим урон
+    if (gameState.inBattle && gameState.selectedTalent) {
+        attack(gameState.selectedTalent);
+        return; // Не обрабатываем как обычный клик
+    }
+    if (gameState.inBattle && gameState.selectedTalent) {
+        const hive = document.getElementById('hive');
+        hive.style.transform = 'scale(0.95)';
+        setTimeout(() => hive.style.transform = 'scale(1)', 100);
+        attack(gameState.selectedTalent);
+        return;
+    }
     if (document.querySelector('.popup.active')) {
         showMessage('Закройте другие окна!');
         return;
@@ -539,10 +573,11 @@ function createTalentButtons() {
     Object.entries(gameState.talents).forEach(([type, talent]) => {
         if (talent.level > 0) {
             const charges = gameState.attackCharges[type].charges;
+            const isSelected = gameState.selectedTalent === type;
             const isDisabled = !gameState.inBattle || charges === 0;
 
             const button = document.createElement('button');
-            button.className = `attack-btn ${isDisabled ? 'disabled' : ''}`;
+            button.className = `attack-btn ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
             button.dataset.attack = type;
             button.disabled = isDisabled;
             button.innerHTML = `
@@ -553,12 +588,14 @@ function createTalentButtons() {
                 </div>
             `;
 
-            if (charges > 0) {
-                button.onclick = () => attack(type);
-            } else {
-                button.style.opacity = '0.5';
-                button.style.cursor = 'not-allowed';
-            }
+            button.onclick = () => {
+                if (gameState.selectedTalent === type) {
+                    gameState.selectedTalent = null; // Снять выбор
+                } else {
+                    gameState.selectedTalent = type; // Выбрать талант
+                }
+                createTalentButtons(); // Обновить кнопки
+            };
 
             elements.combatTalents.appendChild(button);
         }
@@ -595,52 +632,28 @@ function startBattleTimer(seconds) {
 }
 
 function attack(type) {
-    if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
-        showMessage("Бой уже завершен!");
-        return;
+    if (!gameState.inBattle || !gameState.selectedTalent) {
+        return; // Если не в бою или талант не выбран, ничего не делаем
     }
 
-    if (Date.now() < gameState.attackCooldowns[type]) {
-        const secondsLeft = Math.ceil((gameState.attackCooldowns[type] - Date.now()) / 1000);
-        showMessage(`Не спеши`);
-        return;
-    }
-
+    // Проверяем заряды
     if (gameState.attackCharges[type].charges <= 0) {
         showMessage('Заряды кончились!');
+        gameState.selectedTalent = null; // Снимаем выбор таланта
+        createTalentButtons(); // Обновляем кнопки
         return;
     }
 
-    gameState.attackCooldowns[type] = Date.now() + 1000;
+    // Уменьшаем заряды
     gameState.attackCharges[type].charges--;
-    updateTalentBuyTab(); // Добавить эту строку
-createTalentButtons();
+    updateTalentBuyTab();
 
-    const button = document.querySelector(`[data-attack="${type}"]`);
-    if (button) {
-        button.classList.add('cooldown');
-        button.disabled = true;
-
-        let seconds = 2;
-        const timerInterval = setInterval(() => {
-            button.querySelector('.charge-counter').textContent = `Перезарядка: ${seconds}s`;
-            seconds--;
-
-            if (seconds < 0) {
-                clearInterval(timerInterval);
-                button.classList.remove('cooldown');
-                button.disabled = false;
-                button.querySelector('.charge-counter').textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
-            }
-        }, 1000);
-    }
-
+    // Наносим урон
     let damage = 0;
     switch (type) {
         case 'basic':
             damage = calculateBasicDamage();
             break;
-
         case 'critical':
             damage = calculateBasicDamage();
             if (Math.random() < gameState.talents.critical.chance) {
@@ -648,60 +661,40 @@ createTalentButtons();
                 showCriticalEffect(damage);
             }
             break;
-
-            case 'poison':
-                // Новая логика ядовитого эффекта
-                const poisonDamage = gameState.talents.poison.damage;
-                const duration = talentsConfig.poison.getDuration(gameState.talents.poison.level);
-
-                const poisonEffect = {
-                    damage: poisonDamage,
-                    startTime: Date.now(),
-                    duration: duration * 1000, // Конвертируем в миллисекунды
-                    timer: null,
-                    remaining: duration
-                };
-
-                // Запуск периодического урона
-                poisonEffect.timer = setInterval(() => {
-                    if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
-                        clearInterval(poisonEffect.timer);
-                        return;
-                    }
-
-                    gameState.currentBoss.currentHealth -= poisonDamage;
-                    updateCombatUI();
-
-                    if (gameState.currentBoss.currentHealth <= 0) {
-                        endBattle(true);
-                    }
-                }, 1000);
-
-                // Таймер окончания эффекта
-                setTimeout(() => {
+        case 'poison':
+            // Логика ядовитого урона
+            const poisonDamage = gameState.talents.poison.damage;
+            const duration = talentsConfig.poison.getDuration(gameState.talents.poison.level);
+            const poisonEffect = {
+                damage: poisonDamage,
+                startTime: Date.now(),
+                duration: duration * 1000,
+                timer: null,
+                remaining: duration
+            };
+            poisonEffect.timer = setInterval(() => {
+                if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
-                    gameState.activeEffects.poison = gameState.activeEffects.poison.filter(
-                        e => e !== poisonEffect
-                    );
-                    updatePoisonTimersDisplay(); // Обновляем отображение таймеров
-                }, poisonEffect.duration);
-
-                gameState.activeEffects.poison.push(poisonEffect);
-                showPoisonTimer(duration); // Показываем таймер
-
-                // Обновление интерфейса
-                const chargeCounter = document.querySelector(`[data-attack="${type}"] .charge-counter`);
-                if (chargeCounter) {
-                    chargeCounter.textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
+                    return;
                 }
-                break;
+                gameState.currentBoss.currentHealth -= poisonDamage;
+                updateCombatUI();
+                if (gameState.currentBoss.currentHealth <= 0) {
+                    endBattle(true);
+                }
+            }, 1000);
+            setTimeout(() => {
+                clearInterval(poisonEffect.timer);
+                gameState.activeEffects.poison = gameState.activeEffects.poison.filter(e => e !== poisonEffect);
+                updatePoisonTimersDisplay();
+            }, poisonEffect.duration);
+            gameState.activeEffects.poison.push(poisonEffect);
+            showPoisonTimer(duration);
+            break;
     }
 
     if (damage > 0) {
-        gameState.currentBoss.currentHealth = Math.max(
-            gameState.currentBoss.currentHealth - damage,
-            0
-        );
+        gameState.currentBoss.currentHealth = Math.max(gameState.currentBoss.currentHealth - damage, 0);
         updateCombatUI();
 
         if (gameState.currentBoss.currentHealth <= 0) {
@@ -709,11 +702,14 @@ createTalentButtons();
         }
     }
 
+    // Обновляем интерфейс зарядов
     const chargeCounter = document.querySelector(`[data-attack="${type}"] .charge-counter`);
     if (chargeCounter) {
         chargeCounter.textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
     }
 
+    // Снимаем выбор таланта после атаки
+    gameState.selectedTalent = null;
     createTalentButtons();
 }
 

@@ -422,10 +422,14 @@ margin-bottom: 0; /* Убираем нижний отступ */
     box-sizing: border-box;
     }
     #bossCombatImage {
+      transition: transform 0.1s ease;
       border-radius: 55px; /* Скругление только сверху */
       box-sizing: border-box;
       width: 350px;
       height: 330px;
+}
+#bossCombatImage:active {
+    transform: scale(0.95);
 }
 .boss-card:hover, .shop-item:hover, .talent:hover {
     transform: scale(1.02);
@@ -581,6 +585,11 @@ margin-bottom: 0; /* Убираем нижний отступ */
 
 .attack-btn:active {
     transform: scale(0.98);
+}
+.attack-btn.selected {
+    background: linear-gradient(145deg, #4CAF50, #45a049);
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    transform: scale(1.05);
 }
 
 .talent-icon {
@@ -883,7 +892,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
         margin-bottom: 20px;
         position: relative;
         height: 400px;
-        width: 400px;
+        width: 377px;
         left: -43px;
     }
 
