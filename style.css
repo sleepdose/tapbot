@@ -1222,7 +1222,6 @@ box-sizing: border-box;
     align-items: center;
     gap: 15px;
     box-shadow: 0 0 20px rgba(0,0,0,0.5);
-    border: 2px solid var(--accent);
 }
 
 .background-selector.active {

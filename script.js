@@ -1314,29 +1314,37 @@ const backgrounds = [
 
 let currentBgIndex = 0;
 
+// Функция для обновления фона на главном экране
 function updateBackgroundUI() {
-    const bgSelector = document.getElementById('backgroundSelector');
-    const bgPreview = bgSelector.querySelector('.bg-preview');
-    const actionBtn = document.getElementById('bgActionBtn');
     const currentBg = backgrounds[currentBgIndex];
 
-    bgPreview.style.backgroundImage = `url('${currentBg.preview}')`;
+    // Обновляем фон на главном экране сразу
+    document.body.style.backgroundImage = currentBg.image;
 
+    const actionBtn = document.getElementById('bgActionBtn');
     const isPurchased = gameState.purchasedBackgrounds.includes(currentBg.name);
-    actionBtn.textContent = isPurchased ? 'Выбрать' : `Купить за ${currentBg.cost}`;
-    actionBtn.disabled = !isPurchased && gameState.honey < currentBg.cost;
+    const isSelected = gameState.currentBackground === currentBg.name;
+
+    // Изменяем текст кнопки в зависимости от того, куплен ли фон
+    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
+
+    // Блокируем кнопку, если это текущий выбранный фон
+    actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
 }
 
+// Обработчик кнопки выбора фона
 document.getElementById('bgMenuBtn').addEventListener('click', () => {
     document.getElementById('backgroundSelector').classList.add('active');
     currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
     updateBackgroundUI();
 });
 
+// Обработчик кнопки закрытия меню
 document.getElementById('bgCloseBtn').addEventListener('click', () => {
     document.getElementById('backgroundSelector').classList.remove('active');
 });
 
+// Обработчики кнопок переключения фонов
 document.getElementById('bgPrevBtn').addEventListener('click', () => {
     currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
     updateBackgroundUI();
@@ -1347,6 +1355,7 @@ document.getElementById('bgNextBtn').addEventListener('click', () => {
     updateBackgroundUI();
 });
 
+// Обработчик кнопки покупки или выбора фона
 document.getElementById('bgActionBtn').addEventListener('click', () => {
     const currentBg = backgrounds[currentBgIndex];
 
@@ -1361,17 +1370,16 @@ document.getElementById('bgActionBtn').addEventListener('click', () => {
         }
     }
 
+    // После выбора фона, обновляем текущий фон
     gameState.currentBackground = currentBg.name;
-    document.body.style.backgroundImage = currentBg.image;
     showMessage(`Фон "${currentBg.name}" выбран!`);
-    updateBackgroundUI();
+    updateBackgroundUI();  // Обновляем UI
 });
 
-// Инициализация при загрузке
-document.body.style.backgroundImage =
-    backgrounds.find(bg => bg.name === gameState.currentBackground).image;
+// Инициализация фона на главной странице
+document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
 
-// Закрытие при клике вне меню
+// Закрытие меню при клике вне его
 document.addEventListener('click', (e) => {
     const bgSelector = document.getElementById('backgroundSelector');
     if (!bgSelector.contains(e.target) &&
