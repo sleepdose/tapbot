@@ -646,7 +646,7 @@ function attack(type) {
     // Проверяем заряды
     if (gameState.attackCharges[type].charges <= 0) {
         showMessage('Заряды кончились!');
-        gameState.selectedTalent = null; // Снимаем выбор таланта
+        //gameState.selectedTalent = null; // Снимаем выбор таланта
         createTalentButtons(); // Обновляем кнопки
         return;
     }
@@ -895,7 +895,7 @@ document.querySelectorAll('.popup .close').forEach(btn => {
     });
 });
 
-//// =================== СИСТЕМА УРОВНЕЙ ===================
+// =================== СИСТЕМА УРОВНЕЙ ===================
 function checkLevelUp() {
     let levelsGained = 0;
     while (gameState.xp >= gameState.xpToNextLevel) {
@@ -1034,6 +1034,12 @@ function hidePopup(type) {
     if (popup) {
         popup.classList.remove('active'); // Убираем класс active
         document.body.style.overflow = ''; // Разблокируем прокрутку основного контента
+
+        // Если закрываем окно битвы, деактивируем выбранный талант
+        if (type === 'battle' && gameState.selectedTalent) {
+            gameState.selectedTalent = null;
+            createTalentButtons();
+        }
     }
 }
 
