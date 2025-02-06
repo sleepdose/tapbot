@@ -636,6 +636,13 @@ function attack(type) {
         return; // Если не в бою или талант не выбран, ничего не делаем
     }
 
+    // Проверяем кулдаун
+    const now = Date.now();
+    if (now - (gameState.lastAttackTime || 0) < 1000) {
+        return; // Пропускаем атаку если прошло менее 1 секунды
+    }
+    gameState.lastAttackTime = now;
+
     // Проверяем заряды
     if (gameState.attackCharges[type].charges <= 0) {
         showMessage('Заряды кончились!');
@@ -708,8 +715,7 @@ function attack(type) {
         chargeCounter.textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
     }
 
-    // Снимаем выбор таланта после атаки
-    gameState.selectedTalent = null;
+    // Обновляем интерфейс без сброса таланта
     createTalentButtons();
 }
 
@@ -889,7 +895,7 @@ document.querySelectorAll('.popup .close').forEach(btn => {
     });
 });
 
-// =================== СИСТЕМА УРОВНЕЙ ===================
+//// =================== СИСТЕМА УРОВНЕЙ ===================
 function checkLevelUp() {
     let levelsGained = 0;
     while (gameState.xp >= gameState.xpToNextLevel) {
