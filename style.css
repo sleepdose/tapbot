@@ -685,12 +685,14 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 .combat-talents {
-    flex-direction: column;
+    display: inline-flex;
+    position: fixed;
+    left: -50px;
     gap: 0.5rem;
     justify-content: center;
     margin: 1rem 0;
     max-height: 300px;
-    padding: 0 10px;
+    padding: 0 80px;
 }
 
 #backToBossSelection {
@@ -979,7 +981,7 @@ margin-bottom: 0; /* Убираем нижний отступ */
 }
 
 .charge-counter {
-  background: rgba(0,0,0,0.5);
+  
 margin: 10px 0;
 cursor: pointer;
 transition: transform 0.3s;
