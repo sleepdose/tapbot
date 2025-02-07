@@ -87,6 +87,7 @@ class GameState {
         this.purchasedBackgrounds = ['default'];
         this.selectedTalent = null;
         this.currentBackground = 'default';
+        this.hasPet = false;
         this.selectedForCraft = [];
         this.craftedTalents = {
             sonic: { level: 0, damage: 50, charges: 0 },
@@ -177,6 +178,11 @@ let isAnimating = false;
 
 // =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
 function initGame() {
+    const petImg = document.querySelector('#pet-img');
+    if (petImg) {
+        petImg.style.display = 'none';
+    }
+
     const requiredElements = Object.keys(elements)
         .filter(key => key !== 'levelProgress')
         .map(key => elements[key]?.id || key);
@@ -558,12 +564,27 @@ function upgradeTalent(talentType) {
     switch (talentType) {
         case 'basic':
             gameState.talents.basic.damage = talent.getDamage(gameState.talents.basic.level);
+            // Обновляем урон звукового удара
+            if (gameState.craftedTalents.sonic.level > 0) {
+                gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
+            }
             break;
         case 'critical':
             gameState.talents.critical.chance = talent.getChance(gameState.talents.critical.level);
+            // Обновляем урон обоих крафтовых талантов
+            if (gameState.craftedTalents.sonic.level > 0) {
+                gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
+            }
+            if (gameState.craftedTalents.fire.level > 0) {
+                gameState.craftedTalents.fire.damage = 75 * gameState.talents.critical.level;
+            }
             break;
         case 'poison':
             gameState.talents.poison.damage = talent.getDamage(gameState.talents.poison.level);
+            // Обновляем урон огненного удара
+            if (gameState.craftedTalents.fire.level > 0) {
+                gameState.craftedTalents.fire.damage = 75 * gameState.talents.critical.level;
+            }
             break;
     }
 
@@ -748,8 +769,15 @@ function startBattleTimer(seconds) {
 
 function attack(type) {
     if (!gameState.inBattle || !gameState.selectedTalent) {
-        return; // Если не в бою или талант не выбран, ничего не делаем
+        return;
     }
+
+    // Проверяем кулдаун
+    const now = Date.now();
+    if (now - (gameState.lastAttackTime || 0) < 1000) {
+        return; // Пропускаем атаку если прошло менее 1 секунды
+    }
+    gameState.lastAttackTime = now;
 
     // Обработка крафтовых талантов
     if (type === 'sonic' || type === 'fire') {
@@ -780,12 +808,6 @@ function attack(type) {
         return;
     }
 
-    // Проверяем кулдаун
-    const now = Date.now();
-    if (now - (gameState.lastAttackTime || 0) < 1000) {
-        return; // Пропускаем атаку если прошло менее 1 секунды
-    }
-    gameState.lastAttackTime = now;
 
     // Проверяем заряды
     if (gameState.attackCharges[type].charges <= 0) {
@@ -902,6 +924,7 @@ function endBattle(victory) {
     // Сброс боевых параметров
     gameState.inBattle = false;
     gameState.currentBoss = null;
+    gameState.selectedTalent = null;
 
     // Очистка таймеров
     if (gameState.battleTimer) {
@@ -915,6 +938,7 @@ function endBattle(victory) {
         showPopup('battleResult');
         document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
         elements.combatScreen.style.display = 'none';
+        elements.combatTalents.innerHTML = ''; // Очищаем таланты
         document.getElementById('bossSelection').style.display = 'block';
     } catch (e) {
         console.error('Ошибка обновления интерфейса:', e);
@@ -922,7 +946,6 @@ function endBattle(victory) {
 
     // Принудительное обновление зарядов
     updateTalentBuyTab();
-    createTalentButtons();
 }
 function updateTalentBuyTab() {
     const container = document.getElementById('buyCharges');
@@ -1300,9 +1323,9 @@ function updateCombatUI() {
 
 function getTalentButtonText(type) {
     return {
-        basic: 'Базовый',
-        critical: 'Крит',
-        poison: 'Яд'
+        basic: 'Базовый удар',
+        critical: 'Критический удар',
+        poison: 'Ядовитый удар'
     }[type] || '';
 }
 
@@ -1366,6 +1389,8 @@ function selectPet() {
         petImg.src = selectedPet;
         // Сохраняем текущий выбор
         gameState.currentPet = selectedPet;
+        gameState.hasPet = true;
+        petImg.style.display = 'block';
         // Обновляем состояние кнопки
         updatePetButton();
     }
@@ -1424,7 +1449,8 @@ function initCrafting() {
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
 
-    sonicButton.addEventListener('click', () => {
+    sonicButton.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (gameState.attackCharges.basic.charges >= 1 && gameState.attackCharges.critical.charges >= 1) {
             gameState.attackCharges.basic.charges -= 1;
             gameState.attackCharges.critical.charges -= 1;
@@ -1435,7 +1461,7 @@ function initCrafting() {
                 gameState.talents.critical.level
             );
 
-            showMessage('Звуковой удар создан!');
+            showMessage('✨ Создан новый талант: Звуковой удар!');
             resetCrafting();
             updateTalentBuyTab();
             if (gameState.inBattle) {
@@ -1446,7 +1472,8 @@ function initCrafting() {
         }
     });
 
-    fireButton.addEventListener('click', () => {
+    fireButton.addEventListener('click', (e) => {
+        e.stopPropagation();
         if (gameState.attackCharges.critical.charges >= 1 && gameState.attackCharges.poison.charges >= 1) {
             gameState.attackCharges.critical.charges -= 1;
             gameState.attackCharges.poison.charges -= 1;
@@ -1457,7 +1484,7 @@ function initCrafting() {
                 gameState.talents.poison.level
             );
 
-            showMessage('Огненный удар создан!');
+            showMessage('🔥 Создан новый талант: Огненный удар!');
             resetCrafting();
             updateTalentBuyTab();
             if (gameState.inBattle) {
