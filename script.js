@@ -85,13 +85,6 @@ class GameState {
         this.selectedTalent = null;
         this.currentBackground = 'default';
         this.battleResult = null;
-        this.settings = {
-            music: false,
-            vibration: true
-        };
-        this.bgMusic = new Audio('audio/background.mp3');
-        this.bgMusic.loop = true;
-        this.bgMusic.volume = 0.5;
         this.reset();
         this.previewHive = 'basic';
         this.attackCooldowns = {
@@ -1128,6 +1121,46 @@ function getTalentIcon(type) {
         critical: '💥',
         poison: '☠️'
     }[type] || '';
+}
+
+// =================== ФУНКЦИИ КАСТОМИЗАЦИИ ===================
+let skins = ['img/skin1.png', 'img/skin2.png', 'img/skin3.png'];
+let pets = ['img/pet1.png', 'img/pet2.png', 'img/pet3.png'];
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+    document.getElementById(tabName).classList.add('active');
+    document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+}
+
+function selectSkin() {
+    const selectedSkin = document.getElementById('selected-skin').src;
+    const hiveImg = document.querySelector('.hive-img');
+    if (hiveImg) {
+        hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
+    }
+    hidePopup('customization');
+}
+
+function previewSkin(skin, name) {
+    document.getElementById('selected-skin').src = skin;
+    document.getElementById('skin-name').textContent = name;
+}
+
+function selectPet() {
+    const selectedPet = document.getElementById('selected-pet').src;
+    const petImg = document.querySelector('#pet-img');
+    if (petImg) {
+        petImg.src = selectedPet;
+    }
+    hidePopup('customization');
+}
+
+function previewPet(pet, name) {
+    document.getElementById('selected-pet').src = pet;
+    document.getElementById('pet-name').textContent = name;
 }
 
 // =================== ЗАПУСК ИГРЫ ===================

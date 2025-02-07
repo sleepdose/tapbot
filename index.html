@@ -30,6 +30,9 @@
       <div class="hive-img" role="img" aria-label="Активный скин"></div>
     </div>
   </div>
+  <div class="pet-container">
+      <img id="pet-img" src="img/pet1.png" class="pet" alt="Питомец">
+  </div>
 
   <div id="battlePopup" class="popup">
     <div class="popup-scroll-wrapper">
@@ -306,8 +309,49 @@
     <button class="nav-btn" data-popup="battle">⚔️</button>
     <button class="nav-btn" data-popup="shop">🛍️</button>
     <button class="nav-btn" data-popup="talents">💫</button>
-    <button class="nav-btn" data-popup="settings">⚙️</button>
+    <button class="nav-btn" data-popup="customization">👤</button>
   </nav>
+
+  <!-- Попап кастомизации -->
+  <div id="customizationPopup" class="popup">
+    <div class="popup-scroll-wrapper">
+      <div class="popup-content">
+        <div class="popup-header">
+          <button class="close">×</button>
+        </div>
+        <div class="tab-buttons">
+          <button onclick="showTab('character')" class="tab-btn active">Персонаж</button>
+          <button onclick="showTab('pets')" class="tab-btn">Питомцы</button>
+        </div>
+
+        <div id="character" class="tab-content active">
+          <div class="skin-preview">
+            <img id="selected-skin" src="img/skin1.png" alt="Скин">
+            <h3 id="skin-name">Скин 1</h3>
+            <button id="select-skin" class="btn" onclick="selectSkin()">Выбрать</button>
+          </div>
+          <div class="skin-list">
+            <img src="img/skin1.png" onclick="previewSkin('img/skin1.png', 'Скин 1')">
+            <img src="img/skin2.png" onclick="previewSkin('img/skin2.png', 'Скин 2')">
+            <img src="img/skin3.png" onclick="previewSkin('img/skin3.png', 'Скин 3')">
+          </div>
+        </div>
+
+        <div id="pets" class="tab-content">
+          <div class="pet-preview">
+            <img id="selected-pet" src="img/pet1.png" alt="Питомец">
+            <h3 id="pet-name">Питомец 1</h3>
+            <button id="select-pet" class="btn" onclick="selectPet()">Выбрать</button>
+          </div>
+          <div class="pet-list">
+            <img src="img/pet1.png" onclick="previewPet('img/pet1.png', 'Питомец 1')">
+            <img src="img/pet2.png" onclick="previewPet('img/pet2.png', 'Питомец 2')">
+            <img src="img/pet3.png" onclick="previewPet('img/pet3.png', 'Питомец 3')">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- ▼▼▼ Код попапа результатов ▼▼▼ -->
   <div id="battleResultPopup" class="popup">
     <div class="popup-scroll-wrapper">
@@ -352,27 +396,6 @@
     <button id="bgActionBtn" class="bg-action-btn">Выбрать</button>
   </div>
   <button id="bgMenuBtn" class="bg-menu-btn">Фон</button>
-  <!-- Попап настроек -->
-<div id="settingsPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-        <div class="popup-content">
-            <div class="popup-header">
-                <h2>Настройки</h2>
-                <button class="close">×</button>
-            </div>
-            <div class="settings-container">
-                <div class="setting-item">
-                    <label>Музыка</label>
-                    <input type="checkbox" id="musicToggle">
-                </div>
-                <div class="setting-item">
-                    <label>Вибрация</label>
-                    <input type="checkbox" id="vibrationToggle">
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
   <script src="script.js"></script>
 </body>
 

@@ -1365,137 +1365,186 @@ body {
       line-height: 1.5;
       border-radius: .25rem;
       position: relative;
+      left: 300px;
       top: 5px;
     }
 
-    /* Контейнер для фона */
-    .background-selector {
-      width: 350px;
-      height: 450px;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px;
-      z-index: 5000;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 15px;
-    }
-
-    /* Активное состояние фона */
-    .background-selector.active {
-      display: flex;
-    }
-
-    .bg-controls {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    /* Стиль стрелок */
-    .bg-arrow {
-      position: fixed;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--primary);
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      cursor: pointer;
-      transition: transform 0.2s;
-      z-index: 1001;
-      /* Чтобы стрелки были поверх */
-    }
-
-    /* Левый стрелка */
-    #bgPrevBtn {
-      left: 10px;
-      text-align: center;
-    }
-
-    /* Правая стрелка */
-    #bgNextBtn {
-      right: 10px;
-      text-align: center;
-    }
-
-    /* Кнопка действия */
-    .bg-action-btn {
-      position: fixed;
-      top: 90%;
-      padding: 10px 25px;
-      border-radius: 20px;
-      border: none;
-      border: 2px solid var(--accent);
-      background: var(--primary);
-      color: white;
-      cursor: pointer;
-      font-size: 1.1em;
-      transition: transform 0.2s;
-    }
-
-    .bg-action-btn:disabled {
-      background: #666;
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    /* Кнопка меню */
-    .bg-menu-btn {
-      position: fixed;
-      top: 550px;
-      left: 20px;
-      padding: 10px 20px;
-      border-radius: 25px;
-      background: linear-gradient(145deg, #8B4513, #6B3410);
-      color: white;
-      border: 2px;
-      cursor: pointer;
-      z-index: 1000;
-      font-size: 1.1em;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Кнопка закрытия */
-    .bg-close-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: none;
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      cursor: pointer;
-      padding: 5px;
-    }
-
-.settings-container {
-    padding: 20px;
-}
-
-.setting-item {
+    /* Стили для кастомизации */
+.tab-buttons {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.1);
-    margin-bottom: 10px;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.skin-preview, .pet-preview {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.skin-preview img, .pet-preview img {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+    margin-bottom: 1rem;
+}
+
+.skin-list, .pet-list {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.skin-list img, .pet-list img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    cursor: pointer;
+    border: 2px solid transparent;
     border-radius: 10px;
+    transition: all 0.3s;
 }
 
-.setting-item label {
-    font-size: 1.1em;
-    color: white;
+.skin-list img:hover, .pet-list img:hover {
+    border-color: var(--accent);
+    transform: scale(1.1);
 }
 
-.setting-item input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
+/* Контейнер для питомца */
+.pet-container {
+  position: absolute;
+  bottom: -50px;
+  left: 70%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
 }
+
+.pet {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    top: -300px;
+    position: fixed;
+}
+
+/* Контейнер для фона */
+.background-selector {
+  width: 350px;
+  height: 450px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  z-index: 5000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Активное состояние фона */
+.background-selector.active {
+  display: flex;
+}
+
+.bg-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Стиль стрелок */
+.bg-arrow {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: none;
+  color: white;
+  font-size: 1.5em;
+  cursor: pointer;
+  transition: transform 0.2s;
+  z-index: 1001;
+  /* Чтобы стрелки были поверх */
+}
+
+/* Левый стрелка */
+#bgPrevBtn {
+  left: 10px;
+  text-align: center;
+}
+
+/* Правая стрелка */
+#bgNextBtn {
+  right: 10px;
+  text-align: center;
+}
+
+/* Кнопка действия */
+.bg-action-btn {
+  position: fixed;
+  top: 90%;
+  padding: 10px 25px;
+  border-radius: 20px;
+  border: none;
+  border: 2px solid var(--accent);
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font-size: 1.1em;
+  transition: transform 0.2s;
+}
+
+.bg-action-btn:disabled {
+  background: #666;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Кнопка меню */
+.bg-menu-btn {
+  position: fixed;
+  top: 550px;
+  left: 20px;
+  padding: 10px 20px;
+  border-radius: 25px;
+  background: linear-gradient(145deg, #8B4513, #6B3410);
+  color: white;
+  border: 2px;
+  cursor: pointer;
+  z-index: 1000;
+  font-size: 1.1em;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Кнопка закрытия */
+.bg-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5em;
+  cursor: pointer;
+  padding: 5px;
 }
