@@ -874,7 +874,6 @@ body {
 
 .combat-talents {
   display: flex;
-  flex-wrap: wrap;
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
