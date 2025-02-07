@@ -873,18 +873,36 @@ body {
 }
 
 .combat-talents {
-  display: flex;
+display: flex;
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 20px;
+  right: 20px;
   bottom: 80px;
   gap: 0.5rem;
-  justify-content: center;
   margin: 1rem 0;
-  max-height: 300px;
-  padding: 10px;
-  width: 90%;
-  max-width: 600px;
+  padding: 10px 15px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) rgba(0, 0, 0, 0.1);
+  transform: none;
+  width: auto;
+  max-width: none;
+  justify-content: flex-start;
+}
+.combat-talents::-webkit-scrollbar {
+  height: 8px;
+}
+
+.combat-talents::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.combat-talents::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
 #backToBossSelection {
@@ -908,6 +926,9 @@ body {
   transform: scale(0.95);
   filter: brightness(1.2);
   transition: all 0.2s ease;
+    flex: 0 0 auto;
+  min-width: 120px;
+  margin-bottom: 0;
 }
 
 .heal-effect {
