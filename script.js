@@ -24,7 +24,10 @@ const elements = {
     bossCombatImage: document.getElementById('bossCombatImage'),
     battleReward: document.getElementById('battleReward')
 };
-
+const audioElements = {
+    bgMusic: document.getElementById('backgroundMusic'),
+    musicToggle: document.getElementById('musicToggle')
+};
 const gameConfig = {
     bosses: {
         wasp: {
@@ -88,6 +91,7 @@ class GameState {
         this.currentPet = 'img/pet1.png';
         this.battleResult = null;
         this.reset();
+        this.isMusicMuted = localStorage.getItem('musicMuted') === 'true';
         this.previewHive = 'basic';
         this.attackCooldowns = {
             basic: 0,
@@ -255,7 +259,39 @@ function initGame() {
     startEnergyRecovery();
     gameState.updateKeysDisplay();
     initTalentBuyTab();
+    initAudio();
+    audioElements.musicToggle.addEventListener('click', toggleMusic);
+
+    // Автозапуск музыки при первом клике на улей
+    document.getElementById('hive').addEventListener('click', function firstPlay() {
+        if (audioElements.bgMusic.paused) {
+            audioElements.bgMusic.play();
+        }
+        document.removeEventListener('click', firstPlay);
+    }, {once: true});
 }
+function initAudio() {
+    audioElements.bgMusic.muted = gameState.isMusicMuted;
+    audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
+
+    // Попытка автовоспроизведения при первом взаимодействии
+    document.addEventListener('click', function initialPlay() {
+        if (audioElements.bgMusic.paused) {
+            audioElements.bgMusic.play().catch(error => {
+                console.error('Ошибка воспроизведения музыки:', error);
+            });
+        }
+        document.removeEventListener('click', initialPlay);
+    }, {once: true});
+}
+
+function toggleMusic() {
+    gameState.isMusicMuted = !gameState.isMusicMuted;
+    audioElements.bgMusic.muted = gameState.isMusicMuted;
+    audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
+    localStorage.setItem('musicMuted', gameState.isMusicMuted);
+}
+
 function handleBossClick() {
     if (!gameState.inBattle || !gameState.selectedTalent) {
         return; // Если не в бою или талант не выбран, ничего не делаем

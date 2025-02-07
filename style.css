@@ -1569,3 +1569,31 @@
 
           }
         }
+        .music-btn {
+          position: fixed;
+          top: 15px;
+          right: 15px;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.9);
+          border: 2px solid var(--primary);
+          color: var(--primary);
+          font-size: 1.2em;
+          cursor: pointer;
+          z-index: 1000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+          transition: all 0.3s;
+        }
+
+        .music-btn.muted {
+          background: rgba(255, 0, 0, 0.2);
+          color: #ff0000;
+        }
+
+        .music-btn:active {
+          transform: scale(0.9);
+        }
