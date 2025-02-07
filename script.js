@@ -91,7 +91,8 @@ class GameState {
         this.selectedForCraft = [];
         this.craftedTalents = {
             sonic: { level: 0, damage: 50, charges: 0 },
-            fire: { level: 0, damage: 75, charges: 0 }
+            fire: { level: 0, damage: 75, charges: 0 },
+            ice: { level: 0, damage: 60, charges: 0 }
         };
         this.currentSkin = 'img/skin1.png';
         this.currentPet = 'img/pet1.png';
@@ -344,6 +345,8 @@ function calculateDamage(type) {
                 gameState.talents.basic.damage;
         case 'poison':
             return gameState.talents.poison.damage;
+        case 'ice':
+            return gameState.craftedTalents.ice.damage; //Added ice damage calculation.
         default:
             return 0;
     }
@@ -564,14 +567,17 @@ function upgradeTalent(talentType) {
     switch (talentType) {
         case 'basic':
             gameState.talents.basic.damage = talent.getDamage(gameState.talents.basic.level);
-            // Обновляем урон звукового удара
+            // Обновляем урон звукового и ледяного ударов
             if (gameState.craftedTalents.sonic.level > 0) {
                 gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
+            }
+            if (gameState.craftedTalents.ice.level > 0) {
+                gameState.craftedTalents.ice.damage = 60 * gameState.talents.basic.level;
             }
             break;
         case 'critical':
             gameState.talents.critical.chance = talent.getChance(gameState.talents.critical.level);
-            // Обновляем урон обоих крафтовых талантов
+            // Обновляем урон крафтовых талантов
             if (gameState.craftedTalents.sonic.level > 0) {
                 gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
             }
@@ -581,9 +587,12 @@ function upgradeTalent(talentType) {
             break;
         case 'poison':
             gameState.talents.poison.damage = talent.getDamage(gameState.talents.poison.level);
-            // Обновляем урон огненного удара
+            // Обновляем урон огненного и ледяного ударов
             if (gameState.craftedTalents.fire.level > 0) {
                 gameState.craftedTalents.fire.damage = 75 * gameState.talents.critical.level;
+            }
+            if (gameState.craftedTalents.ice.level > 0) {
+                gameState.craftedTalents.ice.damage = 60 * gameState.talents.poison.level;
             }
             break;
     }
@@ -714,7 +723,8 @@ function createTalentButtons() {
     // Добавляем скрафченные таланты
     const craftedTalents = [
         { type: 'sonic', icon: '🔊', name: 'Звуковой удар' },
-        { type: 'fire', icon: '🔥', name: 'Огненный удар' }
+        { type: 'fire', icon: '🔥', name: 'Огненный удар' },
+        { type: 'ice', icon: '❄️', name: 'Ледяной удар' } // Added ice talent
     ];
 
     craftedTalents.forEach(talent => {
@@ -780,14 +790,14 @@ function attack(type) {
     gameState.lastAttackTime = now;
 
     // Обработка крафтовых талантов
-    if (type === 'sonic' || type === 'fire') {
+    if (type === 'sonic' || type === 'fire' || type === 'ice') { //Added ice talent handling
         if (!gameState.craftedTalents[type]) {
             console.error('Crafted talent not found:', type);
             return;
         }
         const talent = gameState.craftedTalents[type];
         if (talent.charges <= 0) {
-            showMessage(`Нет зарядов ${type === 'sonic' ? 'звукового' : 'огненного'} удара!`);
+            showMessage(`Нет зарядов ${type === 'sonic' ? 'звукового' : (type === 'fire' ? 'огненного' : 'ледяного')} удара!`);
             return;
         }
         talent.charges--;
@@ -796,8 +806,10 @@ function attack(type) {
 
         if (type === 'sonic') {
             showSonicEffect(damage);
-        } else {
+        } else if (type === 'fire') {
             showFireEffect(damage);
+        } else {
+            showIceEffect(damage); //Added ice effect
         }
 
         updateCombatUI();
@@ -1223,6 +1235,15 @@ function showSonicEffect(damage) {
     setTimeout(() => effect.remove(), 1000);
 }
 
+function showIceEffect(damage) { //Added ice effect
+    const effect = document.createElement('div');
+    effect.className = 'sonic-effect';
+    effect.textContent = `❄️ ${damage}`;
+    effect.style.color = '#00cccc'; // Light blue color
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
 function showPopup(popupType) {
     if (popupType === 'battleResult' && !gameState.battleResult) return;
@@ -1333,7 +1354,8 @@ function getTalentIcon(type) {
     return {
         basic: '🗡️',
         critical: '💥',
-        poison: '☠️'
+        poison: '☠️',
+        ice: '❄️' //Added ice icon
     }[type] || '';
 }
 
@@ -1448,6 +1470,7 @@ function initCrafting() {
 
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
+    const iceButton = document.getElementById('iceButton'); //Added ice button
 
     sonicButton.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1494,45 +1517,33 @@ function initCrafting() {
             showMessage('Недостаточно зарядов!');
         }
     });
-}
 
-function checkRecipe() {
-    const slots = document.querySelectorAll('.craft-slot');
-    const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
+    iceButton.addEventListener('click', (e) => { //Added ice button event listener
+        e.stopPropagation();
+        if (gameState.attackCharges.poison.charges >= 1 && gameState.attackCharges.basic.charges >= 1) {
+            gameState.attackCharges.poison.charges -= 1;
+            gameState.attackCharges.basic.charges -= 1;
 
-    const isValidRecipe = talents.length === 2 &&
-        talents.includes('critical') &&
-        talents.includes('poison');
+            gameState.craftedTalents.ice.charges += 1;
+            gameState.craftedTalents.ice.level = Math.max(
+                gameState.talents.poison.level,
+                gameState.talents.basic.level
+            );
 
-    const fireButton = document.getElementById('fireButton');
-    if (fireButton) {
-        fireButton.style.display = isValidRecipe ? 'block' : 'none';
-        if (isValidRecipe) {
-            fireButton.disabled = gameState.attackCharges.critical.charges < 1 ||
-                gameState.attackCharges.poison.charges < 1;
+            showMessage('❄️ Создан новый талант: Ледяной удар!');
+            resetCrafting();
+            updateTalentBuyTab();
+            if (gameState.inBattle) {
+                setTimeout(() => createTalentButtons(), 100);
+            }
+        } else {
+            showMessage('Недостаточно зарядов!');
         }
-    }
-    return isValidRecipe;
-}
+    });
 
-function resetCrafting() {
-    gameState.selectedForCraft = [];
-    document.querySelectorAll('.talent-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-    document.querySelectorAll('.craft-slot').forEach(slot => {
-        slot.innerHTML = '';
-        slot.dataset.talent = '';
-        slot.classList.remove('filled');
-    });
-    const sonicButton = document.getElementById('sonicButton');
-    const fireButton = document.getElementById('fireButton');
-    if (sonicButton) {
-        sonicButton.style.display = 'none';
-    }
-    if (fireButton) {
-        fireButton.style.display = 'none';
-    }
+    if (sonicButton) sonicButton.style.display = 'none';
+    if (fireButton) fireButton.style.display = 'none';
+    if (iceButton) iceButton.style.display = 'none';
 }
 
 function checkRecipe() {
@@ -1549,8 +1560,15 @@ function checkRecipe() {
         talents.includes('critical') &&
         talents.includes('poison');
 
+    // Проверяем рецепт ледяного удара
+    const isIceRecipe = talents.length === 2 &&
+        talents.includes('poison') &&
+        talents.includes('basic');
+
+
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
+    const iceButton = document.getElementById('iceButton');
 
     // Управляем кнопкой звукового удара
     if (sonicButton) {
@@ -1570,7 +1588,16 @@ function checkRecipe() {
         }
     }
 
-    return isSonicRecipe || isFireRecipe;
+    // Управляем кнопкой ледяного удара
+    if (iceButton) {
+        iceButton.style.display = isIceRecipe ? 'block' : 'none';
+        if (isIceRecipe) {
+            iceButton.disabled = gameState.attackCharges.critical.charges < 1 ||
+                gameState.attackCharges.poison.charges < 1;
+        }
+    }
+
+    return isSonicRecipe || isFireRecipe || isIceRecipe;
 }
 
 function resetCrafting() {
@@ -1585,11 +1612,15 @@ function resetCrafting() {
     });
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
+    const iceButton = document.getElementById('iceButton'); //Added ice button
     if (sonicButton) {
         sonicButton.style.display = 'none';
     }
     if (fireButton) {
         fireButton.style.display = 'none';
+    }
+    if (iceButton) { //Added ice button reset
+        iceButton.style.display = 'none';
     }
 }
 
