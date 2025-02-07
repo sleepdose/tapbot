@@ -87,6 +87,10 @@ class GameState {
         this.purchasedBackgrounds = ['default'];
         this.selectedTalent = null;
         this.currentBackground = 'default';
+        this.selectedForCraft = [];
+        this.craftedTalents = {
+            sonic: { level: 0, damage: 50, charges: 0 }
+        };
         this.currentSkin = 'img/skin1.png';
         this.currentPet = 'img/pet1.png';
         this.battleResult = null;
@@ -650,6 +654,8 @@ function startBattle(bossType) {
 
 function createTalentButtons() {
     elements.combatTalents.innerHTML = '';
+
+    // Добавляем обычные таланты
     Object.entries(gameState.talents).forEach(([type, talent]) => {
         if (talent.level > 0) {
             const charges = gameState.attackCharges[type].charges;
@@ -680,6 +686,25 @@ function createTalentButtons() {
             elements.combatTalents.appendChild(button);
         }
     });
+
+    // Добавляем скрафченный звуковой талант
+    if (gameState.craftedTalents.sonic.charges > 0) {
+        const sonicButton = document.createElement('button');
+        sonicButton.className = `attack-btn ${gameState.selectedTalent === 'sonic' ? 'selected' : ''}`;
+        sonicButton.dataset.attack = 'sonic';
+        sonicButton.innerHTML = `
+            <div class="talent-icon">🔊</div>
+            <div class="talent-info">
+                <div>Звуковой удар</div>
+                <div class="charge-counter">Всего: ${gameState.craftedTalents.sonic.charges}</div>
+            </div>
+        `;
+        sonicButton.onclick = () => {
+            gameState.selectedTalent = gameState.selectedTalent === 'sonic' ? null : 'sonic';
+            createTalentButtons();
+        };
+        elements.combatTalents.appendChild(sonicButton);
+    }
 }
 
 function startBattleTimer(seconds) {
@@ -714,6 +739,23 @@ function startBattleTimer(seconds) {
 function attack(type) {
     if (!gameState.inBattle || !gameState.selectedTalent) {
         return; // Если не в бою или талант не выбран, ничего не делаем
+    }
+
+    if (type === 'sonic') {
+        if (gameState.craftedTalents.sonic.charges <= 0) {
+            showMessage('Нет зарядов звукового удара!');
+            return;
+        }
+        gameState.craftedTalents.sonic.charges--;
+        const sonicDamage = gameState.craftedTalents.sonic.damage * gameState.craftedTalents.sonic.level;
+        gameState.currentBoss.currentHealth = Math.max(0, gameState.currentBoss.currentHealth - sonicDamage);
+        showSonicEffect(sonicDamage);
+        updateCombatUI();
+        createTalentButtons(); // Обновляем отображение кнопок сразу после использования
+        if (gameState.currentBoss.currentHealth <= 0) {
+            endBattle(true);
+        }
+        return;
     }
 
     // Проверяем кулдаун
@@ -959,6 +1001,9 @@ document.getElementById('closeResultButton').addEventListener('click', () => {
 document.querySelectorAll('.popup .close').forEach(btn => {
     btn.addEventListener('click', () => {
         const popup = btn.closest('.popup');
+        if (popup.id === 'talentsPopup') {
+            resetCrafting();
+        }
         if (popup.id === 'battleResultPopup') {
             // Если это попап результатов
             if (gameState.battleResult?.victory) {
@@ -1113,6 +1158,14 @@ function showMessage(text) {
     msg.textContent = text;
     document.body.appendChild(msg);
     setTimeout(() => msg.remove(), 2000);
+}
+
+function showSonicEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'sonic-effect';
+    effect.textContent = `🔊 ${damage}`;
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
 }
 
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
@@ -1307,6 +1360,122 @@ function updatePetButton() {
     }
 }
 
+// =================== СИСТЕМА КРАФТИНГА ===================
+function initCrafting() {
+    const talentCards = document.querySelectorAll('.talent-card');
+    const craftSlots = document.querySelectorAll('.craft-slot');
+    const craftButton = document.getElementById('craftButton');
+
+    talentCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const emptySlot = Array.from(craftSlots).find(slot => !slot.dataset.talent);
+            if (emptySlot) {
+                emptySlot.innerHTML = card.innerHTML;
+                emptySlot.dataset.talent = card.dataset.talent;
+                emptySlot.classList.add('filled');
+                checkRecipe();
+            }
+        });
+    });
+
+    craftSlots.forEach(slot => {
+        slot.addEventListener('click', () => {
+            if (slot.classList.contains('filled')) {
+                slot.innerHTML = '';
+                slot.dataset.talent = '';
+                slot.classList.remove('filled');
+                checkRecipe();
+            }
+        });
+    });
+
+    const sonicButton = document.getElementById('sonicButton');
+    sonicButton.addEventListener('click', () => {
+        if (gameState.attackCharges.basic.charges >= 1 && gameState.attackCharges.critical.charges >= 1) {
+            gameState.attackCharges.basic.charges -= 1;
+            gameState.attackCharges.critical.charges -= 1;
+
+            gameState.craftedTalents.sonic.charges += 1;
+            gameState.craftedTalents.sonic.level = Math.max(
+                gameState.talents.basic.level,
+                gameState.talents.critical.level
+            );
+
+            showMessage('Звуковой удар создан!');
+            resetCrafting();
+            updateTalentBuyTab();
+            if (gameState.inBattle) {
+                setTimeout(() => createTalentButtons(), 100);
+            }
+        } else {
+            showMessage('Недостаточно зарядов!');
+        }
+    });
+}
+
+function checkRecipe() {
+    const slots = document.querySelectorAll('.craft-slot');
+    const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
+
+    const isValidRecipe = talents.length === 2 &&
+        talents.includes('basic') &&
+        talents.includes('critical');
+
+    const sonicButton = document.getElementById('sonicButton');
+    if (sonicButton) {
+        sonicButton.style.display = isValidRecipe ? 'block' : 'none';
+        if (isValidRecipe) {
+            sonicButton.disabled = gameState.attackCharges.basic.charges < 1 ||
+                gameState.attackCharges.critical.charges < 1;
+        }
+    }
+    return isValidRecipe;
+}
+
+function resetCrafting() {
+    document.querySelectorAll('.craft-slot').forEach(slot => {
+        slot.innerHTML = '';
+        slot.dataset.talent = '';
+        slot.classList.remove('filled');
+    });
+    document.getElementById('craftButton').disabled = true;
+}
+
+function checkRecipe() {
+    const slots = document.querySelectorAll('.craft-slot');
+    const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
+
+    const isValidRecipe = talents.length === 2 &&
+        talents.includes('basic') &&
+        talents.includes('critical');
+
+    const sonicButton = document.getElementById('sonicButton');
+    if (sonicButton) {
+        sonicButton.style.display = isValidRecipe ? 'block' : 'none';
+        if (isValidRecipe) {
+            sonicButton.disabled = gameState.attackCharges.basic.charges < 1 ||
+                gameState.attackCharges.critical.charges < 1;
+        }
+    }
+    return isValidRecipe;
+}
+
+function resetCrafting() {
+    gameState.selectedForCraft = [];
+    document.querySelectorAll('.talent-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    document.querySelectorAll('.craft-slot').forEach(slot => {
+        slot.innerHTML = '';
+        slot.dataset.talent = '';
+        slot.classList.remove('filled');
+    });
+    const sonicButton = document.getElementById('sonicButton');
+    if (sonicButton) {
+        sonicButton.style.display = 'none';
+    }
+}
+
 // =================== ЗАПУСК ИГРЫ ===================
 document.getElementById('backToBossSelection').addEventListener('click', () => {
     endBattle(false);
@@ -1335,7 +1504,8 @@ if (shopTabs) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initGame(); // Добавьте эту строку
+    initGame();
+    initCrafting();
     document.getElementById('gameScreen').style.display = 'block';
     const elementsToCheck = [
         'battleResultPopup',

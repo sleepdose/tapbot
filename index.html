@@ -2,366 +2,381 @@
 <html lang="ru">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AIKO TAPBOT</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AIKO TAPBOT</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <div class="effect-indicators"></div>
-  <div id="gameScreen">
-    <div class="stats">
-      <div class="stat"><span id="energy">100</span>/<span id="maxEnergy">100</span></div>
-      <div class="stat">Ур. <span id="level">1</span></div>
-      <div class="stat"><span id="honey">0</span></div>
-    </div>
-
-    <div class="level-container">
-      <div class="level-progress">
-        <div class="level-progress-bar" id="levelProgress"></div>
-      </div>
-      <div class="stat xp-stat">
-        📈 <span id="xp">0</span>/<span id="xpToNextLevel">100</span>
-      </div>
-    </div>
-
-    <div class="click-area" id="hive">
-      <div class="hive-img" role="img" aria-label="Активный скин"></div>
-    </div>
-  </div>
-  <div class="pet-container">
-    <img id="pet-img" src="img/pet1.png" class="pet" alt="Питомец">
-  </div>
-
-  <div id="battlePopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
+    <div class="effect-indicators"></div>
+    <div id="gameScreen">
+        <div class="stats">
+            <div class="stat"><span id="energy">100</span>/<span id="maxEnergy">100</span></div>
+            <div class="stat">Ур. <span id="level">1</span></div>
+            <div class="stat"><span id="honey">0</span></div>
         </div>
-        <!-- Кнопки для фильтрации боссов по сложности -->
-        <div class="battle-container">
-          <div id="bossSelection">
-            <div class="difficulty-tabs">
-              <button data-difficulty="easy" class="tab-btn active">Легкие</button>
-              <button data-difficulty="medium" class="tab-btn">Средние</button>
-              <button data-difficulty="hard" class="tab-btn">Сложные</button>
+
+        <div class="level-container">
+            <div class="level-progress">
+                <div class="level-progress-bar" id="levelProgress"></div>
             </div>
-            <!-- Контейнеры для боссов по сложности -->
-            <div class="boss-container">
-              <div id="easyBosses" class="boss-selection active">
-                <!-- Легкие боссы: Оса, Медведь, Дракон -->
-                <div class="boss-card" data-boss="wasp">
-                  <div class="boss-image-container">
-                    <img loading="lazy" src="img/wasp.png" class="boss-img" alt="Оса">
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">500 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">60 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      1000<br>
-                      +200 XP
+            <div class="stat xp-stat">
+                📈 <span id="xp">0</span>/<span id="xpToNextLevel">100</span>
+            </div>
+        </div>
+
+        <div class="click-area" id="hive">
+            <div class="hive-img" role="img" aria-label="Активный скин"></div>
+        </div>
+    </div>
+    <div class="pet-container">
+        <img id="pet-img" src="img/pet1.png" class="pet" alt="Питомец">
+    </div>
+
+    <div id="battlePopup" class="popup">
+        <div class="popup-scroll-wrapper">
+            <div class="popup-content">
+                <div class="popup-header">
+                    <button class="close">×</button>
+                </div>
+                <!-- Кнопки для фильтрации боссов по сложности -->
+                <div class="battle-container">
+                    <div id="bossSelection">
+                        <div class="difficulty-tabs">
+                            <button data-difficulty="easy" class="tab-btn active">Легкие</button>
+                            <button data-difficulty="medium" class="tab-btn">Средние</button>
+                            <button data-difficulty="hard" class="tab-btn">Сложные</button>
+                        </div>
+                        <!-- Контейнеры для боссов по сложности -->
+                        <div class="boss-container">
+                            <div id="easyBosses" class="boss-selection active">
+                                <!-- Легкие боссы: Оса, Медведь, Дракон -->
+                                <div class="boss-card" data-boss="wasp">
+                                    <div class="boss-image-container">
+                                        <img loading="lazy" src="img/wasp.png" class="boss-img" alt="Оса">
+                                    </div>
+                                    <div class="boss-stats">
+                                        <div class="stat-item">❤️ <span class="stat-value">500 HP</span></div>
+                                        <div class="stat-item">⏳ <span class="stat-value">60 сек</span></div>
+                                    </div>
+                                    <div class="boss-reward">
+                                        <div class="reward-title">Награда:</div>
+                                        <div class="reward-content">
+                                            1000<br>
+                                            +200 XP
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="boss-card" data-boss="bear">
+                                    <div class="boss-image-container">
+                                        <img loading="lazy" src="img/bear.jpg" class="boss-img" alt="Медведь">
+                                    </div>
+                                    <div class="boss-requirements">
+                                        🔑 <span class="current-keys" data-boss="bear">0</span>/3
+                                    </div>
+                                    <div class="boss-stats">
+                                        <div class="stat-item">❤️ <span class="stat-value">1000 HP</span></div>
+                                        <div class="stat-item">⏳ <span class="stat-value">90 сек</span></div>
+                                    </div>
+                                    <div class="boss-reward">
+                                        <div class="reward-title">Награда:</div>
+                                        <div class="reward-content">
+                                            2000<br>
+                                            +500 XP
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="boss-card" data-boss="dragon">
+                                    <div class="boss-image-container">
+                                        <img loading="lazy" src="img/dragon.jpg" class="boss-img" alt="Дракон">
+                                    </div>
+                                    <div class="boss-requirements">
+                                        🔑 <span class="current-keys" data-boss="dragon">0</span>/3
+                                    </div>
+                                    <div class="boss-stats">
+                                        <div class="stat-item">❤️ <span class="stat-value">2500 HP</span></div>
+                                        <div class="stat-item">⏳ <span class="stat-value">120 сек</span></div>
+                                    </div>
+                                    <div class="boss-reward">
+                                        <div class="reward-title">Награда:</div>
+                                        <div class="reward-content">
+                                            5000<br>
+                                            +1500 XP
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="mediumBosses" class="boss-selection">
+                                <div class="boss-card" data-boss="hydra">
+                                    <div class="boss-image-container">
+                                        <img loading="lazy" src="img/hydra.jpg" class="boss-img" alt="Гидра">
+                                    </div>
+
+                                    <div class="boss-stats">
+                                        <div class="stat-item">❤️ <span class="stat-value">4000 HP</span></div>
+                                        <div class="stat-item">⏳ <span class="stat-value">150 сек</span></div>
+                                    </div>
+                                    <div class="boss-reward">
+                                        <div class="reward-title">Награда:</div>
+                                        <div class="reward-content">
+                                            7500<br>
+                                            +2500 XP
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="hardBosses" class="boss-selection">
+                                <div class="boss-card" data-boss="kraken">
+                                    <div class="boss-image-container">
+                                        <img loading="lazy" src="img/kraken.jpg" class="boss-img" alt="Кракен">
+                                    </div>
+                                    <div class="boss-stats">
+                                        <div class="stat-item">❤️ <span class="stat-value">6000 HP</span></div>
+                                        <div class="stat-item">⏳ <span class="stat-value">180 сек</span></div>
+                                    </div>
+                                    <div class="boss-reward">
+                                        <div class="reward-title">Награда:</div>
+                                        <div class="reward-content">
+                                            10000<br>
+                                            +4000 XP
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                  </div>
+                </div>
+                <div id="combatScreen" class="combat-screen" style="display: none;">
+                    <div class="combat-header">
+                        <img id="bossCombatImage" src="" class="boss-image" alt="Босс">
+                        <div class="boss-health">
+                            <div class="health-bar" id="bossHealth"></div>
+                            <div class="health-text">
+
+                                <span id="currentHealth">500</span> /
+                                <span id="maxHealth">500</span> HP
+                            </div>
+                        </div>
+                        <div class="timer" id="combatTimer">60</div>
+                    </div>
+                    <div class="combat-actions">
+                        <div class="combat-talents" id="combatTalents"></div>
+                    </div>
+                    <div id="poisonTimersContainer" class="poison-timers"></div>
+                    <div id="battleReward" class="battle-reward"></div>
+                    <div class="combat-footer">
+                        <button id="backToBossSelection" class="btn">Назад к выбору боссов</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Попап талантов -->
+    <div id="talentsPopup" class="popup">
+        <div class="popup-scroll-wrapper">
+            <div class="popup-content">
+                <div class="popup-header">
+                    <button class="close">×</button>
                 </div>
 
-                <div class="boss-card" data-boss="bear">
-                  <div class="boss-image-container">
-                    <img loading="lazy" src="img/bear.jpg" class="boss-img" alt="Медведь">
-                  </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="bear">0</span>/3
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">1000 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">90 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      2000<br>
-                      +500 XP
-                    </div>
-                  </div>
+                <!-- Вкладки -->
+                <div class="talent-tabs">
+                    <button data-tab="buyCharges" class="tab-btn active">Купить</button>
+                    <button data-tab="upgradeTalents" class="tab-btn">Улучшить</button>
+                    <button data-tab="crafting" class="tab-btn">Крафтинг</button>
                 </div>
 
-                <div class="boss-card" data-boss="dragon">
-                  <div class="boss-image-container">
-                    <img loading="lazy" src="img/dragon.jpg" class="boss-img" alt="Дракон">
-                  </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="dragon">0</span>/3
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">2500 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">120 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      5000<br>
-                      +1500 XP
+                <!-- Контейнеры контента -->
+                <div id="buyCharges" class="shop-tab active">
+                    <!-- Покупка зарядов (существующий контент) -->
+                    <div class="attack-charge-item">
+                        <div>
+                            <h3>Базовый удар</h3>
+                            <span class="charge-counter">15 шт</span>
+                        </div>
+                        <button class="btn" data-type="basic">50</button>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              <div id="mediumBosses" class="boss-selection">
-                <div class="boss-card" data-boss="hydra">
-                  <div class="boss-image-container">
-                    <img loading="lazy" src="img/hydra.jpg" class="boss-img" alt="Гидра">
-                  </div>
-
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">4000 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">150 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      7500<br>
-                      +2500 XP
+                    <div class="attack-charge-item">
+                        <div>
+                            <h3>Критический удар</h3>
+                            <span class="charge-counter">15 шт</span>
+                        </div>
+                        <button class="btn" data-type="critical">75</button>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              <div id="hardBosses" class="boss-selection">
-                <div class="boss-card" data-boss="kraken">
-                  <div class="boss-image-container">
-                    <img loading="lazy" src="img/kraken.jpg" class="boss-img" alt="Кракен">
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">6000 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">180 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      10000<br>
-                      +4000 XP
+                    <div class="attack-charge-item">
+                        <div>
+                            <h3>Ядовитый удар</h3>
+                            <span class="charge-counter">15 шт</span>
+                        </div>
+                        <button class="btn" data-type="poison">100</button>
                     </div>
-                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="combatScreen" class="combat-screen" style="display: none;">
-          <div class="combat-header">
-            <img id="bossCombatImage" src="" class="boss-image" alt="Босс">
-            <div class="boss-health">
-              <div class="health-bar" id="bossHealth"></div>
-              <div class="health-text">
 
-                <span id="currentHealth">500</span> /
-                <span id="maxHealth">500</span> HP
-              </div>
+                <div id="upgradeTalents" class="shop-tab">
+                    <!-- Улучшение талантов -->
+                    <div class="talent" data-talent="basic">
+                        <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">0</span>)</h3>
+                        <div class="talent-info">
+                            <span class="stat">📈 Урон: <span id="basicDmg">19</span></span>
+                        </div>
+                        <div class="button-wrapper">
+                            <button class="btn">75</button>
+                        </div>
+                    </div>
+
+                    <div class="talent" data-talent="critical">
+                        <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>)</h3>
+                        <div class="talent-info">
+                            <span class="stat">📈 Шанс: <span id="critChanceUpgrade">0</span>%</span>
+                        </div>
+                        <div class="button-wrapper">
+                            <button class="btn">150</button>
+                        </div>
+                    </div>
+
+                    <div class="talent" data-talent="poison">
+                        <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>)</h3>
+                        <div class="talent-info">
+                            <span class="stat">📈 Урон: <span id="poisonDmgUpgrade">0</span>/сек</span>
+                        </div>
+                        <div class="button-wrapper">
+                            <button class="btn">200</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Новая вкладка крафтинга -->
+                <div id="crafting" class="shop-tab">
+                    <div class="talents-grid">
+                        <div class="talent-card" data-talent="basic">
+                            🗡️ Базовый
+                        </div>
+                        <div class="talent-card" data-talent="critical">
+                            💥 Критический
+                        </div>
+                        <div class="talent-card" data-talent="poison">
+                            ☠️ Ядовитый
+                        </div>
+                    </div>
+                    <div class="craft-slots">
+                        <div class="craft-slot" id="slot1"></div>
+                        <div class="craft-slot" id="slot2"></div>
+                    </div>
+                    <div id="craftResult">
+                        <button id="sonicButton" class="craft-result-btn" style="display: none;">
+                            Создать звуковой удар 🔊
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="timer" id="combatTimer">60</div>
-          </div>
-          <div class="combat-actions">
-            <div class="combat-talents" id="combatTalents"></div>
-          </div>
-          <div id="poisonTimersContainer" class="poison-timers"></div>
-          <div id="battleReward" class="battle-reward"></div>
-          <div class="combat-footer">
-            <button id="backToBossSelection" class="btn">Назад к выбору боссов</button>
-          </div>
+
         </div>
-      </div>
     </div>
-  </div>
-  </div>
 
+    <!-- Нижняя навигация -->
+    <nav class="bottom-nav">
+        <button class="nav-btn" data-popup="battle">⚔️</button>
+        <button class="nav-btn" data-popup="talents">💫</button>
+        <button class="nav-btn" data-popup="customization">👤</button>
+    </nav>
 
+    <!-- Попап кастомизации -->
+    <div id="customizationPopup" class="popup">
+        <div class="popup-scroll-wrapper">
+            <div class="popup-content">
+                <div class="popup-header">
+                    <button class="close">×</button>
+                </div>
+                <div class="tab-buttons">
+                    <button onclick="showTab('character')" class="tab-btn active">Персонаж</button>
+                    <button onclick="showTab('pets')" class="tab-btn">Питомцы</button>
+                </div>
 
-  <!-- Попап талантов -->
-  <div id="talentsPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
+                <div id="character" class="tab-content active">
+                    <div class="skin-preview">
+                        <img id="selected-skin" src="img/skin1.png" alt="Скин">
+                        <h3 id="skin-name">Скин 1</h3>
+                        <button id="select-skin" class="btn" onclick="selectSkin()">Выбрать</button>
+                    </div>
+                    <div class="skin-list">
+                        <img src="img/skin1.png" onclick="previewSkin('img/skin1.png', 'Скин 1')">
+                        <img src="img/skin2.png" onclick="previewSkin('img/skin2.png', 'Скин 2')">
+                        <img src="img/skin3.png" onclick="previewSkin('img/skin3.png', 'Скин 3')">
+                    </div>
+                </div>
 
-        <!-- Вкладки -->
-        <div class="talent-tabs">
-          <button data-tab="buyCharges" class="tab-btn active">Купить</button>
-          <button data-tab="upgradeTalents" class="tab-btn">Улучшить</button>
-          <button data-tab="crafting" class="tab-btn">Крафтинг</button>
-        </div>
-
-        <!-- Контейнеры контента -->
-        <div id="buyCharges" class="shop-tab active">
-          <!-- Покупка зарядов (существующий контент) -->
-          <div class="attack-charge-item">
-            <div>
-              <h3>Базовый удар</h3>
-              <span class="charge-counter">15 шт</span>
+                <div id="pets" class="tab-content">
+                    <div class="pet-preview">
+                        <img id="selected-pet" src="img/pet1.png" alt="Питомец">
+                        <h3 id="pet-name">Питомец 1</h3>
+                        <button id="select-pet" class="btn" onclick="selectPet()">Выбрать</button>
+                    </div>
+                    <div class="pet-list">
+                        <img src="img/pet1.png" onclick="previewPet('img/pet1.png', 'Питомец 1')">
+                        <img src="img/pet2.png" onclick="previewPet('img/pet2.png', 'Питомец 2')">
+                        <img src="img/pet3.png" onclick="previewPet('img/pet3.png', 'Питомец 3')">
+                    </div>
+                </div>
             </div>
-            <button class="btn" data-type="basic">50</button>
-          </div>
-          <div class="attack-charge-item">
-            <div>
-              <h3>Критический удар</h3>
-              <span class="charge-counter">15 шт</span>
-            </div>
-            <button class="btn" data-type="critical">75</button>
-          </div>
-          <div class="attack-charge-item">
-            <div>
-              <h3>Ядовитый удар</h3>
-              <span class="charge-counter">15 шт</span>
-            </div>
-            <button class="btn" data-type="poison">100</button>
-          </div>
         </div>
-
-        <div id="upgradeTalents" class="shop-tab">
-          <!-- Улучшение талантов -->
-          <div class="talent" data-talent="basic">
-            <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">0</span>)</h3>
-            <div class="talent-info">
-              <span class="stat">📈 Урон: <span id="basicDmg">19</span></span>
-            </div>
-            <div class="button-wrapper">
-              <button class="btn">75</button>
-            </div>
-          </div>
-
-          <div class="talent" data-talent="critical">
-            <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>)</h3>
-            <div class="talent-info">
-              <span class="stat">📈 Шанс: <span id="critChanceUpgrade">0</span>%</span>
-            </div>
-            <div class="button-wrapper">
-              <button class="btn">150</button>
-            </div>
-          </div>
-
-          <div class="talent" data-talent="poison">
-            <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>)</h3>
-            <div class="talent-info">
-              <span class="stat">📈 Урон: <span id="poisonDmgUpgrade">0</span>/сек</span>
-            </div>
-            <div class="button-wrapper">
-              <button class="btn">200</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Новая вкладка крафтинга -->
-        <div id="crafting" class="shop-tab">
-
-
-        </div>
-      </div>
-
-  </div>
-  </div>
-
-  <!-- Нижняя навигация -->
-  <nav class="bottom-nav">
-    <button class="nav-btn" data-popup="battle">⚔️</button>
-    <button class="nav-btn" data-popup="talents">💫</button>
-    <button class="nav-btn" data-popup="customization">👤</button>
-  </nav>
-
-  <!-- Попап кастомизации -->
-  <div id="customizationPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
-        <div class="tab-buttons">
-          <button onclick="showTab('character')" class="tab-btn active">Персонаж</button>
-          <button onclick="showTab('pets')" class="tab-btn">Питомцы</button>
-        </div>
-
-        <div id="character" class="tab-content active">
-          <div class="skin-preview">
-            <img id="selected-skin" src="img/skin1.png" alt="Скин">
-            <h3 id="skin-name">Скин 1</h3>
-            <button id="select-skin" class="btn" onclick="selectSkin()">Выбрать</button>
-          </div>
-          <div class="skin-list">
-            <img src="img/skin1.png" onclick="previewSkin('img/skin1.png', 'Скин 1')">
-            <img src="img/skin2.png" onclick="previewSkin('img/skin2.png', 'Скин 2')">
-            <img src="img/skin3.png" onclick="previewSkin('img/skin3.png', 'Скин 3')">
-          </div>
-        </div>
-
-        <div id="pets" class="tab-content">
-          <div class="pet-preview">
-            <img id="selected-pet" src="img/pet1.png" alt="Питомец">
-            <h3 id="pet-name">Питомец 1</h3>
-            <button id="select-pet" class="btn" onclick="selectPet()">Выбрать</button>
-          </div>
-          <div class="pet-list">
-            <img src="img/pet1.png" onclick="previewPet('img/pet1.png', 'Питомец 1')">
-            <img src="img/pet2.png" onclick="previewPet('img/pet2.png', 'Питомец 2')">
-            <img src="img/pet3.png" onclick="previewPet('img/pet3.png', 'Питомец 3')">
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
-  <!-- ▼▼▼ Код попапа результатов ▼▼▼ -->
-  <div id="battleResultPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <h2 id="resultTitle">Результат боя</h2>
-          <button class="close">×</button>
+    <!-- ▼▼▼ Код попапа результатов ▼▼▼ -->
+    <div id="battleResultPopup" class="popup">
+        <div class="popup-scroll-wrapper">
+            <div class="popup-content">
+                <div class="popup-header">
+                    <h2 id="resultTitle">Результат боя</h2>
+                    <button class="close">×</button>
+                </div>
+
+                <div class="result-body">
+                    <img id="resultBossImage" class="result-boss-img" alt="Босс">
+
+                    <div id="victoryReward" class="reward-section">
+                        <div class="reward-item">
+                            <span>🍯</span>
+                            <span id="rewardHoney">0</span>
+                        </div>
+                        <div class="reward-item">
+                            <span>⭐</span>
+                            <span id="rewardXP">0</span>
+                        </div>
+                        <div class="reward-item">
+                            <span>🔑</span>
+                            <span id="rewardKeys">0</span>
+                        </div>
+                    </div>
+
+                    <div class="result-actions">
+                        <button id="claimRewardButton" class="btn victory-btn">Получить награду</button>
+                        <button id="closeResultButton" class="btn defeat-btn">Выйти</button>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div class="result-body">
-          <img id="resultBossImage" class="result-boss-img" alt="Босс">
-
-          <div id="victoryReward" class="reward-section">
-            <div class="reward-item">
-              <span>🍯</span>
-              <span id="rewardHoney">0</span>
-            </div>
-            <div class="reward-item">
-              <span>⭐</span>
-              <span id="rewardXP">0</span>
-            </div>
-            <div class="reward-item">
-              <span>🔑</span>
-              <span id="rewardKeys">0</span>
-            </div>
-          </div>
-
-          <div class="result-actions">
-            <button id="claimRewardButton" class="btn victory-btn">Получить награду</button>
-            <button id="closeResultButton" class="btn defeat-btn">Выйти</button>
-          </div>
+    </div>
+    <!-- Добавить в index.html перед закрывающим тегом body -->
+    <div id="backgroundSelector" class="background-selector">
+        <div class="bg-controls">
+            <button id="bgPrevBtn" class="bg-arrow">←</button>
+            <button id="bgNextBtn" class="bg-arrow">→</button>
         </div>
-      </div>
+        <button id="bgActionBtn" class="bg-action-btn">Выбрать</button>
     </div>
-  </div>
-  <!-- Добавить в index.html перед закрывающим тегом body -->
-  <div id="backgroundSelector" class="background-selector">
-    <div class="bg-controls">
-      <button id="bgPrevBtn" class="bg-arrow">←</button>
-      <button id="bgNextBtn" class="bg-arrow">→</button>
-    </div>
-    <button id="bgActionBtn" class="bg-action-btn">Выбрать</button>
-  </div>
-  <button id="bgMenuBtn" class="bg-menu-btn">Фон</button>
-  <audio id="backgroundMusic" loop>
-    <source src="audio/background.mp3" type="audio/mpeg">
-    Ваш браузер не поддерживает аудио элемент.
-  </audio>
+    <button id="bgMenuBtn" class="bg-menu-btn">Фон</button>
+    <audio id="backgroundMusic" loop>
+        <source src="audio/background.mp3" type="audio/mpeg">
+        Ваш браузер не поддерживает аудио элемент.
+    </audio>
 
-  <button id="musicToggle" class="music-btn">♪</button>
-  <script src="script.js"></script>
+    <button id="musicToggle" class="music-btn">♪</button>
+    <script src="script.js"></script>
 </body>
 
 </html>
