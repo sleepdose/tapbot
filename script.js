@@ -309,6 +309,11 @@ function handleBossClick(e) {
         return;
     }
 
+    // Add vibration effect
+    if (navigator.vibrate) {
+        navigator.vibrate(50);
+    }
+
     const rect = e.target.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -690,7 +695,7 @@ function startBattle(bossType) {
 function createTalentButtons() {
     elements.combatTalents.innerHTML = '';
 
-    // єобавляем обычные таланты
+    // Добавляем обычные таланты
     Object.entries(gameState.talents).forEach(([type, talent]) => {
         if (talent.level > 0) {
             const charges = gameState.attackCharges[type].charges;
@@ -901,7 +906,7 @@ function attack(type) {
 }
 
 function endBattle(victory) {
-    // Проверка s�остояния боя
+    // Проверка состояния боя
     if (!gameState.inBattle || !gameState.currentBoss) return;
 
     // Очистка ядовитых эффектов
