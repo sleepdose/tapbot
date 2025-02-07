@@ -1119,14 +1119,9 @@ body {
 
   /* Боевой экран */
   .combat-header {
-    background: #262626;
     padding: 15px;
     border-radius: 15px;
     margin-bottom: 20px;
-    position: relative;
-    height: 400px;
-    width: 377px;
-    left: -43px;
   }
 
   .health-bar {
