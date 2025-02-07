@@ -659,8 +659,10 @@ function createTalentButtons() {
     Object.entries(gameState.talents).forEach(([type, talent]) => {
         if (talent.level > 0) {
             const charges = gameState.attackCharges[type].charges;
+            if (charges <= 0) return; // Пропускаем таланты без зарядов
+
             const isSelected = gameState.selectedTalent === type;
-            const isDisabled = !gameState.inBattle || charges === 0;
+            const isDisabled = !gameState.inBattle;
 
             const button = document.createElement('button');
             button.className = `attack-btn ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
