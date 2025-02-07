@@ -89,7 +89,8 @@ class GameState {
         this.currentBackground = 'default';
         this.selectedForCraft = [];
         this.craftedTalents = {
-            sonic: { level: 0, damage: 50, charges: 0 }
+            sonic: { level: 0, damage: 50, charges: 0 },
+            fire: { level: 0, damage: 75, charges: 0 }
         };
         this.currentSkin = 'img/skin1.png';
         this.currentPet = 'img/pet1.png';
@@ -689,24 +690,31 @@ function createTalentButtons() {
         }
     });
 
-    // Добавляем скрафченный звуковой талант
-    if (gameState.craftedTalents.sonic.charges > 0) {
-        const sonicButton = document.createElement('button');
-        sonicButton.className = `attack-btn ${gameState.selectedTalent === 'sonic' ? 'selected' : ''}`;
-        sonicButton.dataset.attack = 'sonic';
-        sonicButton.innerHTML = `
-            <div class="talent-icon">🔊</div>
-            <div class="talent-info">
-                <div>Звуковой удар</div>
-                <div class="charge-counter">Всего: ${gameState.craftedTalents.sonic.charges}</div>
-            </div>
-        `;
-        sonicButton.onclick = () => {
-            gameState.selectedTalent = gameState.selectedTalent === 'sonic' ? null : 'sonic';
-            createTalentButtons();
-        };
-        elements.combatTalents.appendChild(sonicButton);
-    }
+    // Добавляем скрафченные таланты
+    const craftedTalents = [
+        { type: 'sonic', icon: '🔊', name: 'Звуковой удар' },
+        { type: 'fire', icon: '🔥', name: 'Огненный удар' }
+    ];
+
+    craftedTalents.forEach(talent => {
+        if (gameState.craftedTalents[talent.type].charges > 0) {
+            const button = document.createElement('button');
+            button.className = `attack-btn ${gameState.selectedTalent === talent.type ? 'selected' : ''}`;
+            button.dataset.attack = talent.type;
+            button.innerHTML = `
+                <div class="talent-icon">${talent.icon}</div>
+                <div class="talent-info">
+                    <div>${talent.name}</div>
+                    <div class="charge-counter">Всего: ${gameState.craftedTalents[talent.type].charges}</div>
+                </div>
+            `;
+            button.onclick = () => {
+                gameState.selectedTalent = gameState.selectedTalent === talent.type ? null : talent.type;
+                createTalentButtons();
+            };
+            elements.combatTalents.appendChild(button);
+        }
+    });
 }
 
 function startBattleTimer(seconds) {
@@ -743,17 +751,29 @@ function attack(type) {
         return; // Если не в бою или талант не выбран, ничего не делаем
     }
 
-    if (type === 'sonic') {
-        if (gameState.craftedTalents.sonic.charges <= 0) {
-            showMessage('Нет зарядов звукового удара!');
+    // Обработка крафтовых талантов
+    if (type === 'sonic' || type === 'fire') {
+        if (!gameState.craftedTalents[type]) {
+            console.error('Crafted talent not found:', type);
             return;
         }
-        gameState.craftedTalents.sonic.charges--;
-        const sonicDamage = gameState.craftedTalents.sonic.damage * gameState.craftedTalents.sonic.level;
-        gameState.currentBoss.currentHealth = Math.max(0, gameState.currentBoss.currentHealth - sonicDamage);
-        showSonicEffect(sonicDamage);
+        const talent = gameState.craftedTalents[type];
+        if (talent.charges <= 0) {
+            showMessage(`Нет зарядов ${type === 'sonic' ? 'звукового' : 'огненного'} удара!`);
+            return;
+        }
+        talent.charges--;
+        const damage = talent.damage * talent.level;
+        gameState.currentBoss.currentHealth = Math.max(0, gameState.currentBoss.currentHealth - damage);
+
+        if (type === 'sonic') {
+            showSonicEffect(damage);
+        } else {
+            showFireEffect(damage);
+        }
+
         updateCombatUI();
-        createTalentButtons(); // Обновляем отображение кнопок сразу после использования
+        createTalentButtons();
         if (gameState.currentBoss.currentHealth <= 0) {
             endBattle(true);
         }
@@ -1000,6 +1020,16 @@ document.getElementById('closeResultButton').addEventListener('click', () => {
 });
 
 // Находим блок с обработчиками закрытия попапов и изменяем его:
+// Добавляем функцию для эффекта огненного удара
+function showFireEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'sonic-effect';  // Используем тот же класс для анимации
+    effect.textContent = `🔥 ${damage}`;
+    effect.style.color = '#ff4400';  // Огненный цвет
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
 document.querySelectorAll('.popup .close').forEach(btn => {
     btn.addEventListener('click', () => {
         const popup = btn.closest('.popup');
@@ -1392,6 +1422,8 @@ function initCrafting() {
     });
 
     const sonicButton = document.getElementById('sonicButton');
+    const fireButton = document.getElementById('fireButton');
+
     sonicButton.addEventListener('click', () => {
         if (gameState.attackCharges.basic.charges >= 1 && gameState.attackCharges.critical.charges >= 1) {
             gameState.attackCharges.basic.charges -= 1;
@@ -1413,34 +1445,28 @@ function initCrafting() {
             showMessage('Недостаточно зарядов!');
         }
     });
-}
 
-function checkRecipe() {
-    const slots = document.querySelectorAll('.craft-slot');
-    const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
+    fireButton.addEventListener('click', () => {
+        if (gameState.attackCharges.critical.charges >= 1 && gameState.attackCharges.poison.charges >= 1) {
+            gameState.attackCharges.critical.charges -= 1;
+            gameState.attackCharges.poison.charges -= 1;
 
-    const isValidRecipe = talents.length === 2 &&
-        talents.includes('basic') &&
-        talents.includes('critical');
+            gameState.craftedTalents.fire.charges += 1;
+            gameState.craftedTalents.fire.level = Math.max(
+                gameState.talents.critical.level,
+                gameState.talents.poison.level
+            );
 
-    const sonicButton = document.getElementById('sonicButton');
-    if (sonicButton) {
-        sonicButton.style.display = isValidRecipe ? 'block' : 'none';
-        if (isValidRecipe) {
-            sonicButton.disabled = gameState.attackCharges.basic.charges < 1 ||
-                gameState.attackCharges.critical.charges < 1;
+            showMessage('Огненный удар создан!');
+            resetCrafting();
+            updateTalentBuyTab();
+            if (gameState.inBattle) {
+                setTimeout(() => createTalentButtons(), 100);
+            }
+        } else {
+            showMessage('Недостаточно зарядов!');
         }
-    }
-    return isValidRecipe;
-}
-
-function resetCrafting() {
-    document.querySelectorAll('.craft-slot').forEach(slot => {
-        slot.innerHTML = '';
-        slot.dataset.talent = '';
-        slot.classList.remove('filled');
     });
-    document.getElementById('craftButton').disabled = true;
 }
 
 function checkRecipe() {
@@ -1448,15 +1474,15 @@ function checkRecipe() {
     const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
 
     const isValidRecipe = talents.length === 2 &&
-        talents.includes('basic') &&
-        talents.includes('critical');
+        talents.includes('critical') &&
+        talents.includes('poison');
 
-    const sonicButton = document.getElementById('sonicButton');
-    if (sonicButton) {
-        sonicButton.style.display = isValidRecipe ? 'block' : 'none';
+    const fireButton = document.getElementById('fireButton');
+    if (fireButton) {
+        fireButton.style.display = isValidRecipe ? 'block' : 'none';
         if (isValidRecipe) {
-            sonicButton.disabled = gameState.attackCharges.basic.charges < 1 ||
-                gameState.attackCharges.critical.charges < 1;
+            fireButton.disabled = gameState.attackCharges.critical.charges < 1 ||
+                gameState.attackCharges.poison.charges < 1;
         }
     }
     return isValidRecipe;
@@ -1473,8 +1499,70 @@ function resetCrafting() {
         slot.classList.remove('filled');
     });
     const sonicButton = document.getElementById('sonicButton');
+    const fireButton = document.getElementById('fireButton');
     if (sonicButton) {
         sonicButton.style.display = 'none';
+    }
+    if (fireButton) {
+        fireButton.style.display = 'none';
+    }
+}
+
+function checkRecipe() {
+    const slots = document.querySelectorAll('.craft-slot');
+    const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
+
+    // Проверяем рецепт звукового удара
+    const isSonicRecipe = talents.length === 2 &&
+        talents.includes('basic') &&
+        talents.includes('critical');
+
+    // Проверяем рецепт огненного удара
+    const isFireRecipe = talents.length === 2 &&
+        talents.includes('critical') &&
+        talents.includes('poison');
+
+    const sonicButton = document.getElementById('sonicButton');
+    const fireButton = document.getElementById('fireButton');
+
+    // Управляем кнопкой звукового удара
+    if (sonicButton) {
+        sonicButton.style.display = isSonicRecipe ? 'block' : 'none';
+        if (isSonicRecipe) {
+            sonicButton.disabled = gameState.attackCharges.basic.charges < 1 ||
+                gameState.attackCharges.critical.charges < 1;
+        }
+    }
+
+    // Управляем кнопкой огненного удара
+    if (fireButton) {
+        fireButton.style.display = isFireRecipe ? 'block' : 'none';
+        if (isFireRecipe) {
+            fireButton.disabled = gameState.attackCharges.critical.charges < 1 ||
+                gameState.attackCharges.poison.charges < 1;
+        }
+    }
+
+    return isSonicRecipe || isFireRecipe;
+}
+
+function resetCrafting() {
+    gameState.selectedForCraft = [];
+    document.querySelectorAll('.talent-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    document.querySelectorAll('.craft-slot').forEach(slot => {
+        slot.innerHTML = '';
+        slot.dataset.talent = '';
+        slot.classList.remove('filled');
+    });
+    const sonicButton = document.getElementById('sonicButton');
+    const fireButton = document.getElementById('fireButton');
+    if (sonicButton) {
+        sonicButton.style.display = 'none';
+    }
+    if (fireButton) {
+        fireButton.style.display = 'none';
     }
 }
 
