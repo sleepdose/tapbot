@@ -1,1567 +1,1571 @@
 :root {
-  --primary: #8B4513;
-  --secondary: #CD853F;
-  --accent: #FFD700;
-  --combat: #DC143C;
-  --dark: #4a2b1f;
-  --poison: #32CD32;
-  --vampire: #8B0000;
-  --xp-color: #4CAF50;
-}
-
-* {
-  box-sizing: border-box;
-  touch-action: manipulation;
-  margin: 0;
-}
-
-body {
-  font-family: 'Arial', sans-serif;
-  background-color: burlywood;
-  background-size: 400px 800px;
-  color: white;
-  min-height: 100vh;
-  overflow-x: hidden;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-}
-
-.boss-requirements {
-  margin-top: 10px;
-  color: var(--accent);
-  font-size: 1.2em;
-}
-
-.shop-item.disabled button {
-  opacity: 0.6;
-  cursor: not-allowed;
-  filter: grayscale(1);
-  pointer-events: none;
-}
-
-.boss-card[data-boss="wasp"] .boss-requirements {
-  display: none;
-  /* Скрываем для первого босса */
-}
-
-/* Основной контейнер */
-.boss-card {
-  transition: transform 0.3s, box-shadow 0.3s;
-  border: 2px solid var(--color-accent);
-  background: var(--color-dark-alpha);
-  padding: 15px;
-  margin: 1rem 0;
-}
-
-.boss-card:active {
-  transform: scale(0.98);
-  box-shadow: 0 0 15px var(--accent);
-}
-
-/* Горизонтальное выравнивание элементов */
-.boss-flex-container {
-  display: flex;
-  align-items: center;
-  /* Вертикальное выравнивание */
-  gap: 2rem;
-  margin-bottom: 1.5rem;
-}
-
-/* Изображение */
-.boss-image-container {
-  flex: 0 0 150px;
-  /* Фиксированная ширина */
-}
-
-.boss-img {
-  width: 60%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-  border-radius: 12px;
-}
-
-/* Характеристики */
-.boss-stats {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  padding-right: 2rem;
-  border-right: 2px solid rgba(255, 255, 255, 0.2);
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.1em;
-}
-
-.stat-value {
-  color: var(--accent);
-}
-
-/* Награда */
-.boss-reward {
-  flex: 0 0 200px;
-  /* Фиксированная ширина */
-  padding: 1rem;
-  text-align: center;
-}
-
-.reward-title {
-  color: var(--accent);
-  margin-bottom: 0.5rem;
-}
-
-/* Адаптив для мобилок */
-@media (max-width: 768px) {
-  .boss-flex-container {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1.5rem;
-  }
-
-  .boss-image-container {
-    flex: none;
-    max-width: 200px;
-    margin: 0 auto;
-  }
-
-  .boss-stats {
-    border-right: none;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 1.5rem;
-    padding-right: 0;
-  }
-
-}
-
-.effect-indicators {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  z-index: 1000;
-  max-width: 90vw;
-}
-
-.effect-indicator {
-  background: rgba(0, 0, 0, 0.7);
-  padding: 8px 12px;
-  border-radius: 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  animation: slideIn 0.3s ease-out;
-  white-space: nowrap;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-
-  to {
-    transform: translateX(0);
-  }
-}
-
-.bottom-nav {
-  position: fixed;
-  bottom: -5px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 15px;
-  background: rgba(225, 210, 210, 0.9);
-  padding: 15px;
-  border-radius: 30px;
-  z-index: 1000;
-}
-
-.nav-btn {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(225, 210, 210, 0.9);
-  color: white;
-  font-size: 1.5em;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.nav-btn.active {
-  background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-  box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
-}
-
-.nav-btn:active {
-  transform: scale(0.9);
-  background: rgba(255, 215, 0, 0.2);
-}
-
-.popup {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  /* Занимает всю высоту */
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  transform: translateY(100%);
-  /* Начальное положение за пределами экрана */
-  background: rgba(0, 0, 0, 0.8);
-  /* Полупрозрачный фон */
-  border-radius: 0;
-  /* Убираем скругление для полноэкранного режима */
-  max-height: 100vh;
-  /* Максимальная высота равна высоте экрана */
-  z-index: 3000;
-  box-shadow: none;
-  /* Убираем тень */
-  overflow: auto;
-  /* Добавляем прокрутку, если контент не помещается */
-  display: flex;
-  flex-direction: column;
-}
-
-.popup.active {
-  transform: translateY(0);
-  /* Активное состояние - по центру экрана */
-  opacity: 1;
-}
-
-.popup::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.popup.active::before {
-  opacity: 1;
-}
-
-.popup-content {
-  padding: 25px;
-  max-height: calc(100vh - 50px);
-  /* Оставляем место для заголовка */
-  overflow-y: auto;
-  scrollbar-width: thin;
-  flex-grow: 1;
-}
-
-.popup-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.popup-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
-
-.popup-content::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 4px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-}
-
-.popup-header {
-  position: relative;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.1);
-  margin: -25px -15px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.popup-header h2 {
-  margin: 0;
-  font-size: 1.4em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.popup::after {
-  content: "";
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
-}
-
-#gameScreen {
-  overflow: hidden !important;
-  height: 100vh;
-  /* Занимает всю высоту экрана */
-  display: flex;
-  flex-direction: column;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 1rem;
-  padding-bottom: 60px;
-  width: 100%;
-  flex-grow: 1;
-}
-
-.stats,
-.level-progress {
-  flex-shrink: 0;
-  /* Запрещаем сжатие */
-}
-
-.level-container {
-  display: inline-block;
-  width: 80%;
-  margin: 1rem;
-  padding: 0.5rem 1rem;
-  text-align: center;
-}
-
-.xp-stat {
-  margin-top: -2px;
-  font-size: 0.9em;
-  padding: 0.5rem 1rem;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
-  display: inline-block;
-}
-
-/* Адаптивность для мобильных */
-@media (max-width: 768px) {
-  .level-container {
-    width: 90%;
-  }
-
-  .xp-stat {
-    font-size: 0.8em;
-    padding: 0.4rem 0.8rem;
-  }
-}
-
-.stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1rem;
-  padding: 20px;
-}
-
-.stat {
-  padding: 0.2rem;
-  border-radius: 10px;
-  min-width: 100px;
-  font-size: 0.9rem;
-  box-sizing: border-box;
-}
-
-.level-progress {
-  width: 80%;
-  height: 10px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 5px;
-  margin: 1rem auto;
-}
-
-.level-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #D565E6, #D58CDB);
-  transition: width 0.5s ease-in-out;
-  /* Плавная анимация */
-  border-radius: 5px;
-  transition: width 0.5s ease-in-out;
-}
-
-.click-area {
-  width: min(320px, 90vw);
-  flex-grow: 1;
-  /* Занимает всё доступное пространство */
-  margin-bottom: 0;
-  /* Убираем нижний отступ */
-  height: min(320px, 90vw);
-  margin: 1rem auto 30px;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.1s, opacity 0.3s;
-}
-
-.click-area:active {
-  transform: scale(0.95);
-  opacity: 0.8;
-}
-
-.hive-img {
-  transform: translateZ(0);
-  will-change: transform;
-  width: 100%;
-  height: 100%;
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  transition: background-image 0.3s ease-in-out;
-  will-change: transform;
-}
-
-.hive-change-animation {
-  animation: hivePulse 0.5s ease-out;
-}
-
-@keyframes hivePulse {
-  0% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.1);
-  }
-
-  100% {
-    transform: scale(1);
-  }
-}
-
-.boss-card,
-.shop-item,
-.talent,
-.attack-charge-item {
-  background: rgba(0, 0, 0, 0.5);
-  padding: 15px;
-  margin: 10px 0;
-  border-radius: 12px;
-  border: 2px solid var(--secondary);
-  cursor: pointer;
-  transition: transform 0.3s;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.boss-card img {
-  border-radius: 100px;
-  /* Скругление только сверху */
-  box-sizing: border-box;
-}
-
-#bossCombatImage {
-  transition: transform 0.1s ease;
-  border-radius: 55px;
-  /* Скругление только сверху */
-  box-sizing: border-box;
-  width: 350px;
-  height: 330px;
-}
-
-#bossCombatImage:active {
-  transform: scale(0.95);
-}
-
-.boss-card:hover,
-.shop-item:hover,
-.talent:hover {
-  transform: scale(1.02);
-}
-
-.boss-image {
-  width: 120px;
-  height: 120px;
-  object-fit: contain;
-  margin-bottom: 10px;
-}
-
-.battle-reward {
-  position: fixed;
-  top: 20%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.9);
-  color: #fff;
-  padding: 15px 25px;
-  border-radius: 15px;
-  text-align: center;
-  z-index: 1000;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-  animation: rewardFloat 2.5s ease-out forwards;
-  white-space: nowrap;
-}
-
-@keyframes rewardFloat {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -20px);
-  }
-
-  20% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  80% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50px);
-  }
-}
-
-.button-wrapper {
-  display: flex;
-  justify-content: center;
-  margin: 8px 0;
-}
-
-.shop-item button,
-.talent button,
-.btn {
-  background: linear-gradient(145deg, #ffd700, #ffaa00);
-  color: #000;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 20px;
-  font-size: 1.1em;
-  transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
-  min-width: 160px;
-  position: relative;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.shop-item button:hover,
-.talent button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(255, 204, 0, 0.5);
-}
-
-.shop-item button::before,
-.talent button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(120deg,
-      transparent,
-      rgba(255, 255, 255, 0.3),
-      transparent);
-  transition: 0.5s;
-}
-
-.shop-item button:hover::before,
-.talent button:hover::before {
-  left: 100%;
-}
-
-.shop-item.disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.talent button:disabled {
-  opacity: 0.7;
-  background: #666;
-  cursor: not-allowed;
-}
-
-.combat-screen {
-  padding: 1rem;
-  border-radius: 15px;
-  display: none;
-  margin: 1rem;
-  position: relative;
-  width: calc(100% - 2rem);
-  box-sizing: border-box;
-
-}
-
-.boss-health {
-  height: 30px;
-  background: #333;
-  border-radius: 15px;
-  overflow: hidden;
-  position: relative;
-}
-
-.health-bar {
-  height: 100%;
-  background: #F00;
-  transition: width 0.3s ease;
-}
-
-.health-text {
-  position: absolute;
-  width: 100%;
-  text-align: center;
-  top: 50%;
-  transform: translateY(-50%);
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
-/* Кнопки атак */
-.attack-btn {
-  background: linear-gradient(145deg, #404040, #333);
-  padding: 12px;
-  border-radius: 12px;
-  color: white;
-  width: 100%;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: transform 0.2s;
-}
-
-.attack-btn:active {
-  transform: scale(0.98);
-}
-
-.attack-btn.selected {
-  background: linear-gradient(145deg, #4CAF50, #45a049);
-  box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
-  transform: scale(1.05);
-}
-
-.talent-icon {
-  font-size: 24px;
-  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.2));
-}
-
-.shop-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.shop-tab {
-  display: none;
-  width: 100%;
-}
-
-.shop-tab.active {
-  display: block;
-  animation: fadeIn 0.3s ease;
-  gap: 15px;
-}
-
-.tab-btn {
-  background: linear-gradient(145deg, var(--secondary), var(--primary));
-  color: white;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 30px;
-  font-size: 1.1em;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-.tab-btn.active {
-  background: linear-gradient(145deg, var(--accent), #ffaa00);
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
-}
-
-.tab-btn:hover:not(.active) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-}
-
-.tab-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(120deg,
-      transparent,
-      rgba(255, 255, 255, 0.2),
-      transparent);
-  transition: 0.5s;
-}
-
-.tab-btn:hover::after {
-  left: 100%;
-}
-
-.hive-selector {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  padding: 1rem 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 60vh;
-}
-
-.hive-option {
-  padding: 1rem;
-  border: 2px solid var(--secondary);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s;
-  opacity: 0.7;
-  background: rgba(0, 0, 0, 0.3);
-  min-width: 0;
-}
-
-.hive-option.active {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.hive-option p {
-  color: var(--accent);
-  margin: 5px 0;
-  font-size: 0.9em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.combat-talents {
-  display: inline-flex;
-  position: fixed;
-  left: -50px;
-  top: 70%;
-  gap: 0.5rem;
-  justify-content: center;
-  margin: 1rem 0;
-  max-height: 300px;
-  padding: 0 80px;
-}
-
-#backToBossSelection {
-  display: none;
-  background: var(--secondary);
-  color: white;
-  border: none;
-  padding: 0.8rem;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 1rem;
-  margin-top: 15px;
-  width: 100%;
-}
-
-#backToBossSelection:hover {
-  background: var(--primary);
-}
-
-.attack-btn.attacking {
-  transform: scale(0.95);
-  filter: brightness(1.2);
-  transition: all 0.2s ease;
-}
-
-.heal-effect {
-  position: absolute;
-  color: #00ff00;
-  font-size: 1.2em;
-  text-shadow: 0 0 3px #000;
-  animation: floatUp 1s ease-out forwards;
-}
-
-@keyframes floatUp {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translateY(-50px);
-    opacity: 0;
-  }
-}
-
-.battle-result {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 20px 40px;
-  border-radius: 15px;
-  font-size: 1.5em;
-  z-index: 3000;
-  animation: fade 3s forwards;
-}
-
-.battle-result.victory {
-  background: #4CAF50;
-  border: 3px solid #2E7D32;
-  animation: victoryPulse 2s;
-}
-
-.battle-result.defeat {
-  background: #f44336;
-  border: 3px solid #b71c1c;
-  animation: defeatShake 0.5s;
-}
-
-@keyframes victoryPulse {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes defeatShake {
-
-  0%,
-  100% {
-    transform: translate(-50%, -50%);
-  }
-
-  25% {
-    transform: translate(-55%, -50%);
-  }
-
-  75% {
-    transform: translate(-45%, -50%);
-  }
-}
-
-.game-message {
-  position: fixed;
-  top: 20%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 25px;
-  animation: messageFloat 2s ease-out forwards;
-  z-index: 4000;
-}
-
-@keyframes messageFloat {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -20px);
-  }
-
-  20% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  80% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(-50%, 20px);
-  }
-}
-
-.shake {
-  animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
-}
-
-@keyframes shake {
-
-  10%,
-  90% {
-    transform: translateX(-1px);
-  }
-
-  20%,
-  80% {
-    transform: translateX(2px);
-  }
-
-  30%,
-  50%,
-  70% {
-    transform: translateX(-4px);
-  }
-
-  40%,
-  60% {
-    transform: translateX(4px);
-  }
-
-}
-
-.talent-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cooldown-bar {
-  width: 100%;
-  height: 3px;
-  background: rgba(0, 0, 0, 0.3);
-  margin-top: 5px;
-  position: relative;
-}
-
-.cooldown-bar::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s linear;
-}
-
-@media (max-width: 768px) {
-  .stats {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .popup {
-    border-radius: 30px;
-  }
-
-  .hive-selector {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 480px) {
-  #gameScreen {
-    padding: 0.5rem;
-    padding-bottom: 60px;
-    /* Высота навигации */
-  }
-
-  .click-area {
-    width: 85vw;
-    height: 85vw;
-    margin: 0 auto;
-  }
-
-  .stats {
-    flex-wrap: nowrap;
-
-    padding-bottom: 2px;
-  }
-
-  .click-area {
-    width: 85vw;
-    height: 85vw;
-  }
-
-  .popup-content {
-    padding: 15px 10px;
-  }
-
-  .combat-screen {
-    border-radius: 0;
-    height: calc(100vh - 100px);
-  }
-
-  .attack-btn {
-    font-size: 0.9rem;
-    padding: 0.6rem;
-  }
-
-  /* Боевой экран */
-  .combat-header {
-    background: #262626;
-    padding: 15px;
-    border-radius: 15px;
-    margin-bottom: 20px;
-    position: relative;
-    height: 400px;
-    width: 377px;
-    left: -43px;
-  }
-
-  .health-bar {
-    height: 12px;
-    background: #333;
-    border-radius: 6px;
-    overflow: hidden;
-    margin: 10px 0;
-  }
-
-  .health-bar>div {
-    height: 100%;
-    background: linear-gradient(90deg, #ff6b6b, #ff4757);
-    transition: width 0.3s ease;
-  }
-
-  .timer {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: #8a63d2;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 18px;
-    box-shadow: 0 0 10px rgba(138, 99, 210, 0.3);
-  }
-
-  .hive-option {
-    padding: 0.8rem;
-  }
-
-  /* Центрирование характеристик боссов */
-  .boss-stats {
-    text-align: center;
-    align-items: center;
-    border-right: none !important;
-    padding-right: 0 !important;
-  }
-
-  .stat-item {
-    justify-content: center;
-  }
-
-  /* Центрирование талантов */
-  .talent {
-    text-align: center;
-  }
-
-  .talent h3,
-  .talent p {
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-  }
-
-  /* Центрирование содержимого магазина */
-  .shop-item {
-    text-align: center;
-  }
-
-  /* Центрирование заголовков попапов */
-  .popup-header h2 {
-    text-align: center;
-    width: 100%;
-  }
-
-  /* Адаптация для мобильных */
-  @media (max-width: 480px) {
-    .nav-btn {
-      font-size: 45px;
-      width: 65px;
-      height: 65px;
-    }
-
-    .nav-btn::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at 50% 0%,
-          rgba(255, 255, 255, 0.15),
-          transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .nav-btn:hover {
-      transform: scale(1.15) rotate(12deg);
-      box-shadow: 0 5px 20px rgba(45, 52, 54, 0.3);
-    }
-
-    .shop-item button,
-    .talent button {
-      padding: 10px;
-      font-size: 1em;
-    }
-
-    .talent-tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-
-    .charge-counter {
-
-      margin: 10px 0;
-      cursor: pointer;
-      transition: transform 0.3s;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    /* Вкладки талантов */
-    .talent-tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
-      justify-content: center;
-    }
-
-    /* Заголовок атаки */
-
-    /* Добавить в конец style.css */
-    .attack-btn.disabled {
-      opacity: 0.5 !important;
-      filter: grayscale(1) brightness(0.6);
-      cursor: not-allowed;
-      transform: none !important;
-      background: linear-gradient(145deg, #444, #333) !important;
-      pointer-events: none !important;
-    }
-
-    .attack-btn.disabled .talent-icon {
-      filter: brightness(0.5);
-      opacity: 0.7;
-    }
-
-    /* Добавить в конец файла */
-    .health-critical {
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.3;
-      }
-
-      100% {
-        opacity: 1;
-      }
-    }
-
-    .combat-screen {
-      transition: opacity 0.3s;
-    }
-
-    /* Стили для попапа результатов */
-    #battleResultPopup .popup-content {
-      max-width: 400px;
-    }
-
-    .result-boss-img {
-      width: 200px;
-      height: 200px;
-      object-fit: cover;
-      border-radius: 50%;
-      margin: 15px auto;
-      border: 3px solid #6A6A6A30;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-      animation: defeat-pulse 2s infinite;
-    }
-
-    .reward-section {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
-      margin: 20px 0;
-    }
-
-    .reward-item {
-      text-align: center;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 15px;
-      border-radius: 10px;
-    }
-
-    .reward-icon {
-      font-size: 24px;
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .reward-value {
-      color: var(--accent);
-    }
-
-    .result-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .defeat-btn {
-      background: linear-gradient(45deg, #f44336, #b71c1c);
-    }
-
-    #combatScreen {
-      transition:
-        opacity 0.3s ease,
-        transform 0.3s ease;
-      transform-origin: center;
-    }
-
-    /* Стили для изображения при поражении */
-    .defeat-image {
-      filter: grayscale(80%) brightness(0.6);
-      border: 3px solid #ff0000;
-      box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
-      animation: defeat-pulse 2s infinite;
-    }
-
-    /* Анимация пульсации */
-    @keyframes defeat-pulse {
-      0% {
-        transform: scale(1);
-      }
-
-      50% {
-        transform: scale(0.98);
-      }
-
-      100% {
-        transform: scale(1);
-      }
-    }
-
-    /* Стиль для текста поражения */
-    #battleResultPopup .defeat-title {
-      text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
-    }
-
-    /* Добавьте в ваш CSS файл */
-    .poison-timers {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 10px;
-      z-index: 1000;
-    }
-
-    .poison-timer {
-      /* Существующие стили остаются */
-      background: rgba(0, 0, 0, 0.7);
-      padding: 8px 15px;
-      border-radius: 15px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    }
-
-    /* Добавить в конец style.css */
-    .talents-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin: 20px 0;
-    }
-
-    .talent-card {
-      padding: 15px;
-      border: 2px solid #4CAF50;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
-      text-align: center;
-    }
-
-    .talent-card.selected {
-      background: #4CAF50;
-      transform: scale(0.95);
-    }
-
-    #craftButton {
-      background: #8B4513;
-      color: white;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 1.1em;
-      margin-top: 15px;
-    }
-
-    #craftResult {
-      margin-top: 15px;
-      padding: 10px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 10px;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    /* Стили для кнопок фильтрации */
-    .difficulty-tabs {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-
-    .difficulty-tabs .tab-btn {
-      padding: 10px 20px;
-      margin: 0 5px;
-      border-radius: 30px;
-      cursor: pointer;
-      background-color: #f9f9f9;
-      transition: background-color 0.3s;
-    }
-
-    .difficulty-tabs .tab-btn.active {
-      background-color: #4CAF50;
-      color: white;
-      border-color: #4CAF50;
-    }
-
-    /* Стили для контейнеров боссов */
-    .boss-selection {
-      display: none;
-    }
-
-    .boss-selection.active {
-      display: block;
-    }
-
-    .click-area {
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-
-    .close {
-      background-color: #535252;
-      color: white;
-      border: 1px solid transparent;
-      padding: .375rem .75rem;
-      font-size: 1rem;
-      line-height: 1.5;
-      border-radius: .25rem;
-      position: relative;
-      left: 300px;
-      top: 5px;
-    }
-
-    /* Стили для кастомизации */
-    .tab-buttons {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .skin-preview,
-    .pet-preview {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-
-    .skin-preview img,
-    .pet-preview img {
-      width: 200px;
-      height: 200px;
-      object-fit: contain;
-      margin-bottom: 1rem;
-    }
-
-    .skin-list,
-    .pet-list {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .skin-list img,
-    .pet-list img {
-      width: 100px;
-      height: 100px;
-      object-fit: contain;
-      cursor: pointer;
-      border: 2px solid transparent;
-      border-radius: 10px;
-      transition: all 0.3s;
-    }
-
-    .skin-list img:hover,
-    .pet-list img:hover {
-      border-color: var(--accent);
-      transform: scale(1.1);
-    }
-
-    /* Контейнер для питомца */
-    .pet-container {
-      position: absolute;
-      bottom: -50px;
-      left: 70%;
-      transform: translateX(-50%);
-      width: 180px;
-      height: 180px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 50%;
-    }
-
-    .pet {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      top: -250px;
-      position: fixed;
-    }
-
-    /* Контейнер для фона */
-    .background-selector {
-      width: 350px;
-      height: 450px;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px;
-      z-index: 5000;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 15px;
-    }
-
-    /* Активное состояние фона */
-    .background-selector.active {
-      display: flex;
-    }
-
-    .bg-controls {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    /* Стиль стрелок */
-    .bg-arrow {
-      position: fixed;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--primary);
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      cursor: pointer;
-      transition: transform 0.2s;
-      z-index: 1001;
-      /* Чтобы стрелки были поверх */
-    }
-
-    /* Левый стрелка */
-    #bgPrevBtn {
-      left: 10px;
-      text-align: center;
-    }
-
-    /* Правая стрелка */
-    #bgNextBtn {
-      right: 10px;
-      text-align: center;
-    }
-
-    /* Кнопка действия */
-    .bg-action-btn {
-      position: fixed;
-      top: 90%;
-      padding: 10px 25px;
-      border-radius: 20px;
-      border: none;
-      border: 2px solid var(--accent);
-      background: var(--primary);
-      color: white;
-      cursor: pointer;
-      font-size: 1.1em;
-      transition: transform 0.2s;
-    }
-
-    .bg-action-btn:disabled {
-      background: #666;
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    /* Кнопка меню */
-    .bg-menu-btn {
-      position: fixed;
-      top: 550px;
-      left: 20px;
-      padding: 10px 20px;
-      border-radius: 25px;
-      background: linear-gradient(145deg, #8B4513, #6B3410);
-      color: white;
-      border: 2px;
-      cursor: pointer;
-      z-index: 1000;
-      font-size: 1.1em;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Кнопка закрытия */
-    .bg-close-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: none;
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      cursor: pointer;
-      padding: 5px;
-    }
-
-
-    #select-skin:disabled, #select-pet:disabled {
-      background: #666;
-      cursor: not-allowed;
-      opacity: 0.7;
-      transform: none;
-    }
-
-    /* Контейнер для питомца */
-
-}
+          --primary: #8B4513;
+          --secondary: #CD853F;
+          --accent: #FFD700;
+          --combat: #DC143C;
+          --dark: #4a2b1f;
+          --poison: #32CD32;
+          --vampire: #8B0000;
+          --xp-color: #4CAF50;
+        }
+
+        * {
+          box-sizing: border-box;
+          touch-action: manipulation;
+          margin: 0;
+        }
+
+        body {
+          font-family: 'Arial', sans-serif;
+          background-color: burlywood;
+          background-size: 400px 800px;
+          color: white;
+          min-height: 100vh;
+          overflow-x: hidden;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .boss-requirements {
+          margin-top: 10px;
+          color: var(--accent);
+          font-size: 1.2em;
+        }
+
+        .shop-item.disabled button {
+          opacity: 0.6;
+          cursor: not-allowed;
+          filter: grayscale(1);
+          pointer-events: none;
+        }
+
+        .boss-card[data-boss="wasp"] .boss-requirements {
+          display: none;
+          /* Скрываем для первого босса */
+        }
+
+        /* Основной контейнер */
+        .boss-card {
+          transition: transform 0.3s, box-shadow 0.3s;
+          border: 2px solid var(--color-accent);
+          background: var(--color-dark-alpha);
+          padding: 15px;
+          margin: 1rem 0;
+        }
+
+        .boss-card:active {
+          transform: scale(0.98);
+          box-shadow: 0 0 15px var(--accent);
+        }
+
+        /* Горизонтальное выравнивание элементов */
+        .boss-flex-container {
+          display: flex;
+          align-items: center;
+          /* Вертикальное выравнивание */
+          gap: 2rem;
+          margin-bottom: 1.5rem;
+        }
+
+        /* Изображение */
+        .boss-image-container {
+          flex: 0 0 150px;
+          /* Фиксированная ширина */
+        }
+
+        .boss-img {
+          width: 60%;
+          height: auto;
+          display: block;
+          margin: 0 auto;
+          border-radius: 12px;
+        }
+
+        /* Характеристики */
+        .boss-stats {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+          padding-right: 2rem;
+          border-right: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 1.1em;
+        }
+
+        .stat-value {
+          color: var(--accent);
+        }
+
+        /* Награда */
+        .boss-reward {
+          flex: 0 0 200px;
+          /* Фиксированная ширина */
+          padding: 1rem;
+          text-align: center;
+        }
+
+        .reward-title {
+          color: var(--accent);
+          margin-bottom: 0.5rem;
+        }
+
+        /* Адаптив для мобилок */
+        @media (max-width: 768px) {
+          .boss-flex-container {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1.5rem;
+          }
+
+          .boss-image-container {
+            flex: none;
+            max-width: 200px;
+            margin: 0 auto;
+          }
+
+          .boss-stats {
+            border-right: none;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 1.5rem;
+            padding-right: 0;
+          }
+
+        }
+
+        .effect-indicators {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          z-index: 1000;
+          max-width: 90vw;
+        }
+
+        .effect-indicator {
+          background: rgba(0, 0, 0, 0.7);
+          padding: 8px 12px;
+          border-radius: 15px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          animation: slideIn 0.3s ease-out;
+          white-space: nowrap;
+        }
+
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+          }
+
+          to {
+            transform: translateX(0);
+          }
+        }
+
+        .bottom-nav {
+          position: fixed;
+          bottom: -5px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: 15px;
+          background: rgba(225, 210, 210, 0.9);
+          padding: 15px;
+          border-radius: 30px;
+          z-index: 1000;
+        }
+
+        .nav-btn {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(225, 210, 210, 0.9);
+          color: white;
+          font-size: 1.5em;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .nav-btn.active {
+          background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+          box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .nav-btn:active {
+          transform: scale(0.9);
+          background: rgba(255, 215, 0, 0.2);
+        }
+
+        .popup {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          /* Занимает всю высоту */
+          transition: opacity 0.3s ease, transform 0.3s ease;
+          transform: translateY(100%);
+          /* Начальное положение за пределами экрана */
+          background: rgba(0, 0, 0, 0.8);
+          /* Полупрозрачный фон */
+          border-radius: 0;
+          /* Убираем скругление для полноэкранного режима */
+          max-height: 100vh;
+          /* Максимальная высота равна высоте экрана */
+          z-index: 3000;
+          box-shadow: none;
+          /* Убираем тень */
+          overflow: auto;
+          /* Добавляем прокрутку, если контент не помещается */
+          display: flex;
+          flex-direction: column;
+        }
+
+        .popup.active {
+          transform: translateY(0);
+          /* Активное состояние - по центру экрана */
+          opacity: 1;
+        }
+
+        .popup::before {
+          content: "";
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: -1;
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+
+        .popup.active::before {
+          opacity: 1;
+        }
+
+        .popup-content {
+          padding: 25px;
+          max-height: calc(100vh - 50px);
+          /* Оставляем место для заголовка */
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: thin;
+          flex-grow: 1;
+          width: 100%;
+        }
+
+        .popup-content::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .popup-content::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 4px;
+        }
+
+        .popup-content::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 4px;
+          border: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .popup-header {
+          position: relative;
+          padding: 15px;
+          background: rgba(0, 0, 0, 0.1);
+          margin: -25px -15px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-shrink: 0;
+        }
+
+        .popup-header h2 {
+          margin: 0;
+          font-size: 1.4em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .popup::after {
+          content: "";
+          position: absolute;
+          top: 8px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 40px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 2px;
+        }
+
+        #gameScreen {
+          overflow: hidden !important;
+          height: 100vh;
+          /* Занимает всю высоту экрана */
+          display: flex;
+          flex-direction: column;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 1rem;
+          padding-bottom: 60px;
+          width: 100%;
+          flex-grow: 1;
+        }
+
+        .stats,
+        .level-progress {
+          flex-shrink: 0;
+          /* Запрещаем сжатие */
+        }
+
+        .level-container {
+          display: inline-block;
+          width: 80%;
+          margin: 1rem;
+          padding: 0.5rem 1rem;
+          text-align: center;
+        }
+
+        .xp-stat {
+          margin-top: -2px;
+          font-size: 0.9em;
+          padding: 0.5rem 1rem;
+          background: rgba(0, 0, 0, 0.25);
+          border-radius: 8px;
+          display: inline-block;
+        }
+
+        /* Адаптивность для мобильных */
+        @media (max-width: 768px) {
+          .level-container {
+            width: 90%;
+          }
+
+          .xp-stat {
+            font-size: 0.8em;
+            padding: 0.4rem 0.8rem;
+          }
+        }
+
+        .stats {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 1rem;
+          padding: 20px;
+        }
+
+        .stat {
+          padding: 0.2rem;
+          border-radius: 10px;
+          min-width: 100px;
+          font-size: 0.9rem;
+          box-sizing: border-box;
+        }
+
+        .level-progress {
+          width: 80%;
+          height: 10px;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 5px;
+          margin: 1rem auto;
+        }
+
+        .level-progress-bar {
+          height: 100%;
+          background: linear-gradient(90deg, #D565E6, #D58CDB);
+          transition: width 0.5s ease-in-out;
+          /* Плавная анимация */
+          border-radius: 5px;
+          transition: width 0.5s ease-in-out;
+        }
+
+        .click-area {
+          width: min(320px, 90vw);
+          flex-grow: 1;
+          /* Занимает всё доступное пространство */
+          margin-bottom: 0;
+          /* Убираем нижний отступ */
+          height: min(320px, 90vw);
+          margin: 1rem auto 30px;
+          cursor: pointer;
+          position: relative;
+          transition: transform 0.1s, opacity 0.3s;
+        }
+
+        .click-area:active {
+          transform: scale(0.95);
+          opacity: 0.8;
+        }
+
+        .hive-img {
+          transform: translateZ(0);
+          will-change: transform;
+          width: 100%;
+          height: 100%;
+          background-size: contain;
+          background-position: center;
+          background-repeat: no-repeat;
+          transition: background-image 0.3s ease-in-out;
+          will-change: transform;
+        }
+
+        .hive-change-animation {
+          animation: hivePulse 0.5s ease-out;
+        }
+
+        @keyframes hivePulse {
+          0% {
+            transform: scale(1);
+          }
+
+          50% {
+            transform: scale(1.1);
+          }
+
+          100% {
+            transform: scale(1);
+          }
+        }
+
+        .boss-card,
+        .shop-item,
+        .talent,
+        .attack-charge-item {
+          background: rgba(0, 0, 0, 0.5);
+          padding: 15px;
+          margin: 10px 0;
+          border-radius: 12px;
+          border: 2px solid var(--secondary);
+          cursor: pointer;
+          transition: transform 0.3s;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .boss-card img {
+          border-radius: 100px;
+          /* Скругление только сверху */
+          box-sizing: border-box;
+        }
+
+        #bossCombatImage {
+          transition: transform 0.1s ease;
+          border-radius: 55px;
+          /* Скругление только сверху */
+          box-sizing: border-box;
+          width: 350px;
+          height: 330px;
+        }
+
+        #bossCombatImage:active {
+          transform: scale(0.95);
+        }
+
+        .boss-card:hover,
+        .shop-item:hover,
+        .talent:hover {
+          transform: scale(1.02);
+        }
+
+        .boss-image {
+          width: 120px;
+          height: 120px;
+          object-fit: contain;
+          margin-bottom: 10px;
+        }
+
+        .battle-reward {
+          position: fixed;
+          top: 20%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.9);
+          color: #fff;
+          padding: 15px 25px;
+          border-radius: 15px;
+          text-align: center;
+          z-index: 1000;
+          box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+          animation: rewardFloat 2.5s ease-out forwards;
+          white-space: nowrap;
+        }
+
+        @keyframes rewardFloat {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -20px);
+          }
+
+          20% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+
+          80% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50px);
+          }
+        }
+
+        .button-wrapper {
+          display: flex;
+          justify-content: center;
+          margin: 8px 0;
+        }
+
+        .shop-item button,
+        .talent button,
+        .btn {
+          background: linear-gradient(145deg, #ffd700, #ffaa00);
+          color: #000;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 20px;
+          font-size: 1.1em;
+          transition: all 0.3s;
+          box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+          min-width: 160px;
+          position: relative;
+          overflow: hidden;
+          box-sizing: border-box;
+        }
+
+        .shop-item button:hover,
+        .talent button:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 6px 20px rgba(255, 204, 0, 0.5);
+        }
+
+        .shop-item button::before,
+        .talent button::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(120deg,
+              transparent,
+              rgba(255, 255, 255, 0.3),
+              transparent);
+          transition: 0.5s;
+        }
+
+        .shop-item button:hover::before,
+        .talent button:hover::before {
+          left: 100%;
+        }
+
+        .shop-item.disabled {
+          opacity: 0.6;
+          pointer-events: none;
+        }
+
+        .talent button:disabled {
+          opacity: 0.7;
+          background: #666;
+          cursor: not-allowed;
+        }
+
+        .combat-screen {
+          padding: 1rem;
+          border-radius: 15px;
+          display: none;
+          margin: 1rem;
+          position: relative;
+          width: calc(100% - 2rem);
+          box-sizing: border-box;
+
+        }
+
+        .boss-health {
+          height: 30px;
+          background: #333;
+          border-radius: 15px;
+          overflow: hidden;
+          position: relative;
+        }
+
+        .health-bar {
+          height: 100%;
+          background: #F00;
+          transition: width 0.3s ease;
+        }
+
+        .health-text {
+          position: absolute;
+          width: 100%;
+          text-align: center;
+          top: 50%;
+          transform: translateY(-50%);
+          text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+          pointer-events: none;
+        }
+
+        /* Кнопки атак */
+        .attack-btn {
+          background: linear-gradient(145deg, #404040, #333);
+          padding: 12px;
+          border-radius: 12px;
+          color: white;
+          width: 100%;
+          margin-bottom: 10px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          transition: transform 0.2s;
+        }
+
+        .attack-btn:active {
+          transform: scale(0.98);
+        }
+
+        .attack-btn.selected {
+          background: linear-gradient(145deg, #4CAF50, #45a049);
+          box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+          transform: scale(1.05);
+        }
+
+        .talent-icon {
+          font-size: 24px;
+          filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.2));
+        }
+
+        .shop-tabs {
+          display: flex;
+          justify-content: center;
+          gap: 0.5rem;
+          margin-bottom: 1.5rem;
+          flex-wrap: wrap;
+        }
+
+        .shop-tab {
+          display: none;
+          width: 100%;
+        }
+
+        .shop-tab.active {
+          display: block;
+          animation: fadeIn 0.3s ease;
+          gap: 15px;
+        }
+
+        .tab-btn {
+          background: linear-gradient(145deg, var(--secondary), var(--primary));
+          color: white;
+          border: none;
+          padding: 12px 25px;
+          border-radius: 30px;
+          font-size: 1.1em;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .tab-btn.active {
+          background: linear-gradient(145deg, var(--accent), #ffaa00);
+          transform: scale(1.05);
+          box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+        }
+
+        .tab-btn:hover:not(.active) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .tab-btn::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(120deg,
+              transparent,
+              rgba(255, 255, 255, 0.2),
+              transparent);
+          transition: 0.5s;
+        }
+
+        .tab-btn:hover::after {
+          left: 100%;
+        }
+
+        .hive-selector {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1rem;
+          padding: 1rem 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          max-height: 60vh;
+        }
+
+        .hive-option {
+          padding: 1rem;
+          border: 2px solid var(--secondary);
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.3s;
+          opacity: 0.7;
+          background: rgba(0, 0, 0, 0.3);
+          min-width: 0;
+        }
+
+        .hive-option.active {
+          opacity: 1;
+          background: rgba(0, 0, 0, 0.5);
+        }
+
+        .hive-option p {
+          color: var(--accent);
+          margin: 5px 0;
+          font-size: 0.9em;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .combat-talents {
+          display: inline-flex;
+          position: fixed;
+          left: -50px;
+          top: 70%;
+          gap: 0.5rem;
+          justify-content: center;
+          margin: 1rem 0;
+          max-height: 300px;
+          padding: 0 80px;
+        }
+
+        #backToBossSelection {
+          display: none;
+          background: var(--secondary);
+          color: white;
+          border: none;
+          padding: 0.8rem;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 1rem;
+          margin-top: 15px;
+          width: 100%;
+        }
+
+        #backToBossSelection:hover {
+          background: var(--primary);
+        }
+
+        .attack-btn.attacking {
+          transform: scale(0.95);
+          filter: brightness(1.2);
+          transition: all 0.2s ease;
+        }
+
+        .heal-effect {
+          position: absolute;
+          color: #00ff00;
+          font-size: 1.2em;
+          text-shadow: 0 0 3px #000;
+          animation: floatUp 1s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+          0% {
+            transform: translateY(0);
+            opacity: 1;
+          }
+
+          100% {
+            transform: translateY(-50px);
+            opacity: 0;
+          }
+        }
+
+        .battle-result {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          padding: 20px 40px;
+          border-radius: 15px;
+          font-size: 1.5em;
+          z-index: 3000;
+          animation: fade 3s forwards;
+        }
+
+        .battle-result.victory {
+          background: #4CAF50;
+          border: 3px solid #2E7D32;
+          animation: victoryPulse 2s;
+        }
+
+        .battle-result.defeat {
+          background: #f44336;
+          border: 3px solid #b71c1c;
+          animation: defeatShake 0.5s;
+        }
+
+        @keyframes victoryPulse {
+          0% {
+            transform: translate(-50%, -50%) scale(1);
+          }
+
+          50% {
+            transform: translate(-50%, -50%) scale(1.1);
+          }
+
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+          }
+        }
+
+        @keyframes defeatShake {
+
+          0%,
+          100% {
+            transform: translate(-50%, -50%);
+          }
+
+          25% {
+            transform: translate(-55%, -50%);
+          }
+
+          75% {
+            transform: translate(-45%, -50%);
+          }
+        }
+
+        .game-message {
+          position: fixed;
+          top: 20%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.8);
+          color: white;
+          padding: 12px 24px;
+          border-radius: 25px;
+          animation: messageFloat 2s ease-out forwards;
+          z-index: 4000;
+        }
+
+        @keyframes messageFloat {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -20px);
+          }
+
+          20% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+
+          80% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+
+          100% {
+            opacity: 0;
+            transform: translate(-50%, 20px);
+          }
+        }
+
+        .shake {
+          animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        @keyframes shake {
+
+          10%,
+          90% {
+            transform: translateX(-1px);
+          }
+
+          20%,
+          80% {
+            transform: translateX(2px);
+          }
+
+          30%,
+          50%,
+          70% {
+            transform: translateX(-4px);
+          }
+
+          40%,
+          60% {
+            transform: translateX(4px);
+          }
+
+        }
+
+        .talent-info {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .cooldown-bar {
+          width: 100%;
+          height: 3px;
+          background: rgba(0, 0, 0, 0.3);
+          margin-top: 5px;
+          position: relative;
+        }
+
+        .cooldown-bar::after {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 100%;
+          background: var(--accent);
+          transition: width 0.3s linear;
+        }
+
+        @media (max-width: 768px) {
+          .stats {
+            flex-direction: row;
+            align-items: center;
+          }
+
+          .popup {
+            border-radius: 30px;
+          }
+
+          .hive-selector {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 480px) {
+          #gameScreen {
+            padding: 0.5rem;
+            padding-bottom: 60px;
+            /* Высота навигации */
+          }
+
+          .click-area {
+            width: 85vw;
+            height: 85vw;
+            margin: 0 auto;
+          }
+
+          .stats {
+            flex-wrap: nowrap;
+
+            padding-bottom: 2px;
+          }
+
+          .click-area {
+            width: 85vw;
+            height: 85vw;
+          }
+
+          .popup-content {
+            padding: 15px 10px;
+          }
+
+          .combat-screen {
+            border-radius: 0;
+            height: calc(100vh - 100px);
+          }
+
+          .attack-btn {
+            font-size: 0.9rem;
+            padding: 0.6rem;
+          }
+
+          /* Боевой экран */
+          .combat-header {
+            background: #262626;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            position: relative;
+            height: 400px;
+            width: 377px;
+            left: -43px;
+          }
+
+          .health-bar {
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 10px 0;
+          }
+
+          .health-bar>div {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ff4757);
+            transition: width 0.3s ease;
+          }
+
+          .timer {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #8a63d2;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 18px;
+            box-shadow: 0 0 10px rgba(138, 99, 210, 0.3);
+          }
+
+          .hive-option {
+            padding: 0.8rem;
+          }
+
+          /* Центрирование характеристик боссов */
+          .boss-stats {
+            text-align: center;
+            align-items: center;
+            border-right: none !important;
+            padding-right: 0 !important;
+          }
+
+          .stat-item {
+            justify-content: center;
+          }
+
+          /* Центрирование талантов */
+          .talent {
+            text-align: center;
+          }
+
+          .talent h3,
+          .talent p {
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+          }
+
+          /* Центрирование содержимого магазина */
+          .shop-item {
+            text-align: center;
+          }
+
+          /* Центрирование заголовков попапов */
+          .popup-header h2 {
+            text-align: center;
+            width: 100%;
+          }
+
+          /* Адаптация для мобильных */
+          @media (max-width: 480px) {
+            .nav-btn {
+              font-size: 45px;
+              width: 65px;
+              height: 65px;
+            }
+
+            .nav-btn::after {
+              content: '';
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: radial-gradient(circle at 50% 0%,
+                  rgba(255, 255, 255, 0.15),
+                  transparent);
+              opacity: 0;
+              transition: opacity 0.3s;
+            }
+
+            .nav-btn:hover {
+              transform: scale(1.15) rotate(12deg);
+              box-shadow: 0 5px 20px rgba(45, 52, 54, 0.3);
+            }
+
+            .shop-item button,
+            .talent button {
+              padding: 10px;
+              font-size: 1em;
+            }
+
+            .talent-tabs {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 15px;
+            }
+
+            .charge-counter {
+
+              margin: 10px 0;
+              cursor: pointer;
+              transition: transform 0.3s;
+              width: 100%;
+              box-sizing: border-box;
+            }
+
+            /* Вкладки талантов */
+            .talent-tabs {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 15px;
+              justify-content: center;
+            }
+
+            /* Заголовок атаки */
+
+            /* Добавить в конец style.css */
+            .attack-btn.disabled {
+              opacity: 0.5 !important;
+              filter: grayscale(1) brightness(0.6);
+              cursor: not-allowed;
+              transform: none !important;
+              background: linear-gradient(145deg, #444, #333) !important;
+              pointer-events: none !important;
+            }
+
+            .attack-btn.disabled .talent-icon {
+              filter: brightness(0.5);
+              opacity: 0.7;
+            }
+
+            /* Добавить в конец файла */
+            .health-critical {
+              animation: pulse 1s infinite;
+            }
+
+            @keyframes pulse {
+              0% {
+                opacity: 1;
+              }
+
+              50% {
+                opacity: 0.3;
+              }
+
+              100% {
+                opacity: 1;
+              }
+            }
+
+            .combat-screen {
+              transition: opacity 0.3s;
+            }
+
+            /* Стили для попапа результатов */
+            #battleResultPopup .popup-content {
+              max-width: 400px;
+            }
+
+            .result-boss-img {
+              width: 200px;
+              height: 200px;
+              object-fit: cover;
+              border-radius: 50%;
+              margin: 15px auto;
+              border: 3px solid #6A6A6A30;
+              box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+              animation: defeat-pulse 2s infinite;
+            }
+
+            .reward-section {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 15px;
+              margin: 20px 0;
+            }
+
+            .reward-item {
+              text-align: center;
+              background: rgba(0, 0, 0, 0.3);
+              padding: 15px;
+              border-radius: 10px;
+            }
+
+            .reward-icon {
+              font-size: 24px;
+              display: block;
+              margin-bottom: 5px;
+            }
+
+            .reward-value {
+              color: var(--accent);
+            }
+
+            .result-actions {
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+              margin-top: 20px;
+            }
+
+            .defeat-btn {
+              background: linear-gradient(45deg, #f44336, #b71c1c);
+            }
+
+            #combatScreen {
+              transition:
+                opacity 0.3s ease,
+                transform 0.3s ease;
+              transform-origin: center;
+            }
+
+            /* Стили для изображения при поражении */
+            .defeat-image {
+              filter: grayscale(80%) brightness(0.6);
+              border: 3px solid #ff0000;
+              box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+              animation: defeat-pulse 2s infinite;
+            }
+
+            /* Анимация пульсации */
+            @keyframes defeat-pulse {
+              0% {
+                transform: scale(1);
+              }
+
+              50% {
+                transform: scale(0.98);
+              }
+
+              100% {
+                transform: scale(1);
+              }
+            }
+
+            /* Стиль для текста поражения */
+            #battleResultPopup .defeat-title {
+              text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+            }
+
+            /* Добавьте в ваш CSS файл */
+            .poison-timers {
+              position: fixed;
+              top: 20px;
+              left: 50%;
+              transform: translateX(-50%);
+              display: flex;
+              gap: 10px;
+              z-index: 1000;
+            }
+
+            .poison-timer {
+              /* Существующие стили остаются */
+              background: rgba(0, 0, 0, 0.7);
+              padding: 8px 15px;
+              border-radius: 15px;
+              box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            }
+
+            /* Добавить в конец style.css */
+            .talents-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 10px;
+              margin: 20px 0;
+            }
+
+            .talent-card {
+              padding: 15px;
+              border: 2px solid #4CAF50;
+              border-radius: 10px;
+              cursor: pointer;
+              transition: all 0.3s;
+              text-align: center;
+            }
+
+            .talent-card.selected {
+              background: #4CAF50;
+              transform: scale(0.95);
+            }
+
+            #craftButton {
+              background: #8B4513;
+              color: white;
+              padding: 12px 24px;
+              border: none;
+              border-radius: 20px;
+              cursor: pointer;
+              font-size: 1.1em;
+              margin-top: 15px;
+            }
+
+            #craftResult {
+              margin-top: 15px;
+              padding: 10px;
+              background: rgba(0, 0, 0, 0.3);
+              border-radius: 10px;
+            }
+
+            .hidden {
+              display: none !important;
+            }
+
+            /* Стили для кнопок фильтрации */
+            .difficulty-tabs {
+              display: flex;
+              justify-content: center;
+              margin-bottom: 20px;
+            }
+
+            .difficulty-tabs .tab-btn {
+              padding: 10px 20px;
+              margin: 0 5px;
+              border-radius: 30px;
+              cursor: pointer;
+              background-color: #f9f9f9;
+              transition: background-color 0.3s;
+            }
+
+            .difficulty-tabs .tab-btn.active {
+              background-color: #4CAF50;
+              color: white;
+              border-color: #4CAF50;
+            }
+
+            /* Стили для контейнеров боссов */
+            .boss-selection {
+              display: none;
+            }
+
+            .boss-selection.active {
+              display: block;
+            }
+
+            .click-area {
+              -webkit-tap-highlight-color: transparent;
+              touch-action: manipulation;
+            }
+
+            .close {
+              background-color: #535252;
+              color: white;
+              border: 1px solid transparent;
+              padding: .375rem .75rem;
+              font-size: 1rem;
+              line-height: 1.5;
+              border-radius: .25rem;
+              position: relative;
+              left: 300px;
+              top: 5px;
+            }
+
+            /* Стили для кастомизации */
+            .tab-buttons {
+              display: flex;
+              justify-content: center;
+              gap: 1rem;
+              margin-bottom: 2rem;
+            }
+
+            .tab-content {
+              display: none;
+            }
+
+            .tab-content.active {
+              display: block;
+            }
+
+            .skin-preview,
+            .pet-preview {
+              text-align: center;
+              margin-bottom: 2rem;
+            }
+
+            .skin-preview img,
+            .pet-preview img {
+              width: 200px;
+              height: 200px;
+              object-fit: contain;
+              margin-bottom: 1rem;
+            }
+
+            .skin-list,
+            .pet-list {
+              display: flex;
+              justify-content: center;
+              gap: 1rem;
+              flex-wrap: wrap;
+            }
+
+            .skin-list img,
+            .pet-list img {
+              width: 100px;
+              height: 100px;
+              object-fit: contain;
+              cursor: pointer;
+              border: 2px solid transparent;
+              border-radius: 10px;
+              transition: all 0.3s;
+            }
+
+            .skin-list img:hover,
+            .pet-list img:hover {
+              border-color: var(--accent);
+              transform: scale(1.1);
+            }
+
+            /* Контейнер для питомца */
+            .pet-container {
+              position: absolute;
+              bottom: -50px;
+              left: 70%;
+              transform: translateX(-50%);
+              width: 180px;
+              height: 180px;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background: rgba(255, 255, 255, 0.05);
+              border-radius: 50%;
+            }
+
+            .pet {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+              top: -250px;
+              position: fixed;
+            }
+
+            /* Контейнер для фона */
+            .background-selector {
+              width: 350px;
+              height: 450px;
+              position: fixed;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              padding: 20px;
+              z-index: 5000;
+              display: none;
+              flex-direction: column;
+              align-items: center;
+              gap: 15px;
+            }
+
+            /* Активное состояние фона */
+            .background-selector.active {
+              display: flex;
+            }
+
+            .bg-controls {
+              display: flex;
+              align-items: center;
+              gap: 20px;
+            }
+
+            /* Стиль стрелок */
+            .bg-arrow {
+              position: fixed;
+              top: 50%;
+              transform: translateY(-50%);
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              background: var(--primary);
+              border: none;
+              color: white;
+              font-size: 1.5em;
+              cursor: pointer;
+              transition: transform 0.2s;
+              z-index: 1001;
+              /* Чтобы стрелки были поверх */
+            }
+
+            /* Левый стрелка */
+            #bgPrevBtn {
+              left: 10px;
+              text-align: center;
+            }
+
+            /* Правая стрелка */
+            #bgNextBtn {
+              right: 10px;
+              text-align: center;
+            }
+
+            /* Кнопка действия */
+            .bg-action-btn {
+              position: fixed;
+              top: 90%;
+              padding: 10px 25px;
+              border-radius: 20px;
+              border: none;
+              border: 2px solid var(--accent);
+              background: var(--primary);
+              color: white;
+              cursor: pointer;
+              font-size: 1.1em;
+              transition: transform 0.2s;
+            }
+
+            .bg-action-btn:disabled {
+              background: #666;
+              cursor: not-allowed;
+              opacity: 0.7;
+            }
+
+            /* Кнопка меню */
+            .bg-menu-btn {
+              position: fixed;
+              top: 550px;
+              left: 20px;
+              padding: 10px 20px;
+              border-radius: 25px;
+              background: linear-gradient(145deg, #8B4513, #6B3410);
+              color: white;
+              border: 2px;
+              cursor: pointer;
+              z-index: 1000;
+              font-size: 1.1em;
+              box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            }
+
+            /* Кнопка закрытия */
+            .bg-close-btn {
+              position: absolute;
+              top: 10px;
+              right: 10px;
+              background: none;
+              border: none;
+              color: white;
+              font-size: 1.5em;
+              cursor: pointer;
+              padding: 5px;
+            }
+
+
+            #select-skin:disabled,
+            #select-pet:disabled {
+              background: #666;
+              cursor: not-allowed;
+              opacity: 0.7;
+              transform: none;
+            }
+
+            /* Контейнер для питомца */
+
+          }
+        }

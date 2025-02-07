@@ -1214,18 +1214,21 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('gameScreen').style.display = 'block';
 });
 
-document.querySelector('#shopPopup .shop-tabs').addEventListener('click', e => {
-    const tabBtn = e.target.closest('.tab-btn');
-    if (!tabBtn) return;
+const shopTabs = document.querySelector('#shopPopup .shop-tabs');
+if (shopTabs) {
+    shopTabs.addEventListener('click', e => {
+        const tabBtn = e.target.closest('.tab-btn');
+        if (!tabBtn) return;
 
-    document.querySelectorAll('#shopPopup .tab-btn, #shopPopup .shop-tab').forEach(el => {
-        el.classList.remove('active');
+        document.querySelectorAll('#shopPopup .tab-btn, #shopPopup .shop-tab').forEach(el => {
+            el.classList.remove('active');
+        });
+
+        tabBtn.classList.add('active');
+        const tabId = `shop${tabBtn.dataset.tab.charAt(0).toUpperCase() + tabBtn.dataset.tab.slice(1)}`;
+        document.getElementById(tabId).classList.add('active');
     });
-
-    tabBtn.classList.add('active');
-    const tabId = `shop${tabBtn.dataset.tab.charAt(0).toUpperCase() + tabBtn.dataset.tab.slice(1)}`;
-    document.getElementById(tabId).classList.add('active');
-});
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     initGame(); // Добавьте эту строку
