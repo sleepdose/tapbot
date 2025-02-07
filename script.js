@@ -156,7 +156,7 @@ const talentsConfig = {
     },
     critical: {
         maxLevel: 10,
-        getChance: level => Math.min(0.5, 0.15 + 0.05 * level),
+        getChance: level => 0.15 + 0.05 * level,
         getCost: level => 150 * Math.pow(1.4, level)
     },
     poison: {
@@ -268,7 +268,7 @@ function initGame() {
             audioElements.bgMusic.play();
         }
         document.removeEventListener('click', firstPlay);
-    }, {once: true});
+    }, { once: true });
 }
 function initAudio() {
     audioElements.bgMusic.muted = gameState.isMusicMuted;
@@ -282,7 +282,7 @@ function initAudio() {
             });
         }
         document.removeEventListener('click', initialPlay);
-    }, {once: true});
+    }, { once: true });
 }
 
 function toggleMusic() {
@@ -292,10 +292,27 @@ function toggleMusic() {
     localStorage.setItem('musicMuted', gameState.isMusicMuted);
 }
 
-function handleBossClick() {
+function handleBossClick(e) {
     if (!gameState.inBattle || !gameState.selectedTalent) {
-        return; // Если не в бою или талант не выбран, ничего не делаем
+        return;
     }
+
+    const rect = e.target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Создаем эффект урона
+    const damageEffect = document.createElement('div');
+    damageEffect.className = 'damage-effect';
+    damageEffect.style.left = x + 'px';
+    damageEffect.style.top = y + 'px';
+
+    // Рассчитываем и показываем урон
+    let damage = calculateDamage(gameState.selectedTalent);
+    damageEffect.textContent = `-${damage}`;
+
+    e.target.appendChild(damageEffect);
+    setTimeout(() => damageEffect.remove(), 800);
 
     // Наносим урон выбранным талантом
     attack(gameState.selectedTalent);
@@ -304,6 +321,21 @@ function handleBossClick() {
     const bossImage = document.getElementById('bossCombatImage');
     bossImage.style.transform = 'scale(0.95)';
     setTimeout(() => bossImage.style.transform = 'scale(1)', 100);
+}
+
+function calculateDamage(type) {
+    switch (type) {
+        case 'basic':
+            return gameState.talents.basic.damage;
+        case 'critical':
+            return Math.random() < gameState.talents.critical.chance ?
+                gameState.talents.basic.damage * 2 :
+                gameState.talents.basic.damage;
+        case 'poison':
+            return gameState.talents.poison.damage;
+        default:
+            return 0;
+    }
 }
 
 function startEnergyRecovery() {
@@ -363,7 +395,7 @@ document.querySelectorAll('.talent-tabs .tab-btn').forEach(btn => {
 
 // =================== ОБРАБОТЧИКИ СОБЫТИЙ ===================
 let lastClick = 0;
-function handleHiveClick() {
+function handleHiveClick(e) {
     if (document.querySelector('.popup.active')) {
         showMessage('Закройте другие окна!');
         return;
@@ -371,13 +403,23 @@ function handleHiveClick() {
 
     // Если в бою и выбран талант - наносим урон
     if (gameState.inBattle && gameState.selectedTalent) {
-        attack(gameState.selectedTalent);
-        return; // Не обрабатываем как обычный клик
-    }
-    if (gameState.inBattle && gameState.selectedTalent) {
-        const hive = document.getElementById('hive');
-        hive.style.transform = 'scale(0.95)';
-        setTimeout(() => hive.style.transform = 'scale(1)', 100);
+        const clickArea = document.querySelector('.click-area');
+        const rect = clickArea.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Создаем эффект урона
+        const damageEffect = document.createElement('div');
+        damageEffect.className = 'damage-effect';
+        damageEffect.style.left = x + 'px';
+        damageEffect.style.top = y + 'px';
+
+        // Рассчитываем и показываем урон
+        let damage = calculateDamage(gameState.selectedTalent);
+        damageEffect.textContent = `-${damage}`;
+        clickArea.appendChild(damageEffect);
+
+        setTimeout(() => damageEffect.remove(), 800);
         attack(gameState.selectedTalent);
         return;
     }
@@ -963,6 +1005,29 @@ function updateLevelProgress() {
 }
 
 // =================== ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ===================
+function updateHiveDisplay() {
+    const hiveImg = document.querySelector('.hive-img');
+    if (hiveImg) {
+        hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
+    }
+}
+
+function updatePoisonTimersDisplay() {
+    const container = document.getElementById('poisonTimersContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+    gameState.activeEffects.poison.forEach(effect => {
+        const remaining = Math.ceil((effect.duration - (Date.now() - effect.startTime)) / 1000);
+        if (remaining > 0) {
+            const timer = document.createElement('div');
+            timer.className = 'poison-timer';
+            timer.innerHTML = `☠️ ${remaining}s`;
+            container.appendChild(timer);
+        }
+    });
+}
+
 function updateUI(changedKeys = ['all']) {
     const updates = {
         honey: () => {
@@ -990,7 +1055,10 @@ function updateUI(changedKeys = ['all']) {
         const levelElem = document.getElementById(levelElementId);
         const statElem = document.getElementById(statElementId);
         if (levelElem) levelElem.textContent = gameState.talents[talentType].level;
-        if (statElem) statElem.textContent = gameState.talents[talentType][talentType === 'critical' ? 'chance' : 'damage'];
+        if (statElem) {
+            const value = gameState.talents[talentType][talentType === 'critical' ? 'chance' : 'damage'];
+            statElem.textContent = talentType === 'critical' ? value.toFixed(2) : value;
+        }
     }
 
     if (changedKeys.includes('all')) {
