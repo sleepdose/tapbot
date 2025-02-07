@@ -84,6 +84,8 @@ class GameState {
         this.purchasedBackgrounds = ['default'];
         this.selectedTalent = null;
         this.currentBackground = 'default';
+        this.currentSkin = 'img/skin1.png';
+        this.currentPet = 'img/pet1.png';
         this.battleResult = null;
         this.reset();
         this.previewHive = 'basic';
@@ -1140,6 +1142,10 @@ function selectSkin() {
     const hiveImg = document.querySelector('.hive-img');
     if (hiveImg) {
         hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
+        // Сохраняем текущий выбор
+        gameState.currentSkin = selectedSkin;
+        // Обновляем состояние кнопки
+        updateSkinButton();
     }
     hidePopup('customization');
 }
@@ -1147,6 +1153,21 @@ function selectSkin() {
 function previewSkin(skin, name) {
     document.getElementById('selected-skin').src = skin;
     document.getElementById('skin-name').textContent = name;
+    updateSkinButton();
+}
+
+function updateSkinButton() {
+    const selectButton = document.getElementById('select-skin');
+    const currentSkin = document.getElementById('selected-skin').src;
+    if (selectButton) {
+        if (currentSkin === gameState.currentSkin) {
+            selectButton.disabled = true;
+            selectButton.textContent = 'Выбрано';
+        } else {
+            selectButton.disabled = false;
+            selectButton.textContent = 'Выбрать';
+        }
+    }
 }
 
 function selectPet() {
@@ -1154,6 +1175,10 @@ function selectPet() {
     const petImg = document.querySelector('#pet-img');
     if (petImg) {
         petImg.src = selectedPet;
+        // Сохраняем текущий выбор
+        gameState.currentPet = selectedPet;
+        // Обновляем состояние кнопки
+        updatePetButton();
     }
     hidePopup('customization');
 }
@@ -1161,6 +1186,21 @@ function selectPet() {
 function previewPet(pet, name) {
     document.getElementById('selected-pet').src = pet;
     document.getElementById('pet-name').textContent = name;
+    updatePetButton();
+}
+
+function updatePetButton() {
+    const selectButton = document.getElementById('select-pet');
+    const currentPet = document.getElementById('selected-pet').src;
+    if (selectButton) {
+        if (currentPet === gameState.currentPet) {
+            selectButton.disabled = true;
+            selectButton.textContent = 'Выбрано';
+        } else {
+            selectButton.disabled = false;
+            selectButton.textContent = 'Выбрать';
+        }
+    }
 }
 
 // =================== ЗАПУСК ИГРЫ ===================
