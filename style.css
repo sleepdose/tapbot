@@ -708,8 +708,16 @@ body {
 
 .talent button:disabled {
   opacity: 0.7;
-  background: #666;
+  background: #666 !important;
   cursor: not-allowed;
+  color: #ccc;
+  box-shadow: none;
+  transform: none !important;
+}
+
+.talent button:disabled:hover {
+  transform: none !important;
+  box-shadow: none;
 }
 
 .combat-screen {
@@ -873,7 +881,7 @@ body {
 }
 
 .combat-talents {
-display: flex;
+  display: flex;
   position: fixed;
   left: 20px;
   right: 20px;
@@ -890,6 +898,7 @@ display: flex;
   max-width: none;
   justify-content: flex-start;
 }
+
 .combat-talents::-webkit-scrollbar {
   height: 8px;
 }
@@ -926,7 +935,7 @@ display: flex;
   transform: scale(0.95);
   filter: brightness(1.2);
   transition: all 0.2s ease;
-    flex: 0 0 auto;
+  flex: 0 0 auto;
   min-width: 120px;
   margin-bottom: 0;
 }

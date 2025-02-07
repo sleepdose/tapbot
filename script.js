@@ -441,9 +441,9 @@ function handleHiveClick(e) {
         showMessage('Закройте другие окна!');
         return;
     }
-    const now = Date.now();
-    if (now - lastClick < 100) return;
-    lastClick = now;
+    const currentTime = Date.now();
+    if (currentTime - lastClick < 100) return;
+    lastClick = currentTime;
     if (isAnimating || gameState.energy <= 0) {
         if (gameState.energy <= 0) showEnergyWarning();
         return;
@@ -600,9 +600,13 @@ function upgradeTalent(talentType) {
     const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
     if (button) {
         const newLevel = gameState.talents[talentType].level;
-        button.textContent = newLevel < talent.maxLevel
-            ? `${Math.floor(talent.getCost(newLevel))}`
-            : 'MAX';
+        if (newLevel >= talent.maxLevel) {
+            button.textContent = 'MAX';
+            button.disabled = true;
+        } else {
+            button.textContent = `${Math.floor(talent.getCost(newLevel))}`;
+            button.disabled = false;
+        }
     }
 
     updateUI(['honey', 'talents']);
@@ -686,7 +690,7 @@ function startBattle(bossType) {
 function createTalentButtons() {
     elements.combatTalents.innerHTML = '';
 
-    // Добавляем обычные таланты
+    // єобавляем обычные таланты
     Object.entries(gameState.talents).forEach(([type, talent]) => {
         if (talent.level > 0) {
             const charges = gameState.attackCharges[type].charges;
@@ -861,8 +865,7 @@ function attack(type) {
                 if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
                     return;
-                }
-                gameState.currentBoss.currentHealth -= poisonDamage;
+                }                gameState.currentBoss.currentHealth -= poisonDamage;
                 updateCombatUI();
                 if (gameState.currentBoss.currentHealth <= 0) {
                     endBattle(true);
@@ -898,7 +901,7 @@ function attack(type) {
 }
 
 function endBattle(victory) {
-    // Проверка состояния боя
+    // Проверка s�остояния боя
     if (!gameState.inBattle || !gameState.currentBoss) return;
 
     // Очистка ядовитых эффектов
@@ -1767,7 +1770,7 @@ function removePoisonTimer(timerId) {
     if (timerElement) {
         timerElement.style.opacity = '0';
         timerElement.style.transform = 'translateY(-20px)';
-        setTimeout(() => timerElement.remove(), 500);
+        setTimeout(() =>timerElement.remove(), 500);
     }
 
     gameState.activeEffects.poison = gameState.activeEffects.poison.filter(effect => {
