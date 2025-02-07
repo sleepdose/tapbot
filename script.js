@@ -85,6 +85,13 @@ class GameState {
         this.selectedTalent = null;
         this.currentBackground = 'default';
         this.battleResult = null;
+        this.settings = {
+            music: false,
+            vibration: true
+        };
+        this.bgMusic = new Audio('audio/background.mp3');
+        this.bgMusic.loop = true;
+        this.bgMusic.volume = 0.5;
         this.reset();
         this.previewHive = 'basic';
         this.attackCooldowns = {
@@ -209,9 +216,9 @@ function initGame() {
         });
     });
     const bossCombatImage = document.getElementById('bossCombatImage');
-        if (bossCombatImage) {
-            bossCombatImage.addEventListener('click', handleBossClick);
-        }
+    if (bossCombatImage) {
+        bossCombatImage.addEventListener('click', handleBossClick);
+    }
     const shopTabs = document.querySelector('.shop-tabs');
     if (shopTabs) {
         shopTabs.addEventListener('click', handleShopTabs);
@@ -326,7 +333,7 @@ document.querySelectorAll('.talent-tabs .tab-btn').forEach(btn => {
 // =================== ОБРАБОТЧИКИ СОБЫТИЙ ===================
 let lastClick = 0;
 function handleHiveClick() {
-  if (document.querySelector('.popup.active')) {
+    if (document.querySelector('.popup.active')) {
         showMessage('Закройте другие окна!');
         return;
     }
@@ -392,7 +399,7 @@ function handleShopTabs(e) {
     if (!tabBtn) return;
 
     // Убираем вкладку со скинами
-    if(tabBtn.dataset.tab === 'hives') return;
+    if (tabBtn.dataset.tab === 'hives') return;
 
     document.querySelectorAll('.shop-tab, .tab-btn').forEach(el => el.classList.remove('active'));
     tabBtn.classList.add('active');
@@ -804,7 +811,7 @@ function updateResultPopup() {
     const closeBtn = document.getElementById('closeResultButton');
 
     if (!gameState.battleResult || !gameState.battleResult.boss) return;
-const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
+    const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
     const reward = gameState.battleResult.reward;
 
     // Установка изображения босса
@@ -1148,7 +1155,7 @@ document.querySelector('#shopPopup .shop-tabs').addEventListener('click', e => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  initGame(); // Добавьте эту строку
+    initGame(); // Добавьте эту строку
     document.getElementById('gameScreen').style.display = 'block';
     const elementsToCheck = [
         'battleResultPopup',
