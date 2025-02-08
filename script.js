@@ -1,29 +1,33 @@
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
-const elements = {
-    honey: document.getElementById('honey'),
-    energy: document.getElementById('energy'),
-    maxEnergy: document.getElementById('maxEnergy'),
-    level: document.getElementById('level'),
-    xp: document.getElementById('xp'),
-    xpToNextLevel: document.getElementById('xpToNextLevel'),
-    basicLevel: document.getElementById('basicLevel'),
-    basicDmg: document.getElementById('basicDmg'),
-    critLevel: document.getElementById('critLevel'),
-    critChanceUpgrade: document.getElementById('critChanceUpgrade'),
-    poisonLevel: document.getElementById('poisonLevel'),
-    poisonDmgUpgrade: document.getElementById('poisonDmgUpgrade'),
-    combatTimer: document.getElementById('combatTimer'),
-    bossHealth: document.getElementById('bossHealth'),
-    currentHealth: document.getElementById('currentHealth'),
-    maxHealth: document.getElementById('maxHealth'),
-    levelProgress: document.querySelector('.level-progress-bar'),
-    combatTalents: document.getElementById('combatTalents'),
-    combatScreen: document.getElementById('combatScreen'),
-    bossCombatImage: document.getElementById('bossCombatImage'),
-    battleReward: document.getElementById('battleReward')
-};
+let elements = {};
+
+function initElements() {
+    elements = {
+        honey: document.getElementById('honey'),
+        energy: document.getElementById('energy'),
+        maxEnergy: document.getElementById('maxEnergy'),
+        level: document.getElementById('level'),
+        xp: document.getElementById('xp'),
+        xpToNextLevel: document.getElementById('xpToNextLevel'),
+        basicLevel: document.getElementById('basicLevel'),
+        basicDmg: document.getElementById('basicDmg'),
+        critLevel: document.getElementById('critLevel'),
+        critChanceUpgrade: document.getElementById('critChanceUpgrade'),
+        poisonLevel: document.getElementById('poisonLevel'),
+        poisonDmgUpgrade: document.getElementById('poisonDmgUpgrade'),
+        combatTimer: document.getElementById('combatTimer'),
+        bossHealth: document.getElementById('bossHealth'),
+        currentHealth: document.getElementById('currentHealth'),
+        maxHealth: document.getElementById('maxHealth'),
+        levelProgress: document.querySelector('.level-progress-bar'),
+        combatTalents: document.getElementById('combatTalents'),
+        combatScreen: document.getElementById('combatScreen'),
+        bossCombatImage: document.getElementById('bossCombatImage'),
+        battleReward: document.getElementById('battleReward')
+    };
+}
 const audioElements = {
     bgMusic: document.getElementById('backgroundMusic'),
     musicToggle: document.getElementById('musicToggle')
@@ -1675,9 +1679,14 @@ if (shopTabs) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initGame();
-    initCrafting();
-    document.getElementById('gameScreen').style.display = 'block';
+    try {
+        initElements();
+        initGame();
+        initCrafting();
+        document.getElementById('gameScreen').style.display = 'block';
+    } catch (error) {
+        console.error('Ошибка инициализации:', error);
+    }
     const elementsToCheck = [
         'battleResultPopup',
         'resultTitle',

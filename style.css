@@ -610,8 +610,6 @@ body {
   box-sizing: border-box;
   width: 350px;
   height: 330px;
-  position: fixed;
-  right: 30px;
 }
 
 #bossCombatImage:active {
@@ -754,7 +752,6 @@ body {
   border-radius: 15px;
   overflow: hidden;
   position: relative;
-  top: 330px;
 }
 
 .health-bar {
@@ -1186,7 +1183,6 @@ body {
     border-radius: 6px;
     overflow: hidden;
     margin: 10px 0;
-    top: 330px;
   }
 
   .health-bar>div {
