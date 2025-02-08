@@ -54,6 +54,21 @@ body {
   margin: 1rem 0;
 }
 
+.boss-card.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+.boss-card.locked::after {
+  content: '🔒';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 24px;
+}
+
 .boss-card:active {
   transform: scale(0.98);
   box-shadow: 0 0 15px var(--accent);

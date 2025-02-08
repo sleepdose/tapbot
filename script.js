@@ -490,9 +490,28 @@ function handleShopTabs(e) {
     document.getElementById(tabId)?.classList.add('active');
 }
 
+function updateBossAvailability() {
+    document.querySelectorAll('.boss-card').forEach(card => {
+        const bossType = card.dataset.boss;
+        let isLocked = false;
+
+        if (bossType === 'bear' || bossType === 'dragon') {
+            isLocked = gameState.keys[bossType] < 3;
+        } else if (bossType === 'hydra') {
+            isLocked = gameState.level < 15 || gameState.keys[bossType] < 3;
+        } else if (bossType === 'kraken') {
+            isLocked = gameState.level < 30 || gameState.keys[bossType] < 3;
+        }
+
+        card.classList.toggle('locked', isLocked);
+    });
+}
+
 function handleBossSelect(e) {
     const bossCard = e.target.closest('.boss-card');
-    if (bossCard) startBattle(bossCard.dataset.boss);
+    if (bossCard && !bossCard.classList.contains('locked')) {
+        startBattle(bossCard.dataset.boss);
+    }
 }
 function buyBoost(type) {
     const button = document.querySelector(`.shop-item[data-type="${type}"] button`);
@@ -1140,6 +1159,7 @@ function updatePoisonTimersDisplay() {
 }
 
 function updateUI(changedKeys = ['all']) {
+    updateBossAvailability();
     const updates = {
         honey: () => {
             if (elements.honey) elements.honey.textContent = Math.floor(gameState.honey);
