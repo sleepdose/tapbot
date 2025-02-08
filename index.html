@@ -43,14 +43,8 @@
         <!-- Кнопки для фильтрации боссов по сложности -->
         <div class="battle-container">
           <div id="bossSelection">
-            <div class="difficulty-tabs">
-              <button data-difficulty="easy" class="tab-btn active">Легкие</button>
-              <button data-difficulty="medium" class="tab-btn">Средние</button>
-              <button data-difficulty="hard" class="tab-btn">Сложные</button>
-            </div>
-            <!-- Контейнеры для боссов по сложности -->
             <div class="boss-container">
-              <div id="easyBosses" class="boss-selection active">
+              <div id="allBosses" class="boss-selection active">
                 <!-- Легкие боссы: Оса, Медведь, Дракон -->
                 <div class="boss-card" data-boss="wasp">
                   <div class="boss-image-container">
@@ -108,14 +102,10 @@
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div id="mediumBosses" class="boss-selection">
-                <div class="boss-card" data-boss="hydra">
+              <div class="boss-card" data-boss="hydra">
                   <div class="boss-image-container">
                     <img src="img/hydra.jpg" class="boss-img" alt="Гидра">
                   </div>
-
                   <div class="boss-stats">
                     <div class="stat-item">❤️ <span class="stat-value">4000 HP</span></div>
                     <div class="stat-item">⏳ <span class="stat-value">150 сек</span></div>
@@ -128,9 +118,7 @@
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div id="hardBosses" class="boss-selection">
                 <div class="boss-card" data-boss="kraken">
                   <div class="boss-image-container">
                     <img src="img/kraken.jpg" class="boss-img" alt="Кракен">

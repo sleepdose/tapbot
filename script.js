@@ -216,16 +216,7 @@ function initGame() {
     document.querySelectorAll('.close').forEach(btn => {
         btn.addEventListener('click', hideAllPopups);
     });
-    document.querySelectorAll('.difficulty-tabs .tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const difficulty = btn.dataset.difficulty;
-            document.querySelectorAll('.difficulty-tabs .tab-btn, .boss-selection').forEach(el => {
-                el.classList.remove('active');
-            });
-            btn.classList.add('active');
-            document.getElementById(`${difficulty}Bosses`).classList.add('active');
-        });
-    });
+    // Difficulty tabs removed
     const bossCombatImage = document.getElementById('bossCombatImage');
     if (bossCombatImage) {
         bossCombatImage.addEventListener('click', handleBossClick);
@@ -870,7 +861,7 @@ function attack(type) {
                 if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
                     return;
-                }                gameState.currentBoss.currentHealth -= poisonDamage;
+                } gameState.currentBoss.currentHealth -= poisonDamage;
                 updateCombatUI();
                 if (gameState.currentBoss.currentHealth <= 0) {
                     endBattle(true);
@@ -1775,7 +1766,7 @@ function removePoisonTimer(timerId) {
     if (timerElement) {
         timerElement.style.opacity = '0';
         timerElement.style.transform = 'translateY(-20px)';
-        setTimeout(() =>timerElement.remove(), 500);
+        setTimeout(() => timerElement.remove(), 500);
     }
 
     gameState.activeEffects.poison = gameState.activeEffects.poison.filter(effect => {
