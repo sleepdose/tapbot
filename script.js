@@ -127,7 +127,7 @@ class GameState {
     reset() {
         this.honey = 100000;
         this.xp = 0;
-        this.level = 14;
+        this.level = 0;
         this.energy = 100;
         this.maxEnergy = 100;
         this.xpToNextLevel = this.calculateXPRequired(1);
