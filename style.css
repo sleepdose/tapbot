@@ -754,6 +754,7 @@ body {
   border-radius: 15px;
   overflow: hidden;
   position: relative;
+  top: 330px;
 }
 
 .health-bar {
