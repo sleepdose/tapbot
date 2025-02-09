@@ -106,9 +106,6 @@
                   <div class="boss-image-container">
                     <img src="img/hydra.jpg" class="boss-img" alt="Гидра">
                   </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="hydra">0</span>/3
-                  </div>
                   <div class="boss-stats">
                     <div class="stat-item">❤️ <span class="stat-value">4000 HP</span></div>
                     <div class="stat-item">⏳ <span class="stat-value">150 сек</span></div>
@@ -125,9 +122,6 @@
                 <div class="boss-card" data-boss="kraken">
                   <div class="boss-image-container">
                     <img src="img/kraken.jpg" class="boss-img" alt="Кракен">
-                  </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="kraken">0</span>/3
                   </div>
                   <div class="boss-stats">
                     <div class="stat-item">❤️ <span class="stat-value">6000 HP</span></div>
@@ -264,13 +258,13 @@
           </div>
           <div id="craftResult">
             <button id="sonicButton" class="craft-result-btn" style="display: none;">
-              Создать звуковой удар 🔊
+              🔊 Звуковой
             </button>
             <button id="fireButton" class="craft-result-btn" style="display: none;">
-              Создать огненный удар 🔥
+              🔥 Огненный
             </button>
             <button id="iceButton" class="craft-result-btn" style="display: none;">
-              Создать ледяной удар ❄️
+              ❄️ Ледяной
             </button>
           </div>
         </div>
@@ -284,6 +278,7 @@
     <button class="nav-btn" data-popup="battle">⚔️</button>
     <button class="nav-btn" data-popup="talents">💫</button>
     <button class="nav-btn" data-popup="customization">👤</button>
+    <button class="nav-btn" data-popup="achievements">🏆</button>
   </nav>
 
   <!-- Попап кастомизации -->
@@ -380,3 +375,31 @@
 </body>
 
 </html>
+
+<div id="achievementsPopup" class="popup">
+  <div class="popup-scroll-wrapper">
+    <div class="popup-content">
+      <div class="popup-header">
+        <button class="close">×</button>
+      </div>
+      <div id="achievementsList">
+        <div class="achievement-card">
+          <div class="achievement-info">
+            <h3>Король ОС</h3>
+            <p>Победить Осу множество раз</p>
+          </div>
+          <div class="achievement-progress">
+            <div class="progress-bar">
+              <div class="progress" id="waspKillProgress"></div>
+            </div>
+            <span class="progress-text" id="waspKillCount">0/10</span>
+          </div>
+          <div class="achievement-rewards">
+            <span>🍯 1000</span>
+            <span>⭐ 500</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

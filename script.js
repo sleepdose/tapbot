@@ -1,33 +1,29 @@
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
-let elements = {};
-
-function initElements() {
-    elements = {
-        honey: document.getElementById('honey'),
-        energy: document.getElementById('energy'),
-        maxEnergy: document.getElementById('maxEnergy'),
-        level: document.getElementById('level'),
-        xp: document.getElementById('xp'),
-        xpToNextLevel: document.getElementById('xpToNextLevel'),
-        basicLevel: document.getElementById('basicLevel'),
-        basicDmg: document.getElementById('basicDmg'),
-        critLevel: document.getElementById('critLevel'),
-        critChanceUpgrade: document.getElementById('critChanceUpgrade'),
-        poisonLevel: document.getElementById('poisonLevel'),
-        poisonDmgUpgrade: document.getElementById('poisonDmgUpgrade'),
-        combatTimer: document.getElementById('combatTimer'),
-        bossHealth: document.getElementById('bossHealth'),
-        currentHealth: document.getElementById('currentHealth'),
-        maxHealth: document.getElementById('maxHealth'),
-        levelProgress: document.querySelector('.level-progress-bar'),
-        combatTalents: document.getElementById('combatTalents'),
-        combatScreen: document.getElementById('combatScreen'),
-        bossCombatImage: document.getElementById('bossCombatImage'),
-        battleReward: document.getElementById('battleReward')
-    };
-}
+const elements = {
+    honey: document.getElementById('honey'),
+    energy: document.getElementById('energy'),
+    maxEnergy: document.getElementById('maxEnergy'),
+    level: document.getElementById('level'),
+    xp: document.getElementById('xp'),
+    xpToNextLevel: document.getElementById('xpToNextLevel'),
+    basicLevel: document.getElementById('basicLevel'),
+    basicDmg: document.getElementById('basicDmg'),
+    critLevel: document.getElementById('critLevel'),
+    critChanceUpgrade: document.getElementById('critChanceUpgrade'),
+    poisonLevel: document.getElementById('poisonLevel'),
+    poisonDmgUpgrade: document.getElementById('poisonDmgUpgrade'),
+    combatTimer: document.getElementById('combatTimer'),
+    bossHealth: document.getElementById('bossHealth'),
+    currentHealth: document.getElementById('currentHealth'),
+    maxHealth: document.getElementById('maxHealth'),
+    levelProgress: document.querySelector('.level-progress-bar'),
+    combatTalents: document.getElementById('combatTalents'),
+    combatScreen: document.getElementById('combatScreen'),
+    bossCombatImage: document.getElementById('bossCombatImage'),
+    battleReward: document.getElementById('battleReward')
+};
 const audioElements = {
     bgMusic: document.getElementById('backgroundMusic'),
     musicToggle: document.getElementById('musicToggle')
@@ -58,7 +54,6 @@ const gameConfig = {
             time: 120,
             honeyReward: 5000,
             requiredKeys: 3,
-            keyReward: { type: 'hydra', amount: 1 },
             xpReward: 1500,
             image: 'img/dragon.jpg',
             defeatImage: 'img/dragon_kill.jpg'
@@ -67,8 +62,6 @@ const gameConfig = {
             health: 4000,
             time: 150,
             honeyReward: 7500,
-            requiredKeys: 3,
-            keyReward: { type: 'kraken', amount: 1 },
             xpReward: 2500,
             requiredLevel: 15,
             image: 'img/hydra.jpg',
@@ -78,7 +71,6 @@ const gameConfig = {
             health: 6000,
             time: 180,
             honeyReward: 10000,
-            requiredKeys: 3,
             xpReward: 4000,
             requiredLevel: 30,
             image: 'img/kraken.jpg',
@@ -92,6 +84,12 @@ const gameConfig = {
 // =================== КЛАСС СОСТОЯНИЯ ИГРЫ ===================
 class GameState {
     constructor() {
+        this.achievements = {
+            waspKills: 0,
+            rewards: {
+                kingOfWasps: false
+            }
+        };
         this.purchasedBackgrounds = ['default'];
         this.selectedTalent = null;
         this.currentBackground = 'default';
@@ -119,7 +117,7 @@ class GameState {
             crystal: 'https://cdn.pixabay.com/photo/2016/09/10/13/28/diamond-1659283_1280.png',
             inferno: 'https://cdn.pixabay.com/photo/2013/07/13/12/35/flame-160034_1280.png'
         };
-        this.keys = { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
+        this.keys = { bear: 0, dragon: 0 };
         this.attackCharges = {
             basic: { charges: 15, basePrice: 50 },
             critical: { charges: 15, basePrice: 75 },
@@ -131,7 +129,7 @@ class GameState {
     reset() {
         this.honey = 100000;
         this.xp = 0;
-        this.level = 0;
+        this.level = 1;
         this.energy = 100;
         this.maxEnergy = 100;
         this.xpToNextLevel = this.calculateXPRequired(1);
@@ -1054,21 +1052,36 @@ function updateResultPopup() {
 }
 // =================== ОБРАБОТЧИКИ КНОПОК ===================
 document.getElementById('claimRewardButton').addEventListener('click', () => {
-    if (gameState.battleResult?.reward) {
-        const reward = gameState.battleResult.reward;
+    const reward = gameState.battleResult?.reward;
+    const bossType = gameState.battleResult?.boss?.type;
+
+    if (reward) {
+        if (bossType === 'wasp') {
+            if (!gameState.achievements) {
+                gameState.achievements = { waspKills: 0, rewards: { kingOfWasps: false } };
+            }
+            gameState.achievements.waspKills++;
+
+            if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards.kingOfWasps) {
+                reward.honey += 1000;
+                reward.xp += 500;
+                gameState.achievements.rewards.kingOfWasps = true;
+                showMessage('🏆 Достижение разблокировано: Король ОС!\nНаграда: 1000 меда и 500 опыта');
+            }
+            showMessage(`Прогресс достижения "Король ОС": ${gameState.achievements.waspKills}/10`);
+        }
 
         gameState.honey += reward.honey;
         gameState.xp += reward.xp;
 
         Object.entries(reward.keys).forEach(([type, amount]) => {
-            gameState.keys[type] += amount;
+            gameState.keys[type] = (gameState.keys[type] || 0) + amount;
         });
 
-        gameState.updateKeysDisplay();
         checkLevelUp();
         updateUI();
-
         gameState.battleResult = null;
+        gameState.inBattle = false;
         hidePopup('battleResult');
         document.getElementById('bossSelection').style.display = 'block';
     }
@@ -1076,8 +1089,10 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
 
 document.getElementById('closeResultButton').addEventListener('click', () => {
     gameState.battleResult = null;
+    gameState.inBattle = false;
     hidePopup('battleResult');
     document.getElementById('bossSelection').style.display = 'block';
+    document.getElementById('combatScreen').style.display = 'none';
 });
 
 // Находим блок с обработчиками закрытия попапов и изменяем его:
@@ -1128,6 +1143,7 @@ function checkLevelUp() {
         showLevelUpEffect(levelsGained);
         updateLevelProgress();
         updateUI(['level']);
+        updateAchievementsUI();
     }
 }
 
@@ -1294,13 +1310,21 @@ function showPopup(popupType) {
 function hidePopup(type) {
     const popup = document.getElementById(`${type}Popup`);
     if (popup) {
-        popup.classList.remove('active'); // Убираем класс active
-        document.body.style.overflow = ''; // Разблокируем прокрутку основного контента
+        popup.classList.remove('active');
+        document.body.style.overflow = '';
 
-        // Если закрываем окно битвы, деактивируем выбранный талант
-        if (type === 'battle' && gameState.selectedTalent) {
+        if (type === 'battle') {
             gameState.selectedTalent = null;
+            if (!gameState.inBattle) {
+                document.getElementById('combatScreen').style.display = 'none';
+            }
             createTalentButtons();
+        }
+
+        if (type === 'battleResult') {
+            gameState.battleResult = null;
+            gameState.inBattle = false;
+            document.getElementById('combatScreen').style.display = 'none';
         }
     }
 }
@@ -1342,14 +1366,42 @@ function calculateBasicDamage() {
 }
 
 function calculateReward(boss) {
+    if (boss.type === 'wasp') {
+        gameState.achievements.waspKills++;
+    }
     const reward = {
         honey: boss.honeyReward,
         xp: boss.xpReward,
         keys: {}
     };
 
+    // Обновляем прогресс достижения для осы
+    if (boss.type === 'wasp') {
+        if (!gameState.achievements) {
+            gameState.achievements = { waspKills: 0 };
+        }
+        gameState.achievements.waspKills++;
+
+        if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards?.kingOfWasps) {
+            reward.honey += 1000;
+            reward.xp += 500;
+            if (!gameState.achievements.rewards) {
+                gameState.achievements.rewards = {};
+            }
+            gameState.achievements.rewards.kingOfWasps = true;
+            showMessage('🏆 Достижение разблокировано: Король ОС!\nНаграда: 1000 меда и 500 опыта');
+        } else {
+            showMessage(`Прогресс достижения "Король ОС": ${gameState.achievements.waspKills}/10`);
+        }
+    }
+
     if (boss.keyReward) {
         reward.keys[boss.keyReward.type] = boss.keyReward.amount;
+    }
+    if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards.kingOfWasps) {
+        // Выдать награду
+        gameState.achievements.rewards.kingOfWasps = true;
+        showMessage('🏆 Достижение разблокировано!');
     }
 
     if (gameState.activeHive === 'crystal') {
@@ -1357,6 +1409,27 @@ function calculateReward(boss) {
     }
 
     return reward;
+}
+function updateAchievementsUI() {
+    const waspKillCount = document.getElementById('waspKillCount');
+    const waspProgress = document.getElementById('waspKillProgress');
+
+    if (waspKillCount && waspProgress) {
+        const kills = gameState.achievements.waspKills;
+        let targetKills;
+
+        if (kills < 10) {
+            targetKills = 10;
+        } else if (kills < 20) {
+            targetKills = 20;
+        } else {
+            targetKills = 30;
+        }
+
+        waspKillCount.textContent = `${Math.min(kills, targetKills)}/${targetKills}`;
+        const progress = (kills / targetKills) * 100;
+        waspProgress.style.width = `${Math.min(progress, 100)}%`;
+    }
 }
 
 function updateCombatUI() {
@@ -1679,14 +1752,9 @@ if (shopTabs) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    try {
-        initElements();
-        initGame();
-        initCrafting();
-        document.getElementById('gameScreen').style.display = 'block';
-    } catch (error) {
-        console.error('Ошибка инициализации:', error);
-    }
+    initGame();
+    initCrafting();
+    document.getElementById('gameScreen').style.display = 'block';
     const elementsToCheck = [
         'battleResultPopup',
         'resultTitle',
