@@ -90,8 +90,11 @@ class GameState {
     constructor() {
         this.achievements = {
             waspKills: 0,
+            currentLevel: 0,
             rewards: {
-                kingOfWasps: false
+                level1: false,
+                level2: false,
+                level3: false
             }
         };
         this.purchasedBackgrounds = ['default'];
@@ -1066,12 +1069,24 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
             }
             gameState.achievements.waspKills++;
 
-            if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards.kingOfWasps) {
+            const kills = gameState.achievements.waspKills;
+            if (kills >= 10 && !gameState.achievements.rewards.level1) {
                 reward.honey += 1000;
                 reward.xp += 500;
-                gameState.achievements.rewards.kingOfWasps = true;
-                showMessage('🏆 Достижение разблокировано: Король ОС!\nНаграда: 1000 меда и 500 опыта');
+                gameState.achievements.rewards.level1 = true;
+                showMessage('🏆 Достижение разблокировано: Король ОС (Уровень 1)!\nНаграда: 1000 меда и 500 опыта');
+            } else if (kills >= 20 && !gameState.achievements.rewards.level2) {
+                reward.honey += 2000;
+                reward.xp += 1000;
+                gameState.achievements.rewards.level2 = true;
+                showMessage('🏆 Достижение разблокировано: Король ОС (Уровень 2)!\nНаграда: 2000 меда и 1000 опыта');
+            } else if (kills >= 30 && !gameState.achievements.rewards.level3) {
+                reward.honey += 3000;
+                reward.xp += 1500;
+                gameState.achievements.rewards.level3 = true;
+                showMessage('🏆 Достижение разблокировано: Король ОС (Уровень 3)!\nНаграда: 3000 меда и 1500 опыта');
             }
+            updateAchievementsUI();
             showMessage(`Прогресс достижения "Король ОС": ${gameState.achievements.waspKills}/10`);
         }
 
@@ -1417,22 +1432,49 @@ function calculateReward(boss) {
 function updateAchievementsUI() {
     const waspKillCount = document.getElementById('waspKillCount');
     const waspProgress = document.getElementById('waspKillProgress');
+    const achievementCard = document.querySelector('.achievement-card');
+    const achievementInfo = document.querySelector('.achievement-info h3');
+    const achievementRewards = document.querySelector('.achievement-rewards');
 
-    if (waspKillCount && waspProgress) {
-        const kills = gameState.achievements.waspKills;
-        let targetKills;
+    if (!waspKillCount || !waspProgress) return;
 
-        if (kills < 10) {
-            targetKills = 10;
-        } else if (kills < 20) {
-            targetKills = 20;
-        } else {
-            targetKills = 30;
-        }
+    const kills = gameState.achievements.waspKills;
+    let targetKills, level, rewards, background;
 
-        waspKillCount.textContent = `${Math.min(kills, targetKills)}/${targetKills}`;
-        const progress = (kills / targetKills) * 100;
-        waspProgress.style.width = `${Math.min(progress, 100)}%`;
+    if (kills < 10) {
+        targetKills = 10;
+        level = 0;
+        rewards = '🍯 1000 ⭐ 500';
+        background = 'rgba(0, 0, 0, 0.5)';
+    } else if (kills < 20) {
+        targetKills = 20;
+        level = 1;
+        rewards = '🍯 2000 ⭐ 1000';
+        background = 'rgba(139, 69, 19, 0.5)';
+    } else {
+        targetKills = 30;
+        level = 2;
+        rewards = '🍯 3000 ⭐ 1500';
+        background = 'rgba(218, 165, 32, 0.5)';
+    }
+
+    // Обновляем уровень достижения если изменился
+    if (gameState.achievements.currentLevel !== level) {
+        gameState.achievements.currentLevel = level;
+    }
+
+    waspKillCount.textContent = `${Math.min(kills, targetKills)}/${targetKills}`;
+    const progress = (kills % 10) * 10;
+    waspProgress.style.width = `${progress}%`;
+
+    if (achievementCard) {
+        achievementCard.style.background = background;
+    }
+    if (achievementInfo) {
+        achievementInfo.textContent = `Король ОС (Уровень ${level + 1})`;
+    }
+    if (achievementRewards) {
+        achievementRewards.innerHTML = rewards;
     }
 }
 
