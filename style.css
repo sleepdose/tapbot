@@ -49,9 +49,39 @@ body {
 .boss-card {
   transition: transform 0.3s, box-shadow 0.3s;
   border: 2px solid var(--color-accent);
-  background: var(--color-dark-alpha);
   padding: 15px;
   margin: 1rem 0;
+  position: relative;
+}
+
+.boss-card[data-boss="wasp"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.boss-card[data-boss="bear"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.boss-card[data-boss="dragon"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.boss-card[data-boss="hydra"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.boss-card[data-boss="kraken"] {
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
+  background-size: cover;
+  background-position: center;
 }
 
 .boss-card.locked {
@@ -62,7 +92,6 @@ body {
 }
 
 .boss-card.locked::after {
-  content: '🔒';
   position: absolute;
   top: 10px;
   right: 10px;
@@ -1202,9 +1231,12 @@ body {
   }
 
   @keyframes timerPulse {
-    0%, 100% {
+
+    0%,
+    100% {
       transform: scale(1);
     }
+
     50% {
       transform: scale(1.05);
     }

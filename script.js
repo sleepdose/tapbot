@@ -36,7 +36,7 @@ const gameConfig = {
             honeyReward: 1000,
             xpReward: 200,
             keyReward: { type: 'bear', amount: 1 },
-            image: 'img/wasp.png',
+            image: 'img/wasp.jpg',
             defeatImage: 'img/wasp_kill.jpg'
         },
         bear: {
@@ -2070,7 +2070,7 @@ function updateBackgroundUI() {
     const isSelected = gameState.currentBackground === currentBg.name;
 
     // Изменяем текст кнопки в зависимости от того, куплен ли фон
-    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `${currentBg.cost}`;
+    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
 
     // Блокируем кнопку, если это текущий выбранный фон
     actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
