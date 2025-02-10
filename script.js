@@ -2070,7 +2070,7 @@ function updateBackgroundUI() {
     const isSelected = gameState.currentBackground === currentBg.name;
 
     // Изменяем текст кнопки в зависимости от того, куплен ли фон
-    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
+    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `${currentBg.cost}`;
 
     // Блокируем кнопку, если это текущий выбранный фон
     actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
