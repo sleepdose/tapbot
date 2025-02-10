@@ -115,7 +115,7 @@ body {
 }
 
 .damage-effect {
-  position: fixed;
+  position: absolute;
   color: #ff4444;
   font-weight: bold;
   font-size: 2em;
@@ -123,8 +123,6 @@ body {
   pointer-events: none;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
   z-index: 1000;
-  left: 50%;
-  top: 50%;
   transform: translate(-50%, -50%);
 }
 
@@ -1200,6 +1198,16 @@ body {
     border-radius: 20px;
     font-size: 18px;
     box-shadow: 0 0 10px rgba(138, 99, 210, 0.3);
+    animation: timerPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes timerPulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
   }
 
   .hive-option {
