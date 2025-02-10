@@ -1433,11 +1433,8 @@ body {
     .battle-stats {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 10px;
+      padding: 15px;
       margin: 15px 0;
-    }
-    .result-body {
-      position: fixed;
-left: 15%;
     }
 
     .stats-grid {
