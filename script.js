@@ -131,6 +131,15 @@ class GameState {
             poison: { charges: 15, basePrice: 100 }
         };
         this.activeEffects = { poison: [], shield: null, multiclick: null };
+        this.battleStats = {
+            basicDamage: 0,
+            criticalDamage: 0,
+            poisonDamage: 0,
+            sonicDamage: 0,
+            fireDamage: 0,
+            iceDamage: 0,
+            totalDamage: 0
+        };
     }
 
     reset() {
@@ -153,6 +162,15 @@ class GameState {
             attackSpeed: 1.0,
             shield: false,
             multiclick: false
+        };
+        this.battleStats = {
+            basicDamage: 0,
+            criticalDamage: 0,
+            poisonDamage: 0,
+            sonicDamage: 0,
+            fireDamage: 0,
+            iceDamage: 0,
+            totalDamage: 0
         };
     }
 
@@ -822,7 +840,7 @@ function attack(type) {
     gameState.lastAttackTime = now;
 
     // Обработка крафтовых талантов
-    if (type === 'sonic' || type === 'fire' || type === 'ice') { //Added ice talent handling
+    if (type === 'sonic' || type === 'fire' || type === 'ice') {
         if (!gameState.craftedTalents[type]) {
             console.error('Crafted talent not found:', type);
             return;
@@ -833,15 +851,19 @@ function attack(type) {
             return;
         }
         talent.charges--;
-        const damage = talent.damage * talent.level;
-        gameState.currentBoss.currentHealth = Math.max(0, gameState.currentBoss.currentHealth - damage);
+        const rawDamage = talent.damage * talent.level;
+        const actualDamage = Math.min(rawDamage, gameState.currentBoss.currentHealth);
+
+        gameState.currentBoss.currentHealth = Math.max(0, gameState.currentBoss.currentHealth - rawDamage);
+        gameState.battleStats[`${type}Damage`] += actualDamage;
+        gameState.battleStats.totalDamage += actualDamage;
 
         if (type === 'sonic') {
-            showSonicEffect(damage);
+            showSonicEffect(rawDamage);
         } else if (type === 'fire') {
-            showFireEffect(damage);
+            showFireEffect(rawDamage);
         } else {
-            showIceEffect(damage); //Added ice effect
+            showIceEffect(rawDamage);
         }
 
         updateCombatUI();
@@ -870,13 +892,22 @@ function attack(type) {
     switch (type) {
         case 'basic':
             damage = calculateBasicDamage();
+            const actualBasicDamage = Math.min(damage, gameState.currentBoss.currentHealth);
+            gameState.battleStats.basicDamage += actualBasicDamage;
+            gameState.battleStats.totalDamage += actualBasicDamage;
+            showBasicEffect(actualBasicDamage); // Добавляем эффект
             break;
         case 'critical':
             damage = calculateBasicDamage();
             if (Math.random() < gameState.talents.critical.chance) {
                 damage *= 2;
                 showCriticalEffect(damage);
+            } else {
+                showBasicEffect(damage); // Показываем обычный эффект если крит не сработал
             }
+            const actualCritDamage = Math.min(damage, gameState.currentBoss.currentHealth);
+            gameState.battleStats.criticalDamage += actualCritDamage;
+            gameState.battleStats.totalDamage += actualCritDamage;
             break;
         case 'poison':
             // Логика ядовитого урона
@@ -894,6 +925,8 @@ function attack(type) {
                     clearInterval(poisonEffect.timer);
                     return;
                 } gameState.currentBoss.currentHealth -= poisonDamage;
+                gameState.battleStats.poisonDamage += poisonDamage;
+                gameState.battleStats.totalDamage += poisonDamage;
                 updateCombatUI();
                 if (gameState.currentBoss.currentHealth <= 0) {
                     endBattle(true);
@@ -908,6 +941,7 @@ function attack(type) {
             showPoisonTimer(duration);
             break;
     }
+    gameState.battleStats.totalDamage += damage;
 
     if (damage > 0) {
         gameState.currentBoss.currentHealth = Math.max(gameState.currentBoss.currentHealth - damage, 0);
@@ -975,6 +1009,27 @@ function endBattle(victory) {
         gameState.battleTimer = null;
     }
 
+    // Обновляем статистику боя, показывая только использованные таланты
+    const stats = document.querySelector('.stats-grid');
+    stats.innerHTML = '';
+
+    const addStatIfUsed = (type, icon, name) => {
+        const damage = gameState.battleStats[`${type}Damage`];
+        if (damage > 0) {
+            const div = document.createElement('div');
+            div.className = 'stat-item';
+            div.innerHTML = `${icon} ${name}: <span>${Math.floor(damage)}</span>`;
+            stats.appendChild(div);
+        }
+    };
+
+    addStatIfUsed('basic', '🗡️', 'Базовый урон');
+    addStatIfUsed('critical', '💥', 'Критический урон');
+    addStatIfUsed('poison', '☠️', 'Ядовитый урон');
+    addStatIfUsed('sonic', '🔊', 'Звуковой урон');
+    addStatIfUsed('fire', '🔥', 'Огненный урон');
+    addStatIfUsed('ice', '❄️', 'Ледяной урон');
+
     // Обновление интерфейса
     try {
         updateResultPopup();
@@ -986,6 +1041,17 @@ function endBattle(victory) {
     } catch (e) {
         console.error('Ошибка обновления интерфейса:', e);
     }
+
+    // Сбрасываем статистику для следующего боя
+    gameState.battleStats = {
+        basicDamage: 0,
+        criticalDamage: 0,
+        poisonDamage: 0,
+        sonicDamage: 0,
+        fireDamage: 0,
+        iceDamage: 0,
+        totalDamage: 0
+    };
 
     // Принудительное обновление зарядов
     updateTalentBuyTab();
@@ -1302,6 +1368,24 @@ function showIceEffect(damage) { //Added ice effect
     effect.className = 'sonic-effect';
     effect.textContent = `❄️ ${damage}`;
     effect.style.color = '#00cccc'; // Light blue color
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
+function showBasicEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'basic-effect';
+    effect.textContent = `🗡️ ${damage}`;
+    effect.style.color = '#ffd700'; // Золотой цвет
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
+function showPoisonAttackEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'poison-attack-effect';
+    effect.textContent = `☠️ ${damage}`;
+    effect.style.color = '#32CD32'; // Ядовито-зеленый
     elements.combatScreen.appendChild(effect);
     setTimeout(() => effect.remove(), 1000);
 }

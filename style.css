@@ -1422,6 +1422,33 @@ body {
       color: var(--accent);
     }
 
+    .battle-stats {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .stats-grid .stat-item {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px;
+      border-radius: 5px;
+      text-align: left;
+    }
+
+    .stats-grid .stat-item.total {
+      grid-column: 1 / -1;
+      background: rgba(255, 215, 0, 0.1);
+      font-weight: bold;
+    }
+
     .result-actions {
       display: flex;
       flex-direction: column;
@@ -1893,6 +1920,36 @@ body {
 
   100% {
     transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+.basic-effect,
+.poison-attack-effect {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5em;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  animation: damageEffect 1s ease-out forwards;
+  z-index: 1002;
+}
+
+@keyframes damageEffect {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+
+  25% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-50%, -80%) scale(1);
     opacity: 0;
   }
 }
