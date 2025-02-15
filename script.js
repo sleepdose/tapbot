@@ -1,4 +1,3 @@
-
 // Инициализация Telegram WebApp
 let tg;
 try {
@@ -568,9 +567,9 @@ function updateBossAvailability() {
         if (bossType === 'bear' || bossType === 'dragon') {
             isLocked = gameState.keys[bossType] < 3;
         } else if (bossType === 'hydra') {
-            isLocked = gameState.level < 15 || gameState.keys[bossType] < 3;
+            isLocked = gameState.keys[bossType] < 3;
         } else if (bossType === 'kraken') {
-            isLocked = gameState.level < 30 || gameState.keys[bossType] < 3;
+            isLocked = gameState.keys[bossType] < 3;
         }
 
         card.classList.toggle('locked', isLocked);
@@ -702,16 +701,6 @@ function upgradeTalent(talentType) {
 function startBattle(bossType) {
     const bossConfig = gameConfig.bosses[bossType];
     if (!bossConfig) return;
-
-    // Проверка уровня для Hydra и Kraken
-    if (bossType === 'hydra' && gameState.level < 15) {
-        showMessage('Для сражения с Hydra требуется уровень 15!');
-        return;
-    }
-    if (bossType === 'kraken' && gameState.level < 30) {
-        showMessage('Для сражения с Kraken требуется уровень 30!');
-        return;
-    }
 
     if (bossType !== 'wasp' && gameState.keys[bossType] < 3) {
         showMessage(`Нужно 3 ключа! У вас: ${gameState.keys[bossType]}`);
@@ -1665,6 +1654,18 @@ function updateCombatUI() {
     const healthPercent = (gameState.currentBoss.currentHealth / gameState.currentBoss.maxHealth) * 100;
     elements.bossHealth.style.width = `${healthPercent}%`;
     elements.currentHealth.textContent = gameState.currentBoss.currentHealth;
+
+    // Меняем изображение босса в зависимости от здоровья
+    const bossCombatImage = document.getElementById('bossCombatImage');
+    if (bossCombatImage) {
+        if (healthPercent <= 25) {
+            bossCombatImage.src = `img/${gameState.currentBoss.type}_critical.jpg`;
+        } else if (healthPercent <= 50) {
+            bossCombatImage.src = `img/${gameState.currentBoss.type}_wounded.jpg`;
+        } else {
+            bossCombatImage.src = gameConfig.bosses[gameState.currentBoss.type].image;
+        }
+    }
 }
 
 function getTalentButtonText(type) {
