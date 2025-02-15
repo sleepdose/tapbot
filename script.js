@@ -1884,7 +1884,7 @@ function checkRecipe() {
     if (iceButton) {
         iceButton.style.display = isIceRecipe ? 'block' : 'none';
         if (isIceRecipe) {
-            iceButton.disabled = gameState.attackCharges.critical.charges < 1 ||
+            iceButton.disabled = gameState.attackCharges.basic.charges < 1 ||
                 gameState.attackCharges.poison.charges < 1;
         }
     }
