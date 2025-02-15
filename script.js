@@ -1,24 +1,12 @@
+
 // Инициализация Telegram WebApp
 let tg;
 try {
     tg = window.Telegram.WebApp;
-    tg.expand();
-
-    // Добавляем кнопку вызова контактов
-    const mainButton = tg.MainButton;
-    mainButton.setText('Пригласить друга');
-    mainButton.onClick(() => {
-        tg.sendData(JSON.stringify({
-            type: 'invite_friend',
-            gameState: {
-                level: gameState.level,
-                boss: gameState.currentBoss?.type
-            }
-        }));
-    });
-    mainButton.show();
+    tg.expand(); // Раскрываем на полный экран
 } catch (error) {
     console.error('Ошибка инициализации Telegram WebApp:', error);
+    alert('Ошибка инициализации. Пожалуйста, убедитесь что приложение открыто в Telegram.');
 }
 
 // Подключаем основной код игры
@@ -885,7 +873,7 @@ function attack(type) {
 
     // Проверяем кулдаун
     const now = Date.now();
-if (now - (gameState.lastAttackTime || 0) < 1000) {
+    if (now - (gameState.lastAttackTime || 0) < 1000) {
         return; // Пропускаем атаку если прошло менее 1 секунды
     }
     gameState.lastAttackTime = now;
@@ -1713,7 +1701,8 @@ function selectSkin() {
     const hiveImg = document.querySelector('.hive-img');
     if (hiveImg) {
         hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
-        // Сохраняем текущий выбор        gameState.currentSkin = selectedSkin;
+        // Сохраняем текущий выбор
+        gameState.currentSkin = selectedSkin;
         // Обновляем состояние кнопки
         updateSkinButton();
     }
