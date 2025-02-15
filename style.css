@@ -633,10 +633,11 @@ body {
 #bossCombatImage {
   transition: transform 0.1s ease;
   border-radius: 55px;
-  /* Скругление только сверху */
   box-sizing: border-box;
   width: 350px;
   height: 330px;
+  display: block;
+  margin: 0 auto;
 }
 
 #bossCombatImage:active {
@@ -1199,7 +1200,6 @@ body {
 
   /* Боевой экран */
   .combat-header {
-    padding: 15px;
     border-radius: 15px;
     margin-bottom: 20px;
   }

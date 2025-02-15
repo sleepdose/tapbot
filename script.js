@@ -66,7 +66,6 @@ const gameConfig = {
             requiredKeys: 3,
             keyReward: { type: 'kraken', amount: 1 },
             xpReward: 2500,
-            requiredLevel: 15,
             image: 'img/hydra.jpg',
             defeatImage: 'img/hydra_kill.jpg'
         },
@@ -76,7 +75,6 @@ const gameConfig = {
             honeyReward: 10000,
             requiredKeys: 3,
             xpReward: 4000,
-            requiredLevel: 30,
             image: 'img/kraken.jpg',
             defeatImage: 'img/kraken_kill.jpg'
         }
@@ -132,9 +130,9 @@ class GameState {
         };
         this.keys = { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
         this.attackCharges = {
-            basic: { charges: 0, basePrice: 50 },
-            critical: { charges: 0, basePrice: 75 },
-            poison: { charges: 0, basePrice: 100 }
+            basic: { charges: 15, basePrice: 50 },
+            critical: { charges: 15, basePrice: 75 },
+            poison: { charges: 15, basePrice: 100 }
         };
         this.activeEffects = { poison: [], shield: null, multiclick: null };
         this.battleStats = {
