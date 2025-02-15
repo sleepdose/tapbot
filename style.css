@@ -371,7 +371,7 @@ body {
   padding: 25px;
   max-height: calc(100vh - 50px);
   /* Оставляем место для заголовка */
-  overflow-y: auto;
+  overflow-y: hidden;
   overflow-x: hidden;
   scrollbar-width: thin;
   flex-grow: 1;
