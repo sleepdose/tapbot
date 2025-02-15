@@ -1,7 +1,13 @@
 
 // Инициализация Telegram WebApp
-const tg = window.Telegram.WebApp;
-tg.expand(); // Раскрываем на полный экран
+let tg;
+try {
+    tg = window.Telegram.WebApp;
+    tg.expand(); // Раскрываем на полный экран
+} catch (error) {
+    console.error('Ошибка инициализации Telegram WebApp:', error);
+    alert('Ошибка инициализации. Пожалуйста, убедитесь что приложение открыто в Telegram.');
+}
 
 // Подключаем основной код игры
 const gameScript = document.createElement('script');
@@ -22,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tg.colorScheme === 'dark') {
         document.body.classList.add('dark-theme');
     }
-    
+
     // Показываем основной экран
     document.getElementById('gameScreen').style.display = 'block';
 });
