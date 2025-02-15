@@ -1375,6 +1375,7 @@ body {
       gap: 15px;
       justify-content: flex-end;
       color: var(--accent);
+      justify-content: center;
     }
 
     .achievement-complete {
@@ -2029,22 +2030,4 @@ body {
   margin-bottom: 15px;
   position: relative;
   overflow: hidden;
-}
-
-.achievement-card[data-level="0"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/wasp.png');
-  background-size: cover;
-  background-position: center;
-}
-
-.achievement-card[data-level="1"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/bear.jpg');
-  background-size: cover;
-  background-position: center;
-}
-
-.achievement-card[data-level="2"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/dragon.jpg');
-  background-size: cover;
-  background-position: center;
 }
