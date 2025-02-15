@@ -132,9 +132,9 @@ class GameState {
         };
         this.keys = { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
         this.attackCharges = {
-            basic: { charges: 15, basePrice: 50 },
-            critical: { charges: 15, basePrice: 75 },
-            poison: { charges: 15, basePrice: 100 }
+            basic: { charges: 0, basePrice: 50 },
+            critical: { charges: 0, basePrice: 75 },
+            poison: { charges: 0, basePrice: 100 }
         };
         this.activeEffects = { poison: [], shield: null, multiclick: null };
         this.battleStats = {
