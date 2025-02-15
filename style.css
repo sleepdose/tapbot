@@ -636,8 +636,6 @@ body {
   box-sizing: border-box;
   width: 350px;
   height: 330px;
-  display: block;
-  margin: 0 auto;
 }
 
 #bossCombatImage:active {
