@@ -90,8 +90,14 @@ class GameState {
     constructor() {
         this.achievements = {
             waspKills: 0,
+            bearKills: 0,
             currentLevel: 0,
             rewards: {
+                level1: false,
+                level2: false,
+                level3: false
+            },
+            bearRewards: {
                 level1: false,
                 level2: false,
                 level3: false
@@ -1129,31 +1135,50 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
     const bossType = gameState.battleResult?.boss?.type;
 
     if (reward) {
-        if (bossType === 'wasp') {
+        if (bossType === 'wasp' || bossType === 'bear') {
             if (!gameState.achievements) {
-                gameState.achievements = { waspKills: 0, rewards: { kingOfWasps: false } };
+                gameState.achievements = {
+                    waspKills: 0,
+                    bearKills: 0,
+                    rewards: { kingOfWasps: false },
+                    bearRewards: { kingOfBears: false }
+                };
             }
-            gameState.achievements.waspKills++;
 
-            const kills = gameState.achievements.waspKills;
-            if (kills >= 10 && !gameState.achievements.rewards.level1) {
-                reward.honey += 1000;
-                reward.xp += 500;
-                gameState.achievements.rewards.level1 = true;
-                showMessage('🏆 Достижение разблокировано: Король ОС (Уровень 1)!\nНаграда: 1000 меда и 500 опыта');
-            } else if (kills >= 20 && !gameState.achievements.rewards.level2) {
-                reward.honey += 2000;
-                reward.xp += 1000;
-                gameState.achievements.rewards.level2 = true;
-                showMessage('🏆 Достижение разблокировано: Король ОС (Уровень 2)!\nНаграда: 2000 меда и 1000 опыта');
-            } else if (kills >= 30 && !gameState.achievements.rewards.level3) {
-                reward.honey += 3000;
-                reward.xp += 1500;
-                gameState.achievements.rewards.level3 = true;
-                showMessage('🏆 Достижение разблокировано: Король ОС (Уровень 3)!\nНаграда: 3000 меда и 1500 опыта');
+            if (bossType === 'wasp') {
+                gameState.achievements.waspKills++;
+                const kills = gameState.achievements.waspKills;
+                if (kills >= 10 && !gameState.achievements.rewards.level1) {
+                    reward.honey += 1000;
+                    reward.xp += 500;
+                    gameState.achievements.rewards.level1 = true;
+                } else if (kills >= 20 && !gameState.achievements.rewards.level2) {
+                    reward.honey += 2000;
+                    reward.xp += 1000;
+                    gameState.achievements.rewards.level2 = true;
+                } else if (kills >= 30 && !gameState.achievements.rewards.level3) {
+                    reward.honey += 3000;
+                    reward.xp += 1500;
+                    gameState.achievements.rewards.level3 = true;
+                }
+            } else if (bossType === 'bear') {
+                gameState.achievements.bearKills++;
+                const kills = gameState.achievements.bearKills;
+                if (kills >= 10 && !gameState.achievements.bearRewards.level1) {
+                    reward.honey += 2000;
+                    reward.xp += 1000;
+                    gameState.achievements.bearRewards.level1 = true;
+                } else if (kills >= 20 && !gameState.achievements.bearRewards.level2) {
+                    reward.honey += 4000;
+                    reward.xp += 2000;
+                    gameState.achievements.bearRewards.level2 = true;
+                } else if (kills >= 30 && !gameState.achievements.bearRewards.level3) {
+                    reward.honey += 6000;
+                    reward.xp += 3000;
+                    gameState.achievements.bearRewards.level3 = true;
+                }
             }
             updateAchievementsUI();
-            showMessage(`Прогресс достижения "Король ОС": ${gameState.achievements.waspKills}/10`);
         }
 
         gameState.honey += reward.honey;
@@ -1492,9 +1517,6 @@ function calculateReward(boss) {
                 gameState.achievements.rewards = {};
             }
             gameState.achievements.rewards.kingOfWasps = true;
-            showMessage('🏆 Достижение разблокировано: Король ОС!\nНаграда: 1000 меда и 500 опыта');
-        } else {
-            showMessage(`Прогресс достижения "Король ОС": ${gameState.achievements.waspKills}/10`);
         }
     }
 
@@ -1504,7 +1526,6 @@ function calculateReward(boss) {
     if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards.kingOfWasps) {
         // Выдать награду
         gameState.achievements.rewards.kingOfWasps = true;
-        showMessage('🏆 Достижение разблокировано!');
     }
 
     if (gameState.activeHive === 'crystal') {
@@ -1514,51 +1535,92 @@ function calculateReward(boss) {
     return reward;
 }
 function updateAchievementsUI() {
+    // Обновление достижения осы
     const waspKillCount = document.getElementById('waspKillCount');
     const waspProgress = document.getElementById('waspKillProgress');
-    const achievementCard = document.querySelector('.achievement-card');
-    const achievementInfo = document.querySelector('.achievement-info h3');
-    const achievementRewards = document.querySelector('.achievement-rewards');
+    const waspCard = document.querySelector('.achievement-card');
 
-    if (!waspKillCount || !waspProgress) return;
+    if (waspKillCount && waspProgress) {
+        const waspKills = gameState.achievements.waspKills;
+        let waspTarget, waspLevel, waspRewards, waspBackground;
 
-    const kills = gameState.achievements.waspKills;
-    let targetKills, level, rewards, background;
+        if (waspKills < 10) {
+            waspTarget = 10;
+            waspLevel = 0;
+            waspRewards = '🍯 1000 ⭐ 500';
+            waspBackground = 'rgba(0, 0, 0, 0.5)';
+        } else if (waspKills < 20) {
+            waspTarget = 20;
+            waspLevel = 1;
+            waspRewards = '🍯 2000 ⭐ 1000';
+            waspBackground = 'rgba(139, 69, 19, 0.5)';
+        } else if (waspKills < 30) {
+            waspTarget = 30;
+            waspLevel = 2;
+            waspRewards = '🍯 3000 ⭐ 1500';
+            waspBackground = 'rgba(218, 165, 32, 0.5)';
+        } else {
+            waspTarget = 30;
+            waspLevel = 3;
+            waspRewards = 'Максимум';
+            waspBackground = 'rgba(218, 165, 32, 0.5)';
+        }
 
-    if (kills < 10) {
-        targetKills = 10;
-        level = 0;
-        rewards = '🍯 1000 ⭐ 500';
-        background = 'rgba(0, 0, 0, 0.5)';
-    } else if (kills < 20) {
-        targetKills = 20;
-        level = 1;
-        rewards = '🍯 2000 ⭐ 1000';
-        background = 'rgba(139, 69, 19, 0.5)';
-    } else {
-        targetKills = 30;
-        level = 2;
-        rewards = '🍯 3000 ⭐ 1500';
-        background = 'rgba(218, 165, 32, 0.5)';
+        waspKillCount.textContent = `${Math.min(waspKills, waspTarget)}/${waspTarget}`;
+        const waspProgressValue = (waspKills % 10) * 10;
+        waspProgress.style.width = `${waspProgressValue}%`;
+
+        if (waspCard) {
+            waspCard.style.background = waspBackground;
+            waspCard.querySelector('.achievement-info h3').textContent = `Король ОС (Уровень ${waspLevel + 1})`;
+            if (waspKills < 30) {
+                waspCard.querySelector('.achievement-rewards').innerHTML = waspRewards;
+            }
+        }
     }
 
-    // Обновляем уровень достижения если изменился
-    if (gameState.achievements.currentLevel !== level) {
-        gameState.achievements.currentLevel = level;
-    }
+    // Обновление достижения медведя
+    const bearKillCount = document.getElementById('bearKillCount');
+    const bearProgress = document.getElementById('bearKillProgress');
+    const bearCard = document.querySelectorAll('.achievement-card')[1];
 
-    waspKillCount.textContent = `${Math.min(kills, targetKills)}/${targetKills}`;
-    const progress = (kills % 10) * 10;
-    waspProgress.style.width = `${progress}%`;
+    if (bearKillCount && bearProgress) {
+        const bearKills = gameState.achievements.bearKills;
+        let bearTarget, bearLevel, bearRewards, bearBackground;
 
-    if (achievementCard) {
-        achievementCard.style.background = background;
-    }
-    if (achievementInfo) {
-        achievementInfo.textContent = `Король ОС (Уровень ${level + 1})`;
-    }
-    if (achievementRewards) {
-        achievementRewards.innerHTML = rewards;
+        if (bearKills < 10) {
+            bearTarget = 10;
+            bearLevel = 0;
+            bearRewards = '🍯 2000 ⭐ 1000';
+            bearBackground = 'rgba(0, 0, 0, 0.5)';
+        } else if (bearKills < 20) {
+            bearTarget = 20;
+            bearLevel = 1;
+            bearRewards = '🍯 4000 ⭐ 2000';
+            bearBackground = 'rgba(139, 69, 19, 0.5)';
+        } else if (bearKills < 30) {
+            bearTarget = 30;
+            bearLevel = 2;
+            bearRewards = '🍯 6000 ⭐ 3000';
+            bearBackground = 'rgba(218, 165, 32, 0.5)';
+        } else {
+            bearTarget = 30;
+            bearLevel = 3;
+            bearRewards = 'Максимум';
+            bearBackground = 'rgba(218, 165, 32, 0.5)';
+        }
+
+        bearKillCount.textContent = `${Math.min(bearKills, bearTarget)}/${bearTarget}`;
+        const bearProgressValue = (bearKills % 10) * 10;
+        bearProgress.style.width = `${bearProgressValue}%`;
+
+        if (bearCard) {
+            bearCard.style.background = bearBackground;
+            bearCard.querySelector('.achievement-info h3').textContent = `Король Медведей (Уровень ${bearLevel + 1})`;
+            if (bearKills < 30) {
+                bearCard.querySelector('.achievement-rewards').innerHTML = bearRewards;
+            }
+        }
     }
 }
 
