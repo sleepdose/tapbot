@@ -1,3 +1,32 @@
+
+// Инициализация Telegram WebApp
+const tg = window.Telegram.WebApp;
+tg.expand(); // Раскрываем на полный экран
+
+// Подключаем основной код игры
+const gameScript = document.createElement('script');
+gameScript.src = 'script.js';
+document.body.appendChild(gameScript);
+
+// Добавляем функции для интеграции с Telegram
+function sendScoreToBot(score) {
+    tg.sendData(JSON.stringify({
+        type: 'score',
+        value: score
+    }));
+}
+
+// Когда игра загружена
+document.addEventListener('DOMContentLoaded', () => {
+    // Настраиваем тему
+    if (tg.colorScheme === 'dark') {
+        document.body.classList.add('dark-theme');
+    }
+    
+    // Показываем основной экран
+    document.getElementById('gameScreen').style.display = 'block';
+});
+
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
