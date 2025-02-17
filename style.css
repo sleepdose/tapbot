@@ -772,12 +772,32 @@ body {
 
 }
 
+.combat-header {
+  position: fixed;
+  left: 20px;
+  right: 20px;
+  padding: 10px 15px;
+  width: auto;
+  max-width: none;
+}
+
 .boss-health {
   height: 30px;
   background: #333;
   border-radius: 15px;
   overflow: hidden;
   position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+#bossCombatImage {
+  width: 100%;
+  max-width: 350px;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
 }
 
 .health-bar {
@@ -1024,8 +1044,7 @@ body {
   animation: defeatShake 0.5s;
 }
 
-@keyframes victoryPulse {
-  0% {
+@keyframes victoryPulse {  0% {
     transform: translate(-50%, -50%) scale(1);
   }
 
@@ -1197,8 +1216,12 @@ body {
 
   /* Боевой экран */
   .combat-header {
-    border-radius: 15px;
-    margin-bottom: 20px;
+position: fixed;
+left: 20px;
+right: 20px;
+padding: 10px 15px;
+width: auto;
+max-width: none;
   }
 
   .health-bar {
