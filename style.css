@@ -797,7 +797,6 @@ body {
   max-width: 350px;
   height: auto;
   object-fit: contain;
-  margin: 0 auto;
 }
 
 .health-bar {
