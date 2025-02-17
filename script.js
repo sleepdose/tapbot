@@ -800,9 +800,9 @@ function createTalentButtons() {
 
     // Добавляем скрафченные таланты
     const craftedTalents = [
-        { type: 'sonic', icon: '🔊', name: 'Звуковой удар' },
-        { type: 'fire', icon: '🔥', name: 'Огненный удар' },
-        { type: 'ice', icon: '❄️', name: 'Ледяной удар' } // Added ice talent
+        { type: 'sonic', icon: '🔊', name: 'Звуковой' },
+        { type: 'fire', icon: '🔥', name: 'Огненный' },
+        { type: 'ice', icon: '❄️', name: 'Ледяной' } // Added ice talent
     ];
 
     craftedTalents.forEach(talent => {
@@ -1670,9 +1670,9 @@ function updateCombatUI() {
 
 function getTalentButtonText(type) {
     return {
-        basic: 'Базовый удар',
-        critical: 'Критический удар',
-        poison: 'Ядовитый удар'
+        basic: 'Базовый',
+        critical: 'Критический',
+        poison: 'Ядовитый'
     }[type] || '';
 }
 
