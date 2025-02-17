@@ -952,7 +952,6 @@ body {
   overflow-x: auto;
   flex-wrap: nowrap;
   scrollbar-width: thin;
-  scrollbar-color: var(--accent) rgba(0, 0, 0, 0.1);
   transform: none;
   width: auto;
   max-width: none;
