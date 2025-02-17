@@ -816,7 +816,6 @@ body {
 
 .attack-btn.selected {
   background: linear-gradient(145deg, #4CAF50, #45a049);
-  box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
   transform: scale(1.05);
 }
 
