@@ -502,6 +502,25 @@ function handleHiveClick(e) {
         attack(gameState.selectedTalent);
         return;
     }
+    // Создаем сердечко
+  if (!gameState.inBattle) { // Только вне боя
+    const heart = document.createElement('div');
+    heart.className = 'heart-effect';
+    heart.innerHTML = '❤️';
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    heart.style.left = x + 'px';
+    heart.style.top = y + 'px';
+
+    e.currentTarget.appendChild(heart);
+
+    setTimeout(() => {
+      heart.remove();
+    }, 1000);
+  }
     if (document.querySelector('.popup.active')) {
         showMessage('Закройте другие окна!');
         return;
