@@ -821,11 +821,16 @@ body {
   padding: 12px;
   border-radius: 12px;
   color: white;
-  width: 100%;
-  margin-bottom: 10px;
+  width: 100px;
+  min-width: 100px;
+  margin: 0 5px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 5px;
   transition: transform 0.2s;
+  flex-shrink: 0;
 }
 
 .attack-btn:active {
@@ -1041,7 +1046,8 @@ body {
   animation: defeatShake 0.5s;
 }
 
-@keyframes victoryPulse {  0% {
+@keyframes victoryPulse {
+  0% {
     transform: translate(-50%, -50%) scale(1);
   }
 
@@ -1213,12 +1219,12 @@ body {
 
   /* Боевой экран */
   .combat-header {
-position: fixed;
-left: 20px;
-right: 20px;
-padding: 10px 15px;
-width: auto;
-max-width: none;
+    position: fixed;
+    left: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    width: auto;
+    max-width: none;
   }
 
   .health-bar {
