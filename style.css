@@ -1423,6 +1423,7 @@ body {
     /* Стили для попапа результатов */
     #battleResultPopup .popup-content {
       max-width: 400px;
+      margin: auto;
     }
 
     .result-boss-img {
