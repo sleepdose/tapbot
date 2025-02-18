@@ -502,25 +502,30 @@ function handleHiveClick(e) {
         attack(gameState.selectedTalent);
         return;
     }
-    // Создаем сердечко
-  if (!gameState.inBattle) { // Только вне боя
-    const heart = document.createElement('div');
-    heart.className = 'heart-effect';
-    heart.innerHTML = '❤️';
+    // Создаем сердечки в случайных местах
+    if (!gameState.inBattle) { // Только вне боя
+        const rect = e.currentTarget.getBoundingClientRect();
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+        // Создаем 3 сердечка в разных местах
+        for(let i = 0; i < 1; i++) {
+            const heart = document.createElement('div');
+            heart.className = 'heart-effect';
+            heart.innerHTML = '❤️';
 
-    heart.style.left = x + 'px';
-    heart.style.top = y + 'px';
+            // Случайные координаты в пределах элемента
+            const x = Math.random() * rect.width;
+            const y = Math.random() * rect.height;
 
-    e.currentTarget.appendChild(heart);
+            heart.style.left = x + 'px';
+            heart.style.top = y + 'px';
 
-    setTimeout(() => {
-      heart.remove();
-    }, 1000);
-  }
+            e.currentTarget.appendChild(heart);
+
+            setTimeout(() => {
+                heart.remove();
+            }, 1000);
+        }
+    }
     if (document.querySelector('.popup.active')) {
         showMessage('Закройте другие окна!');
         return;
