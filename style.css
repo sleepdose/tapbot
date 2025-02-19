@@ -515,12 +515,12 @@ body {
 }
 
 .click-area {
-  width: min(320px, 90vw);
+  width: min(420px, 95vw);
   flex-grow: 1;
   /* Занимает всё доступное пространство */
   margin-bottom: 0;
   /* Убираем нижний отступ */
-  height: min(320px, 90vw);
+  height: min(420px, 95vw);
   margin: 1rem auto 30px;
   cursor: pointer;
   position: relative;
@@ -1186,21 +1186,10 @@ body {
     /* Высота навигации */
   }
 
-  .click-area {
-    width: 85vw;
-    height: 85vw;
-    margin: 0 auto;
-  }
-
   .stats {
     flex-wrap: nowrap;
 
     padding-bottom: 2px;
-  }
-
-  .click-area {
-    width: 85vw;
-    height: 85vw;
   }
 
   .popup-content {
@@ -2056,6 +2045,7 @@ body {
   position: relative;
   overflow: hidden;
 }
+
 /* Добавить в конец файла */
 .heart-effect {
   position: absolute;
@@ -2072,9 +2062,11 @@ body {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
   }
+
   50% {
     transform: translate(-50%, -100%) scale(1.2);
   }
+
   100% {
     transform: translate(-50%, -150%) scale(0.5);
     opacity: 0;
