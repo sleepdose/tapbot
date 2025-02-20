@@ -1458,12 +1458,13 @@ function updatePetButton() {
     }
 }
 // Оптимизация автосохранения с throttle
+// Оптимизация автосохранения с throttle
 let lastSaveTime = 0;
 let savePending = false;
 
 function throttleSaveGameState() {
     const now = Date.now();
-    if (now - lastSaveTime >= 10000 && !savePending) { // Сохраняем не чаще, чем раз в 10 секунд
+    if (now - lastSaveTime >= 10000 && !savePending) {
         savePending = true;
         saveGameStateToCloud().then(() => {
             lastSaveTime = now;
@@ -1472,7 +1473,6 @@ function throttleSaveGameState() {
     }
 }
 
-// Debounce для оптимизации частых вызовов
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -1538,11 +1538,61 @@ function showPoisonTimer(duration) {
 
     const timerElement = document.createElement('div');
     timerElement.className = 'poison-timer';
-    timerElement.innerHTML = `☠️ ${duration}s`; // Упрощённый вариант из вашего <DOCUMENT>
+    const timerId = `poison-timer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    timerElement.id = timerId;
+
+    timerElement.innerHTML = `
+        <span class="poison-icon">☠️</span>
+        <span class="poison-duration">${duration}s</span>
+        <div class="poison-progress"></div>
+    `;
+
+    const progressBar = timerElement.querySelector('.poison-progress');
+    progressBar.style.animation = `poison-progress ${duration}s linear forwards`;
+
     timerContainer.appendChild(timerElement);
 
-    setTimeout(() => timerElement.remove(), duration * 1000); // Удаляем после окончания
-    throttleSaveGameState(); // Сохраняем с throttle
+    const poisonEffect = {
+        id: timerId,
+        startTime: Date.now(),
+        duration: duration * 1000,
+        timerElement: timerElement,
+        interval: null,
+        timeout: null
+    };
+
+    gameState.activeEffects.poison.push(poisonEffect);
+
+    poisonEffect.interval = setInterval(() => {
+        const currentTime = Date.now();
+        const elapsed = currentTime - poisonEffect.startTime;
+        const remaining = Math.ceil((poisonEffect.duration - elapsed) / 1000);
+
+        const durationElement = timerElement.querySelector('.poison-duration');
+        if (durationElement) {
+            durationElement.textContent = `${remaining}s`;
+            if (remaining <= 5) {
+                const intensity = 100 + Math.floor(30 * (remaining / 5));
+                timerElement.style.backgroundColor = `rgba(50, ${intensity}, 50, 0.9)`;
+            }
+        }
+
+        if (remaining <= 0) {
+            clearInterval(poisonEffect.interval);
+            removePoisonTimer(timerId);
+        }
+    }, 100);
+
+    poisonEffect.timeout = setTimeout(() => {
+        removePoisonTimer(timerId);
+    }, poisonEffect.duration + 500);
+
+    setTimeout(() => {
+        timerElement.style.opacity = '1';
+        timerElement.style.transform = 'translateY(0)';
+    }, 10);
+
+    throttleSaveGameState();
 }
 
 function showLevelUpEffect(levels) {
@@ -1550,14 +1600,13 @@ function showLevelUpEffect(levels) {
     effect.className = 'level-up-effect';
     effect.textContent = `Уровень повышен! +${levels}`;
     document.body.appendChild(effect);
-    setTimeout(() => effect.remove(), 2000); // Улучшение UX: эффект повышения уровня
+    setTimeout(() => effect.remove(), 2000);
 }
 
 // =================== СИСТЕМА КРАФТИНГА ===================
 function initCrafting() {
     const talentCards = document.querySelectorAll('.talent-card');
     const craftSlots = document.querySelectorAll('.craft-slot');
-    const craftButton = document.getElementById('craftButton');
 
     talentCards.forEach(card => {
         card.addEventListener('click', () => {
@@ -1762,7 +1811,7 @@ function buyBoost(type) {
             let timeLeft = boostDuration / 1000;
             const timer = setInterval(() => {
                 timeLeft--;
-                timerElement.textContent = `${type}: ${timeLeft}s`; // Улучшение UX: показываем тип буста
+                timerElement.textContent = `${type}: ${timeLeft}s`;
                 if (timeLeft <= 0) {
                     clearInterval(timer);
                     timerElement.remove();
@@ -1783,6 +1832,47 @@ function buyBoost(type) {
     }
 }
 
+// =================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===================
+function calculateReward(boss) {
+    if (boss.type === 'wasp') {
+        gameState.achievements.waspKills++;
+    }
+    const reward = {
+        honey: boss.honeyReward,
+        xp: boss.xpReward,
+        keys: {}
+    };
+
+    if (boss.type === 'wasp') {
+        if (!gameState.achievements) {
+            gameState.achievements = { waspKills: 0 };
+        }
+        gameState.achievements.waspKills++;
+
+        if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards?.kingOfWasps) {
+            reward.honey += 1000;
+            reward.xp += 500;
+            if (!gameState.achievements.rewards) {
+                gameState.achievements.rewards = {};
+            }
+            gameState.achievements.rewards.kingOfWasps = true;
+        }
+    }
+
+    if (boss.keyReward) {
+        reward.keys[boss.keyReward.type] = boss.keyReward.amount;
+    }
+    if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards?.kingOfWasps) {
+        gameState.achievements.rewards.kingOfWasps = true;
+    }
+
+    if (gameState.activeHive === 'crystal') {
+        reward.honey = Math.floor(reward.honey * 1.3);
+    }
+
+    return reward;
+}
+
 // =================== ЗАПУСК ИГРЫ ===================
 document.getElementById('backToBossSelection').addEventListener('click', () => {
     endBattle(false);
@@ -1790,23 +1880,6 @@ document.getElementById('backToBossSelection').addEventListener('click', () => {
     elements.combatScreen.style.display = 'none';
     throttleSaveGameState();
 });
-
-window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('gameScreen').style.display = 'block';
-});
-
-const shopTabsElement = document.querySelector('#shopPopup .shop-tabs');
-if (shopTabsElement) {
-    shopTabsElement.addEventListener('click', e => {
-        const tabBtn = e.target.closest('.tab-btn');
-        if (!tabBtn) return;
-
-        document.querySelectorAll('#shopPopup .tab-btn, #shopPopup .shop-tab').forEach(el => el.classList.remove('active'));
-        tabBtn.classList.add('active');
-        const tabId = `shop${tabBtn.dataset.tab.charAt(0).toUpperCase() + tabBtn.dataset.tab.slice(1)}`;
-        document.getElementById(tabId).classList.add('active');
-    });
-}
 
 document.addEventListener('DOMContentLoaded', () => {
     initGame();
@@ -1854,3 +1927,106 @@ document.addEventListener('click', (e) => {
         document.body.style.backgroundImage = bg.image;
     }
 });
+
+// =================== ФУНКЦИИ ТАЙМЕРОВ ЯДА ===================
+function removePoisonTimer(timerId) {
+    const timerElement = document.getElementById(timerId);
+    if (timerElement) {
+        timerElement.style.opacity = '0';
+        timerElement.style.transform = 'translateY(-20px)';
+        setTimeout(() => timerElement.remove(), 500);
+    }
+
+    gameState.activeEffects.poison = gameState.activeEffects.poison.filter(effect => {
+        if (effect.id === timerId) {
+            clearInterval(effect.interval);
+            clearTimeout(effect.timeout);
+            return false;
+        }
+        return true;
+    });
+
+    if (gameState.inBattle) {
+        debouncedCreateTalentButtons();
+    }
+
+    throttleSaveGameState();
+}
+
+function updatePoisonTimers() {
+    const activeEffects = gameState.activeEffects.poison;
+    const timerContainer = document.getElementById('poisonTimersContainer');
+    if (!timerContainer) return;
+
+    const currentTime = Date.now();
+
+    activeEffects.forEach(effect => {
+        const remaining = Math.ceil((effect.duration - (currentTime - effect.startTime)) / 1000);
+        if (remaining > 0) {
+            showPoisonTimer(remaining);
+        }
+    });
+}
+
+function createTalentButtons() {
+    elements.combatTalents.innerHTML = '';
+
+    Object.entries(gameState.talents).forEach(([type, talent]) => {
+        if (talent.level > 0) {
+            const charges = gameState.attackCharges[type].charges;
+            if (charges <= 0) return;
+
+            const isSelected = gameState.selectedTalent === type;
+            const isDisabled = !gameState.inBattle;
+
+            const button = document.createElement('button');
+            button.className = `attack-btn ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
+            button.dataset.attack = type;
+            button.disabled = isDisabled;
+            button.innerHTML = `
+                <div class="talent-icon">${getTalentIcon(type)}</div>
+                <div class="talent-info">
+                    <div>${getTalentButtonText(type)}</div>
+                    <div class="charge-counter">Всего: ${charges}</div>
+                </div>
+            `;
+
+            button.onclick = () => {
+                if (gameState.selectedTalent === type) {
+                    gameState.selectedTalent = null;
+                } else {
+                    gameState.selectedTalent = type;
+                }
+                debouncedCreateTalentButtons();
+            };
+
+            elements.combatTalents.appendChild(button);
+        }
+    });
+
+    const craftedTalents = [
+        { type: 'sonic', icon: '🔊', name: 'Звуковой' },
+        { type: 'fire', icon: '🔥', name: 'Огненный' },
+        { type: 'ice', icon: '❄️', name: 'Ледяной' }
+    ];
+
+    craftedTalents.forEach(talent => {
+        if (gameState.craftedTalents[talent.type].charges > 0) {
+            const button = document.createElement('button');
+            button.className = `attack-btn ${gameState.selectedTalent === talent.type ? 'selected' : ''}`;
+            button.dataset.attack = talent.type;
+            button.innerHTML = `
+                <div class="talent-icon">${talent.icon}</div>
+                <div class="talent-info">
+                    <div>${talent.name}</div>
+                    <div class="charge-counter">Всего: ${gameState.craftedTalents[talent.type].charges}</div>
+                </div>
+            `;
+            button.onclick = () => {
+                gameState.selectedTalent = gameState.selectedTalent === talent.type ? null : talent.type;
+                debouncedCreateTalentButtons();
+            };
+            elements.combatTalents.appendChild(button);
+        }
+    });
+}
