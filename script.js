@@ -15,16 +15,189 @@ document.body.appendChild(gameScript);
 
 // Добавляем функции для интеграции с Telegram
 function sendScoreToBot(score) {
-    tg.sendData(JSON.stringify({
-        type: 'score',
-        value: score
+    if (tg) {
+        tg.sendData(JSON.stringify({
+            type: 'score',
+            value: score
+        }));
+    }
+}
+
+// Функции для работы с Telegram Cloud Storage
+function saveGameStateToCloud(callback = () => {}) {
+    if (!tg || !tg.CloudStorage) {
+        console.warn('Cloud Storage недоступен');
+        callback(new Error('Cloud Storage unavailable'));
+        return;
+    }
+
+    // Сериализуем весь gameState
+    const saveData = JSON.stringify(gameState);
+    const dataSize = new TextEncoder().encode(saveData).length;
+
+    if (dataSize > 4096) {
+        console.warn('Данные превышают 4KB, разбиваем на части');
+        splitAndSaveGameState(saveData, callback);
+    } else {
+        tg.CloudStorage.setItem('gameState', saveData, (error, success) => {
+            if (error) {
+                console.error('Ошибка сохранения в облако:', error);
+                callback(error);
+            } else {
+                console.log('Сохранено в облако:', saveData);
+                callback(null);
+            }
+        });
+    }
+}
+
+function splitAndSaveGameState(data, callback) {
+    const chunkSize = 4000; // Оставляем запас
+    const chunks = [];
+    for (let i = 0; i < data.length; i += chunkSize) {
+        chunks.push(data.slice(i, i + chunkSize));
+    }
+
+    const savePromises = chunks.map((chunk, index) => {
+        return new Promise((resolve, reject) => {
+            tg.CloudStorage.setItem(`gameState_part${index}`, chunk, (error, success) => {
+                if (error) reject(error);
+                else resolve();
+            });
+        });
+    });
+
+    // Сохраняем количество частей
+    savePromises.push(new Promise((resolve, reject) => {
+        tg.CloudStorage.setItem('gameState_parts', chunks.length.toString(), (error, success) => {
+            if (error) reject(error);
+            else resolve();
+        });
     }));
+
+    Promise.all(savePromises)
+        .then(() => {
+            console.log(`Сохранено ${chunks.length} частей в облако`);
+            callback(null);
+        })
+        .catch(error => {
+            console.error('Ошибка сохранения частей:', error);
+            callback(error);
+        });
+}
+
+function loadGameStateFromCloud(callback) {
+    if (!tg || !tg.CloudStorage) {
+        console.warn('Cloud Storage недоступен');
+        callback(new Error('Cloud Storage unavailable'), null);
+        return;
+    }
+
+    // Проверяем, есть ли разбитые данные
+    tg.CloudStorage.getItem('gameState_parts', (error, partsCount) => {
+        if (error || !partsCount) {
+            // Пробуем загрузить единый gameState
+            tg.CloudStorage.getItem('gameState', (err, result) => {
+                if (err || !result) {
+                    console.log('Нет сохранённых данных:', err);
+                    callback(err || new Error('No saved data'), null);
+                } else {
+                    applyLoadedData(result, callback);
+                }
+            });
+        } else {
+            // Загружаем разбитые части
+            const numParts = parseInt(partsCount);
+            const loadPromises = [];
+
+            for (let i = 0; i < numParts; i++) {
+                loadPromises.push(new Promise((resolve, reject) => {
+                    tg.CloudStorage.getItem(`gameState_part${i}`, (err, chunk) => {
+                        if (err) reject(err);
+                        else resolve(chunk);
+                    });
+                }));
+            }
+
+            Promise.all(loadPromises)
+                .then(chunks => {
+                    const fullData = chunks.join('');
+                    applyLoadedData(fullData, callback);
+                })
+                .catch(err => {
+                    console.error('Ошибка загрузки частей:', err);
+                    callback(err, null);
+                });
+        }
+    });
+}
+
+function applyLoadedData(data, callback) {
+    try {
+        const loadedData = JSON.parse(data);
+        // Обновляем gameState полностью, сохраняя структуру класса
+        gameState = Object.assign(new GameState(), loadedData);
+        console.log('Загружено из облака:', loadedData);
+        callback(null, gameState);
+    } catch (e) {
+        console.error('Ошибка парсинга данных из облака:', e);
+        callback(e, null);
+    }
+}
+
+function resetGameStateInCloud(callback = () => {}) {
+    if (!tg || !tg.CloudStorage) {
+        console.warn('Cloud Storage недоступен');
+        callback(new Error('Cloud Storage unavailable'));
+        return;
+    }
+
+    // Удаляем все ключи
+    const deletePromises = [];
+    tg.CloudStorage.getItem('gameState_parts', (error, partsCount) => {
+        if (!error && partsCount) {
+            const numParts = parseInt(partsCount);
+            for (let i = 0; i < numParts; i++) {
+                deletePromises.push(new Promise((resolve, reject) => {
+                    tg.CloudStorage.removeItem(`gameState_part${i}`, (err, success) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                }));
+            }
+            deletePromises.push(new Promise((resolve, reject) => {
+                tg.CloudStorage.removeItem('gameState_parts', (err, success) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            }));
+        }
+
+        deletePromises.push(new Promise((resolve, reject) => {
+            tg.CloudStorage.removeItem('gameState', (err, success) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        }));
+
+        Promise.all(deletePromises)
+            .then(() => {
+                console.log('Данные в облаке сброшены');
+                gameState = new GameState();
+                updateUI();
+                callback(null);
+            })
+            .catch(error => {
+                console.error('Ошибка сброса данных:', error);
+                callback(error);
+            });
+    });
 }
 
 // Когда игра загружена
 document.addEventListener('DOMContentLoaded', () => {
     // Настраиваем тему
-    if (tg.colorScheme === 'dark') {
+    if (tg && tg.colorScheme === 'dark') {
         document.body.classList.add('dark-theme');
     }
 
@@ -266,82 +439,95 @@ function initGame() {
         throw new Error('Critical UI elements missing');
     }
 
-    const hiveImg = document.querySelector('.hive-img');
-    if (!hiveImg) {
-        console.error('Элемент .hive-img не найден!');
-        return;
-    }
-    hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
+    // Загружаем данные из облака
+    loadGameStateFromCloud((error) => {
+        if (error) {
+            console.warn('Не удалось загрузить данные из облака, используется начальное состояние');
+            gameState = new GameState(); // Если ошибка, используем начальное состояние
+        }
 
-    const hiveElement = document.getElementById('hive');
-    if (hiveElement) {
-        hiveElement.addEventListener('click', handleHiveClick);
-    }
+        const hiveImg = document.querySelector('.hive-img');
+        if (!hiveImg) {
+            console.error('Элемент .hive-img не найден!');
+            return;
+        }
+        hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
 
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => showPopup(btn.dataset.popup));
+        const hiveElement = document.getElementById('hive');
+        if (hiveElement) {
+            hiveElement.addEventListener('click', handleHiveClick);
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => showPopup(btn.dataset.popup));
+        });
+
+        document.querySelectorAll('.close').forEach(btn => {
+            btn.addEventListener('click', hideAllPopups);
+        });
+
+        const bossCombatImage = document.getElementById('bossCombatImage');
+        if (bossCombatImage) {
+            bossCombatImage.addEventListener('click', handleBossClick);
+        }
+
+        const shopTabs = document.querySelector('.shop-tabs');
+        if (shopTabs) {
+            shopTabs.addEventListener('click', handleShopTabs);
+        }
+
+        document.getElementById('battlePopup').addEventListener('click', handleBossSelect);
+
+        document.addEventListener('click', e => {
+            const isCombatElement = e.target.closest('#combatScreen') ||
+                e.target.closest('.attack-btn') ||
+                e.target.closest('.battle-reward');
+            const isPopup = e.target.closest('.popup');
+            const isNavButton = e.target.closest('.nav-btn');
+
+            if (!isPopup && !isNavButton && !isCombatElement) {
+                hideAllPopups();
+            }
+
+            if (gameState.inBattle && !document.getElementById('combatScreen').style.display) {
+                createTalentButtons();
+            }
+
+            if (e.target.closest('.shop-item button')) {
+                handleShopButton(e.target);
+            }
+
+            if (e.target.closest('.talent button')) {
+                handleTalentButton(e.target);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            updateHiveDisplay();
+            updateCombatUI(true);
+        });
+
+        updateShopItems();
+        updateUI();
+        startEnergyRecovery();
+        gameState.updateKeysDisplay();
+        initTalentBuyTab();
+        initAudio();
+        audioElements.musicToggle.addEventListener('click', toggleMusic);
+
+        // Автозапуск музыки при первом клике на улей
+        document.getElementById('hive').addEventListener('click', function firstPlay() {
+            if (audioElements.bgMusic.paused) {
+                audioElements.bgMusic.play();
+            }
+            document.removeEventListener('click', firstPlay);
+        }, { once: true });
+
+        // Устанавливаем начальный фон
+        document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
     });
-
-    document.querySelectorAll('.close').forEach(btn => {
-        btn.addEventListener('click', hideAllPopups);
-    });
-    // Difficulty tabs removed
-    const bossCombatImage = document.getElementById('bossCombatImage');
-    if (bossCombatImage) {
-        bossCombatImage.addEventListener('click', handleBossClick);
-    }
-    const shopTabs = document.querySelector('.shop-tabs');
-    if (shopTabs) {
-        shopTabs.addEventListener('click', handleShopTabs);
-    }
-
-    document.getElementById('battlePopup').addEventListener('click', handleBossSelect);
-
-    document.addEventListener('click', e => {
-        const isCombatElement = e.target.closest('#combatScreen') ||
-            e.target.closest('.attack-btn') ||
-            e.target.closest('.battle-reward');
-        const isPopup = e.target.closest('.popup');
-        const isNavButton = e.target.closest('.nav-btn');
-
-        if (!isPopup && !isNavButton && !isCombatElement) {
-            hideAllPopups();
-        }
-
-        if (gameState.inBattle && !document.getElementById('combatScreen').style.display) {
-            createTalentButtons();
-        }
-
-        if (e.target.closest('.shop-item button')) {
-            handleShopButton(e.target);
-        }
-
-        if (e.target.closest('.talent button')) {
-            handleTalentButton(e.target);
-        }
-    });
-
-    window.addEventListener('resize', () => {
-        updateHiveDisplay();
-        updateCombatUI(true);
-    });
-
-    updateShopItems();
-    updateUI();
-    startEnergyRecovery();
-    gameState.updateKeysDisplay();
-    initTalentBuyTab();
-    initAudio();
-    audioElements.musicToggle.addEventListener('click', toggleMusic);
-
-    // Автозапуск музыки при первом клике на улей
-    document.getElementById('hive').addEventListener('click', function firstPlay() {
-        if (audioElements.bgMusic.paused) {
-            audioElements.bgMusic.play();
-        }
-        document.removeEventListener('click', firstPlay);
-    }, { once: true });
 }
+
 function initAudio() {
     audioElements.bgMusic.muted = gameState.isMusicMuted;
     audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
@@ -362,6 +548,7 @@ function toggleMusic() {
     audioElements.bgMusic.muted = gameState.isMusicMuted;
     audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
     localStorage.setItem('musicMuted', gameState.isMusicMuted);
+    saveGameStateToCloud();
 }
 
 function handleBossClick(e) {
@@ -421,6 +608,7 @@ function startEnergyRecovery() {
     gameState.energyRecoveryInterval = setInterval(() => {
         gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
         updateUI(['energy']);
+        saveGameStateToCloud();
     }, 3000);
     updateLevelProgress();
 }
@@ -452,6 +640,7 @@ function initTalentBuyTab() {
                     createTalentButtons();
                 }
                 item.querySelector('.charge-counter').textContent = `${data.charges} шт`;
+                saveGameStateToCloud();
             } else {
                 showMessage('Недостаточно мёда!');
             }
@@ -545,6 +734,7 @@ function handleHiveClick(e) {
         gameState.honey += 1 * multiplier;
         gameState.energy = Math.max(0, gameState.energy - 1);
         updateUI(['honey', 'energy']);
+        saveGameStateToCloud();
 
         const hive = document.getElementById('hive');
         hive.style.transform = 'scale(0.95)';
@@ -653,6 +843,7 @@ function buyBoost(type) {
         }
         updateUI(['honey']);
         showMessage('Буст активирован!');
+        saveGameStateToCloud();
     } else {
         showMessage(`Недостаточно меда! Нужно: ${gameConfig.boostPrices[type]}`);
     }
@@ -719,6 +910,7 @@ function upgradeTalent(talentType) {
 
     updateUI(['honey', 'talents']);
     showMessage('Талант улучшен!');
+    saveGameStateToCloud();
 }
 
 // =================== БОЕВАЯ СИСТЕМА ===================
@@ -783,6 +975,7 @@ function startBattle(bossType) {
 
     createTalentButtons();
     startBattleTimer(bossConfig.time);
+    saveGameStateToCloud();
 }
 
 function createTalentButtons() {
@@ -816,6 +1009,7 @@ function createTalentButtons() {
                     gameState.selectedTalent = type; // Выбрать талант
                 }
                 createTalentButtons(); // Обновить кнопки
+                saveGameStateToCloud();
             };
 
             elements.combatTalents.appendChild(button);
@@ -844,6 +1038,7 @@ function createTalentButtons() {
             button.onclick = () => {
                 gameState.selectedTalent = gameState.selectedTalent === talent.type ? null : talent.type;
                 createTalentButtons();
+                saveGameStateToCloud();
             };
             elements.combatTalents.appendChild(button);
         }
@@ -923,9 +1118,9 @@ function attack(type) {
         if (gameState.currentBoss.currentHealth <= 0) {
             endBattle(true);
         }
+        saveGameStateToCloud();
         return;
     }
-
 
     // Проверяем заряды
     if (gameState.attackCharges[type].charges <= 0) {
@@ -976,7 +1171,8 @@ function attack(type) {
                 if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
                     return;
-                } gameState.currentBoss.currentHealth -= poisonDamage;
+                }
+                gameState.currentBoss.currentHealth -= poisonDamage;
                 gameState.battleStats.poisonDamage += poisonDamage;
                 gameState.battleStats.totalDamage += poisonDamage;
                 updateCombatUI();
@@ -1012,6 +1208,7 @@ function attack(type) {
 
     // Обновляем интерфейс без сброса таланта
     createTalentButtons();
+    saveGameStateToCloud();
 }
 
 function endBattle(victory) {
@@ -1107,7 +1304,9 @@ function endBattle(victory) {
 
     // Принудительное обновление зарядов
     updateTalentBuyTab();
+    saveGameStateToCloud();
 }
+
 function updateTalentBuyTab() {
     const container = document.getElementById('buyCharges');
     if (!container) return;
@@ -1175,6 +1374,7 @@ function updateResultPopup() {
     resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
     resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
 }
+
 // =================== ОБРАБОТЧИКИ КНОПОК ===================
 document.getElementById('claimRewardButton').addEventListener('click', () => {
     const reward = gameState.battleResult?.reward;
@@ -1240,6 +1440,7 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
         gameState.inBattle = false;
         hidePopup('battleResult');
         document.getElementById('bossSelection').style.display = 'block';
+        saveGameStateToCloud();
     }
 });
 
@@ -1249,6 +1450,7 @@ document.getElementById('closeResultButton').addEventListener('click', () => {
     hidePopup('battleResult');
     document.getElementById('bossSelection').style.display = 'block';
     document.getElementById('combatScreen').style.display = 'none';
+    saveGameStateToCloud();
 });
 
 // Находим блок с обработчиками закрытия попапов и изменяем его:
@@ -1281,6 +1483,7 @@ document.querySelectorAll('.popup .close').forEach(btn => {
             // Для других попапов обычное закрытие
             hidePopup(popup.id.replace('Popup', ''));
         }
+        saveGameStateToCloud();
     });
 });
 
@@ -1300,6 +1503,7 @@ function checkLevelUp() {
         updateLevelProgress();
         updateUI(['level']);
         updateAchievementsUI();
+        saveGameStateToCloud();
     }
 }
 
@@ -1385,6 +1589,7 @@ function updateUI(changedKeys = ['all']) {
 
     updateLevelProgress();
 }
+
 // =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
 function showLevelUpEffect(levels) {
     const div = document.createElement('div');
@@ -1480,7 +1685,6 @@ function showPopup(popupType) {
     }
 }
 
-
 function hidePopup(type) {
     const popup = document.getElementById(`${type}Popup`);
     if (popup) {
@@ -1500,6 +1704,7 @@ function hidePopup(type) {
             gameState.inBattle = false;
             document.getElementById('combatScreen').style.display = 'none';
         }
+        saveGameStateToCloud();
     }
 }
 
@@ -1534,7 +1739,7 @@ function getAttackName(type) {
 function calculateBasicDamage() {
     let damage = talentsConfig.basic.getDamage(gameState.talents.basic.level);
     damage *= gameState.boosts.attackSpeed;
-    if (gameState.activeHive === 'inferno') damage += gameState.hiveBonuses.inferno.fireDamage;
+    if (gameState.activeHive === 'inferno') damage += gameState.hiveBonuses?.inferno?.fireDamage || 0;
     if (gameState.boosts.shield) damage *= 0.7;
     return Math.round(damage);
 }
@@ -1730,6 +1935,7 @@ function selectSkin() {
         gameState.currentSkin = selectedSkin;
         // Обновляем состояние кнопки
         updateSkinButton();
+        saveGameStateToCloud();
     }
     hidePopup('customization');
 }
@@ -1765,6 +1971,7 @@ function selectPet() {
         petImg.style.display = 'block';
         // Обновляем состояние кнопки
         updatePetButton();
+        saveGameStateToCloud(); // Сохранение в облако после выбора питомца
     }
     hidePopup('customization');
 }
@@ -1840,6 +2047,7 @@ function initCrafting() {
             if (gameState.inBattle) {
                 setTimeout(() => createTalentButtons(), 100);
             }
+            saveGameStateToCloud(); // Сохранение после крафта
         } else {
             showMessage('Недостаточно зарядов!');
         }
@@ -1863,6 +2071,7 @@ function initCrafting() {
             if (gameState.inBattle) {
                 setTimeout(() => createTalentButtons(), 100);
             }
+            saveGameStateToCloud(); // Сохранение после крафта
         } else {
             showMessage('Недостаточно зарядов!');
         }
@@ -1886,6 +2095,7 @@ function initCrafting() {
             if (gameState.inBattle) {
                 setTimeout(() => createTalentButtons(), 100);
             }
+            saveGameStateToCloud(); // Сохранение после крафта
         } else {
             showMessage('Недостаточно зарядов!');
         }
@@ -1914,7 +2124,6 @@ function checkRecipe() {
     const isIceRecipe = talents.length === 2 &&
         talents.includes('poison') &&
         talents.includes('basic');
-
 
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
@@ -1979,6 +2188,7 @@ document.getElementById('backToBossSelection').addEventListener('click', () => {
     endBattle(false);
     document.getElementById('bossSelection').style.display = 'block';
     document.getElementById('combatScreen').style.display = 'none';
+    saveGameStateToCloud(); // Сохранение при возврате к выбору босса
 });
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -2002,45 +2212,76 @@ if (shopTabs) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initGame();
-    initCrafting();
-    document.getElementById('gameScreen').style.display = 'block';
-    const elementsToCheck = [
-        'battleResultPopup',
-        'resultTitle',
-        'resultBossImage',
-        'claimRewardButton'
-    ];
-
-    elementsToCheck.forEach(id => {
-        if (!document.getElementById(id)) {
-            console.error(`Элемент с ID "${id}" не найден! Проверьте HTML.`);
+    // Загружаем данные из облака перед запуском игры
+    loadGameStateFromCloud((error) => {
+        if (error) {
+            console.warn('Не удалось загрузить данные из облака, используется начальное состояние');
+            gameState = new GameState(); // Если ошибка, используем начальное состояние
         }
-    });
 
-    document.getElementById('claimRewardButton')?.addEventListener('click', () => {
-        const reward = gameState.battleResult?.reward;
+        initGame();
+        initCrafting();
+        document.getElementById('gameScreen').style.display = 'block';
+        const elementsToCheck = [
+            'battleResultPopup',
+            'resultTitle',
+            'resultBossImage',
+            'claimRewardButton'
+        ];
 
-        if (reward) {
-            gameState.honey += reward.honey;
-            gameState.xp += reward.xp;
+        elementsToCheck.forEach(id => {
+            if (!document.getElementById(id)) {
+                console.error(`Элемент с ID "${id}" не найден! Проверьте HTML.`);
+            }
+        });
 
-            Object.entries(reward.keys).forEach(([type, amount]) => {
-                gameState.keys[type] = (gameState.keys[type] || 0) + amount;
-            });
+        document.getElementById('claimRewardButton')?.addEventListener('click', () => {
+            const reward = gameState.battleResult?.reward;
 
-            checkLevelUp();
-            updateUI();
-            hidePopup('battleResult');
-            document.getElementById('bossSelection').style.display = 'block';
-        }
-    });
+            if (reward) {
+                gameState.honey += reward.honey;
+                gameState.xp += reward.xp;
 
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && gameState.battleResult && !document.querySelector('#battleResultPopup.active')) {
-            updateResultPopup();
-            showPopup('battleResult');
-        }
+                Object.entries(reward.keys).forEach(([type, amount]) => {
+                    gameState.keys[type] = (gameState.keys[type] || 0) + amount;
+                });
+
+                checkLevelUp();
+                updateUI();
+                hidePopup('battleResult');
+                document.getElementById('bossSelection').style.display = 'block';
+                saveGameStateToCloud(); // Сохранение после получения награды
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && gameState.battleResult && !document.querySelector('#battleResultPopup.active')) {
+                updateResultPopup();
+                showPopup('battleResult');
+            }
+        });
+
+        // Добавляем кнопку сброса прогресса
+        const resetBtn = document.createElement('button');
+        resetBtn.id = 'resetGameBtn';
+        resetBtn.textContent = 'Сбросить прогресс';
+        document.body.appendChild(resetBtn);
+
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Сбросить прогресс? Это действие нельзя отменить!')) {
+                resetGameStateInCloud((error) => {
+                    if (!error) {
+                        showMessage('Прогресс сброшен!');
+                        updateUI();
+                    }
+                });
+            }
+        });
+
+        // Автосохранение при закрытии приложения
+        window.addEventListener('beforeunload', () => {
+            saveGameStateToCloud();
+        });
     });
 });
 
@@ -2148,6 +2389,8 @@ function updatePoisonTimers() {
         }
     });
 }
+
+// =================== СИСТЕМА ФОНОВ ===================
 const backgrounds = [
     {
         name: 'default',
@@ -2234,6 +2477,7 @@ document.getElementById('bgActionBtn').addEventListener('click', () => {
     gameState.currentBackground = currentBg.name;
     showMessage(`Фон "${currentBg.name}" выбран!`);
     updateBackgroundUI();  // Обновляем UI
+    saveGameStateToCloud(); // Сохранение после выбора фона
 });
 
 // Инициализация фона на главной странице
@@ -2250,5 +2494,194 @@ document.addEventListener('click', (e) => {
         if (gameState.currentBackground === previousBg) {
             document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
         }
+        saveGameStateToCloud(); // Сохранение при закрытии меню фона
     }
 });
+
+// =================== СИСТЕМА УЛЬЕВ ===================
+function buyHive(type) {
+    const price = gameConfig.hivePrices[type];
+    if (gameState.honey >= price && !gameState.purchasedHives.includes(type)) {
+        gameState.honey -= price;
+        gameState.purchasedHives.push(type);
+        gameState.activeHive = type;
+        updateHiveDisplay();
+        updateUI(['honey']);
+        updateShopItems();
+        showMessage(`Улей "${type}" куплен и активирован!`);
+        saveGameStateToCloud(); // Сохранение после покупки улья
+    } else {
+        showMessage(gameState.purchasedHives.includes(type) ? 'Улей уже куплен!' : 'Недостаточно мёда!');
+    }
+}
+
+// =================== Telegram Cloud Storage ===================
+function saveGameStateToCloud(callback = () => {}) {
+    if (!tg || !tg.CloudStorage) {
+        console.warn('Cloud Storage недоступен');
+        callback(new Error('Cloud Storage unavailable'));
+        return;
+    }
+
+    // Сериализуем весь gameState
+    const saveData = JSON.stringify(gameState);
+    const dataSize = new TextEncoder().encode(saveData).length;
+
+    if (dataSize > 4096) {
+        console.warn('Данные превышают 4KB, разбиваем на части');
+        splitAndSaveGameState(saveData, callback);
+    } else {
+        tg.CloudStorage.setItem('gameState', saveData, (error, success) => {
+            if (error) {
+                console.error('Ошибка сохранения в облако:', error);
+                callback(error);
+            } else {
+                console.log('Сохранено в облако:', saveData);
+                callback(null);
+            }
+        });
+    }
+}
+
+function splitAndSaveGameState(data, callback) {
+    const chunkSize = 4000; // Оставляем запас
+    const chunks = [];
+    for (let i = 0; i < data.length; i += chunkSize) {
+        chunks.push(data.slice(i, i + chunkSize));
+    }
+
+    const savePromises = chunks.map((chunk, index) => {
+        return new Promise((resolve, reject) => {
+            tg.CloudStorage.setItem(`gameState_part${index}`, chunk, (error, success) => {
+                if (error) reject(error);
+                else resolve();
+            });
+        });
+    });
+
+    // Сохраняем количество частей
+    savePromises.push(new Promise((resolve, reject) => {
+        tg.CloudStorage.setItem('gameState_parts', chunks.length.toString(), (error, success) => {
+            if (error) reject(error);
+            else resolve();
+        });
+    }));
+
+    Promise.all(savePromises)
+        .then(() => {
+            console.log(`Сохранено ${chunks.length} частей в облако`);
+            callback(null);
+        })
+        .catch(error => {
+            console.error('Ошибка сохранения частей:', error);
+            callback(error);
+        });
+}
+
+function loadGameStateFromCloud(callback) {
+    if (!tg || !tg.CloudStorage) {
+        console.warn('Cloud Storage недоступен');
+        callback(new Error('Cloud Storage unavailable'), null);
+        return;
+    }
+
+    // Проверяем, есть ли разбитые данные
+    tg.CloudStorage.getItem('gameState_parts', (error, partsCount) => {
+        if (error || !partsCount) {
+            // Пробуем загрузить единый gameState
+            tg.CloudStorage.getItem('gameState', (err, result) => {
+                if (err || !result) {
+                    console.log('Нет сохранённых данных:', err);
+                    callback(err || new Error('No saved data'), null);
+                } else {
+                    applyLoadedData(result, callback);
+                }
+            });
+        } else {
+            // Загружаем разбитые части
+            const numParts = parseInt(partsCount);
+            const loadPromises = [];
+
+            for (let i = 0; i < numParts; i++) {
+                loadPromises.push(new Promise((resolve, reject) => {
+                    tg.CloudStorage.getItem(`gameState_part${i}`, (err, chunk) => {
+                        if (err) reject(err);
+                        else resolve(chunk);
+                    });
+                }));
+            }
+
+            Promise.all(loadPromises)
+                .then(chunks => {
+                    const fullData = chunks.join('');
+                    applyLoadedData(fullData, callback);
+                })
+                .catch(err => {
+                    console.error('Ошибка загрузки частей:', err);
+                    callback(err, null);
+                });
+        }
+    });
+}
+
+function applyLoadedData(data, callback) {
+    try {
+        const loadedData = JSON.parse(data);
+        // Обновляем gameState полностью, сохраняя структуру класса
+        gameState = Object.assign(new GameState(), loadedData);
+        console.log('Загружено из облака:', loadedData);
+        callback(null, gameState);
+    } catch (e) {
+        console.error('Ошибка парсинга данных из облака:', e);
+        callback(e, null);
+    }
+}
+
+function resetGameStateInCloud(callback = () => {}) {
+    if (!tg || !tg.CloudStorage) {
+        console.warn('Cloud Storage недоступен');
+        callback(new Error('Cloud Storage unavailable'));
+        return;
+    }
+
+    // Удаляем все ключи
+    const deletePromises = [];
+    tg.CloudStorage.getItem('gameState_parts', (error, partsCount) => {
+        if (!error && partsCount) {
+            const numParts = parseInt(partsCount);
+            for (let i = 0; i < numParts; i++) {
+                deletePromises.push(new Promise((resolve, reject) => {
+                    tg.CloudStorage.removeItem(`gameState_part${i}`, (err, success) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                }));
+            }
+            deletePromises.push(new Promise((resolve, reject) => {
+                tg.CloudStorage.removeItem('gameState_parts', (err, success) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            }));
+        }
+
+        deletePromises.push(new Promise((resolve, reject) => {
+            tg.CloudStorage.removeItem('gameState', (err, success) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        }));
+
+        Promise.all(deletePromises)
+            .then(() => {
+                console.log('Данные в облаке сброшены');
+                gameState = new GameState();
+                updateUI();
+                callback(null);
+            })
+            .catch(error => {
+                console.error('Ошибка сброса данных:', error);
+                callback(error);
+            });
+    });
+}
