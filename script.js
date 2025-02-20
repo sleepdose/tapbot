@@ -3,44 +3,6 @@ let tg;
 try {
     tg = window.Telegram.WebApp;
     tg.expand(); // Раскрываем на полный экран
-
-    // Функции для работы с Cloud Storage
-    async function saveToCloud(key, value) {
-        try {
-            await tg.CloudStorage.setItem(key, value);
-            console.log('Данные сохранены в облако');
-            return true;
-        } catch (error) {
-            console.error('Ошибка сохранения в облако:', error);
-            return false;
-        }
-    }
-
-    async function loadFromCloud(key) {
-        try {
-            const value = await tg.CloudStorage.getItem(key);
-            console.log('Данные загружены из облака');
-            return value;
-        } catch (error) {
-            console.error('Ошибка загрузки из облака:', error);
-            return null;
-        }
-    }
-
-    // Загружаем сохраненное состояние игры при старте
-    loadFromCloud('gameState').then(savedState => {
-        if (savedState) {
-            try {
-                const parsedState = JSON.parse(savedState);
-                // Обновляем только существующие свойства
-                Object.assign(gameState, parsedState);
-                updateUI();
-            } catch (e) {
-                console.error('Ошибка парсинга состояния:', e);
-            }
-        }
-    });
-
 } catch (error) {
     console.error('Ошибка инициализации Telegram WebApp:', error);
     alert('Ошибка инициализации. Пожалуйста, убедитесь что приложение открыто в Telegram.');
@@ -53,20 +15,14 @@ document.body.appendChild(gameScript);
 
 // Добавляем функции для интеграции с Telegram
 function sendScoreToBot(score) {
-    tg.sendData(JSON.stringify({
-        type: 'score',
-        value: score
-    }));
+    tg.sendData(JSON.stringify({ type: 'score', value: score }));
 }
 
 // Когда игра загружена
 document.addEventListener('DOMContentLoaded', () => {
-    // Настраиваем тему
     if (tg.colorScheme === 'dark') {
         document.body.classList.add('dark-theme');
     }
-
-    // Показываем основной экран
     document.getElementById('gameScreen').style.display = 'block';
 });
 
@@ -96,60 +52,19 @@ const elements = {
     bossCombatImage: document.getElementById('bossCombatImage'),
     battleReward: document.getElementById('battleReward')
 };
+
 const audioElements = {
     bgMusic: document.getElementById('backgroundMusic'),
     musicToggle: document.getElementById('musicToggle')
 };
+
 const gameConfig = {
     bosses: {
-        wasp: {
-            health: 500,
-            time: 60,
-            honeyReward: 1000,
-            xpReward: 200,
-            keyReward: { type: 'bear', amount: 1 },
-            image: 'img/wasp.jpg',
-            defeatImage: 'img/wasp_kill.jpg'
-        },
-        bear: {
-            health: 1000,
-            time: 90,
-            honeyReward: 2000,
-            requiredKeys: 3,
-            keyReward: { type: 'dragon', amount: 1 },
-            xpReward: 500,
-            image: 'img/bear.jpg',
-            defeatImage: 'img/bear_kill.jpg'
-        },
-        dragon: {
-            health: 2500,
-            time: 120,
-            honeyReward: 5000,
-            requiredKeys: 3,
-            keyReward: { type: 'hydra', amount: 1 },
-            xpReward: 1500,
-            image: 'img/dragon.jpg',
-            defeatImage: 'img/dragon_kill.jpg'
-        },
-        hydra: {
-            health: 4000,
-            time: 150,
-            honeyReward: 7500,
-            requiredKeys: 3,
-            keyReward: { type: 'kraken', amount: 1 },
-            xpReward: 2500,
-            image: 'img/hydra.jpg',
-            defeatImage: 'img/hydra_kill.jpg'
-        },
-        kraken: {
-            health: 6000,
-            time: 180,
-            honeyReward: 10000,
-            requiredKeys: 3,
-            xpReward: 4000,
-            image: 'img/kraken.jpg',
-            defeatImage: 'img/kraken_kill.jpg'
-        }
+        wasp: { health: 500, time: 60, honeyReward: 1000, xpReward: 200, keyReward: { type: 'bear', amount: 1 }, image: 'img/wasp.jpg', defeatImage: 'img/wasp_kill.jpg' },
+        bear: { health: 1000, time: 90, honeyReward: 2000, requiredKeys: 3, keyReward: { type: 'dragon', amount: 1 }, xpReward: 500, image: 'img/bear.jpg', defeatImage: 'img/bear_kill.jpg' },
+        dragon: { health: 2500, time: 120, honeyReward: 5000, requiredKeys: 3, keyReward: { type: 'hydra', amount: 1 }, xpReward: 1500, image: 'img/dragon.jpg', defeatImage: 'img/dragon_kill.jpg' },
+        hydra: { health: 4000, time: 150, honeyReward: 7500, requiredKeys: 3, keyReward: { type: 'kraken', amount: 1 }, xpReward: 2500, image: 'img/hydra.jpg', defeatImage: 'img/hydra_kill.jpg' },
+        kraken: { health: 6000, time: 180, honeyReward: 10000, requiredKeys: 3, xpReward: 4000, image: 'img/kraken.jpg', defeatImage: 'img/kraken_kill.jpg' }
     },
     hivePrices: { golden: 1500, crystal: 3000, inferno: 4500 },
     boostPrices: { energy: 1000, shield: 1200, multiclick: 800 }
@@ -158,42 +73,20 @@ const gameConfig = {
 // =================== КЛАСС СОСТОЯНИЯ ИГРЫ ===================
 class GameState {
     constructor() {
-        this.achievements = {
-            waspKills: 0,
-            bearKills: 0,
-            currentLevel: 0,
-            rewards: {
-                level1: false,
-                level2: false,
-                level3: false
-            },
-            bearRewards: {
-                level1: false,
-                level2: false,
-                level3: false
-            }
-        };
+        this.achievements = { waspKills: 0, bearKills: 0, currentLevel: 0, rewards: { level1: false, level2: false, level3: false }, bearRewards: { level1: false, level2: false, level3: false } };
         this.purchasedBackgrounds = ['default'];
         this.selectedTalent = null;
         this.currentBackground = 'default';
         this.hasPet = false;
         this.selectedForCraft = [];
-        this.craftedTalents = {
-            sonic: { level: 0, damage: 50, charges: 0 },
-            fire: { level: 0, damage: 75, charges: 0 },
-            ice: { level: 0, damage: 60, charges: 0 }
-        };
+        this.craftedTalents = { sonic: { level: 0, damage: 50, charges: 0 }, fire: { level: 0, damage: 75, charges: 0 }, ice: { level: 0, damage: 60, charges: 0 } };
         this.currentSkin = 'img/skin1.png';
         this.currentPet = 'img/pet1.png';
         this.battleResult = null;
         this.reset();
         this.isMusicMuted = localStorage.getItem('musicMuted') === 'true';
         this.previewHive = 'basic';
-        this.attackCooldowns = {
-            basic: 0,
-            critical: 0,
-            poison: 0
-        };
+        this.attackCooldowns = { basic: 0, critical: 0, poison: 0 };
         this.hiveImages = {
             basic: 'img/human_male.png',
             golden: 'img/1.png',
@@ -201,21 +94,9 @@ class GameState {
             inferno: 'https://cdn.pixabay.com/photo/2013/07/13/12/35/flame-160034_1280.png'
         };
         this.keys = { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
-        this.attackCharges = {
-            basic: { charges: 15, basePrice: 50 },
-            critical: { charges: 15, basePrice: 75 },
-            poison: { charges: 15, basePrice: 100 }
-        };
+        this.attackCharges = { basic: { charges: 15, basePrice: 50 }, critical: { charges: 15, basePrice: 75 }, poison: { charges: 15, basePrice: 100 } };
         this.activeEffects = { poison: [], shield: null, multiclick: null };
-        this.battleStats = {
-            basicDamage: 0,
-            criticalDamage: 0,
-            poisonDamage: 0,
-            sonicDamage: 0,
-            fireDamage: 0,
-            iceDamage: 0,
-            totalDamage: 0
-        };
+        this.battleStats = { basicDamage: 0, criticalDamage: 0, poisonDamage: 0, sonicDamage: 0, fireDamage: 0, iceDamage: 0, totalDamage: 0 };
     }
 
     reset() {
@@ -228,26 +109,9 @@ class GameState {
         this.purchasedHives = ['basic'];
         this.activeHive = 'basic';
         this.inBattle = false;
-        this.talents = {
-            basic: { level: 1, damage: 10 },
-            critical: { level: 1, chance: 0.2 },
-            poison: { level: 1, damage: 3 }
-        };
-        this.boosts = {
-            battleBonus: 1.0,
-            attackSpeed: 1.0,
-            shield: false,
-            multiclick: false
-        };
-        this.battleStats = {
-            basicDamage: 0,
-            criticalDamage: 0,
-            poisonDamage: 0,
-            sonicDamage: 0,
-            fireDamage: 0,
-            iceDamage: 0,
-            totalDamage: 0
-        };
+        this.talents = { basic: { level: 1, damage: 10 }, critical: { level: 1, chance: 0.2 }, poison: { level: 1, damage: 3 } };
+        this.boosts = { battleBonus: 1.0, attackSpeed: 1.0, shield: false, multiclick: false };
+        this.battleStats = { basicDamage: 0, criticalDamage: 0, poisonDamage: 0, sonicDamage: 0, fireDamage: 0, iceDamage: 0, totalDamage: 0 };
     }
 
     calculateXPRequired(level) {
@@ -263,99 +127,224 @@ class GameState {
 }
 
 const talentsConfig = {
-    basic: {
-        maxLevel: 10,
-        getDamage: level => 10 * level,
-        getCost: level => 75 * Math.pow(1.5, level - 1)
-    },
-    critical: {
-        maxLevel: 10,
-        getChance: level => 0.15 + 0.05 * level,
-        getCost: level => 150 * Math.pow(1.4, level)
-    },
-    poison: {
-        maxLevel: 10,
-        getDamage: level => 2 + level,
-        getDuration: level => 5 + level,
-        getCost: level => 200 * Math.pow(1.6, level)
-    }
+    basic: { maxLevel: 10, getDamage: level => 10 * level, getCost: level => 75 * Math.pow(1.5, level - 1) },
+    critical: { maxLevel: 10, getChance: level => 0.15 + 0.05 * level, getCost: level => 150 * Math.pow(1.4, level) },
+    poison: { maxLevel: 10, getDamage: level => 2 + level, getDuration: level => 5 + level, getCost: level => 200 * Math.pow(1.6, level) }
 };
 
 let gameState = new GameState();
 let isAnimating = false;
 
+// Оптимизация автосохранения с throttle
+let lastSaveTime = 0;
+let savePending = false;
+
+function throttleSaveGameState() {
+    const now = Date.now();
+    if (now - lastSaveTime >= 10000 && !savePending) {
+        savePending = true;
+        saveGameStateToCloud().then(() => {
+            lastSaveTime = now;
+            savePending = false;
+        });
+    }
+}
+// =================== TELEGRAM CLOUD STORAGE ===================
+if (!tg.CloudStorage) console.error('Cloud Storage не поддерживается в этой версии Telegram WebApp');
+
+// Оптимизация автосохранения с throttle
+let lastSaveTime = 0;
+let savePending = false;
+
+function throttleSaveGameState() {
+    const now = Date.now();
+    if (now - lastSaveTime >= 10000 && !savePending) { // Сохраняем не чаще, чем раз в 10 секунд
+        savePending = true;
+        saveGameStateToCloud().then(() => {
+            lastSaveTime = now;
+            savePending = false;
+        });
+    }
+}
+
+function saveGameStateToCloud() {
+    const gameData = {
+        honey: gameState.honey,
+        xp: gameState.xp,
+        level: gameState.level,
+        energy: gameState.energy,
+        maxEnergy: gameState.maxEnergy,
+        talents: gameState.talents,
+        keys: gameState.keys,
+        attackCharges: gameState.attackCharges,
+        craftedTalents: gameState.craftedTalents,
+        purchasedHives: gameState.purchasedHives,
+        activeHive: gameState.activeHive,
+        achievements: gameState.achievements,
+        purchasedBackgrounds: gameState.purchasedBackgrounds,
+        currentBackground: gameState.currentBackground,
+        boosts: gameState.boosts,
+        isMusicMuted: gameState.isMusicMuted,
+        currentSkin: gameState.currentSkin,
+        currentPet: gameState.currentPet,
+        hasPet: gameState.hasPet
+    };
+
+    const jsonData = JSON.stringify(gameData);
+    if (jsonData.length > 4096) {
+        console.warn('Данные превышают 4096 символов, разбиваем на части');
+        return saveSplitGameState(gameData);
+    } else {
+        return new Promise((resolve, reject) => {
+            tg.CloudStorage.setItem('gameState', jsonData, (error, success) => {
+                if (error) {
+                    console.error('Ошибка сохранения в Cloud Storage:', error);
+                    reject(error);
+                } else {
+                    console.log('Состояние игры сохранено в облаке');
+                    resolve(success);
+                }
+            });
+        });
+    }
+}
+
+function saveSplitGameState(gameData) {
+    const jsonData = JSON.stringify(gameData);
+    const chunks = splitData(jsonData, 4096);
+    const promises = chunks.map((chunk, index) => {
+        return new Promise((resolve, reject) => {
+            tg.CloudStorage.setItem(`gameState_part${index}`, chunk, (error, success) => {
+                if (error) reject(error);
+                else resolve(success);
+            });
+        });
+    });
+
+    return Promise.all(promises)
+        .then(() => console.log('Все части сохранены'))
+        .catch(err => console.error('Ошибка сохранения частей:', err));
+}
+
+function splitData(data, maxLength) {
+    const chunks = [];
+    for (let i = 0; i < data.length; i += maxLength) {
+        chunks.push(data.slice(i, i + maxLength));
+    }
+    return chunks;
+}
+
+async function loadGameStateFromCloud() {
+    try {
+        const result = await new Promise((resolve, reject) => {
+            tg.CloudStorage.getItem('gameState', (error, value) => {
+                if (error) reject(error);
+                else resolve(value);
+            });
+        });
+
+        if (result) {
+            const gameData = JSON.parse(result);
+            Object.assign(gameState, gameData);
+            console.log('Состояние загружено из Cloud Storage');
+        } else {
+            console.log('Нет сохраненных данных, используется начальное состояние');
+            await saveGameStateToCloud();
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки из Cloud Storage:', error);
+        await loadSplitGameState();
+    }
+    updateUI();
+    updateHiveDisplay();
+    gameState.updateKeysDisplay();
+    updateBackgroundUI();
+}
+
+async function loadSplitGameState() {
+    try {
+        const keys = await new Promise((resolve, reject) => {
+            tg.CloudStorage.getKeys((error, keys) => {
+                if (error) reject(error);
+                else resolve(keys);
+            });
+        });
+
+        const gameStateKeys = keys.filter(k => k.startsWith('gameState_part')).sort();
+        if (gameStateKeys.length === 0) return;
+
+        const parts = await new Promise((resolve, reject) => {
+            tg.CloudStorage.getItems(gameStateKeys, (error, values) => {
+                if (error) reject(error);
+                else resolve(Object.values(values));
+            });
+        });
+
+        const fullData = parts.join('');
+        const gameData = JSON.parse(fullData);
+        Object.assign(gameState, gameData);
+        console.log('Разбитые данные успешно загружены');
+    } catch (error) {
+        console.error('Ошибка загрузки разбитых данных:', error);
+    }
+}
+
 // =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
 function initGame() {
-    const petImg = document.querySelector('#pet-img');
-    if (petImg) {
-        petImg.style.display = 'none';
+    if (!tg.CloudStorage) {
+        console.error('Cloud Storage недоступен, игра будет работать без облачного сохранения');
+        proceedWithInit();
+    } else {
+        loadGameStateFromCloud().then(proceedWithInit).catch(err => {
+            console.error('Ошибка инициализации с Cloud Storage:', err);
+            proceedWithInit();
+        });
     }
+}
 
-    const requiredElements = Object.keys(elements)
-        .filter(key => key !== 'levelProgress')
-        .map(key => elements[key]?.id || key);
+function proceedWithInit() {
+    const petImg = document.querySelector('#pet-img');
+    if (petImg) petImg.style.display = gameState.hasPet ? 'block' : 'none';
 
-    const missingElements = requiredElements
-        .filter(id => !document.getElementById(id));
-
+    const requiredElements = Object.keys(elements).filter(key => key !== 'levelProgress').map(key => elements[key]?.id || key);
+    const missingElements = requiredElements.filter(id => !document.getElementById(id));
     if (missingElements.length > 0) {
         console.error('Отсутствуют элементы:', missingElements);
         alert(`Ошибка загрузки! Отсутствуют: ${missingElements.join(', ')}`);
         throw new Error('Critical UI elements missing');
     }
 
-    const hiveImg = document.querySelector('.hive-img');
-    if (!hiveImg) {
-        console.error('Элемент .hive-img не найден!');
-        return;
-    }
-    hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
+    const elementsToInit = {
+        hive: { element: document.getElementById('hive'), handler: handleHiveClick },
+        bossCombatImage: { element: document.getElementById('bossCombatImage'), handler: handleBossClick },
+        shopTabs: { element: document.querySelector('.shop-tabs'), handler: handleShopTabs },
+        battlePopup: { element: document.getElementById('battlePopup'), handler: handleBossSelect }
+    };
 
-    const hiveElement = document.getElementById('hive');
-    if (hiveElement) {
-        hiveElement.addEventListener('click', handleHiveClick);
-    }
-
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => showPopup(btn.dataset.popup));
-    });
-
-    document.querySelectorAll('.close').forEach(btn => {
-        btn.addEventListener('click', hideAllPopups);
-    });
-    // Difficulty tabs removed
-    const bossCombatImage = document.getElementById('bossCombatImage');
-    if (bossCombatImage) {
-        bossCombatImage.addEventListener('click', handleBossClick);
-    }
-    const shopTabs = document.querySelector('.shop-tabs');
-    if (shopTabs) {
-        shopTabs.addEventListener('click', handleShopTabs);
+    for (const [key, { element, handler }] of Object.entries(elementsToInit)) {
+        if (element) element.addEventListener('click', handler);
+        else console.warn(`Элемент ${key} не найден`);
     }
 
-    document.getElementById('battlePopup').addEventListener('click', handleBossSelect);
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => showPopup(btn.dataset.popup)));
+    document.querySelectorAll('.close').forEach(btn => btn.addEventListener('click', hideAllPopups));
 
     document.addEventListener('click', e => {
-        const isCombatElement = e.target.closest('#combatScreen') ||
-            e.target.closest('.attack-btn') ||
-            e.target.closest('.battle-reward');
+        const isCombatElement = e.target.closest('#combatScreen') || e.target.closest('.attack-btn') || e.target.closest('.battle-reward');
         const isPopup = e.target.closest('.popup');
         const isNavButton = e.target.closest('.nav-btn');
 
-        if (!isPopup && !isNavButton && !isCombatElement) {
-            hideAllPopups();
-        }
+        if (!isPopup && !isNavButton && !isCombatElement) hideAllPopups();
+        if (gameState.inBattle && !elements.combatScreen.style.display) debouncedCreateTalentButtons();
 
-        if (gameState.inBattle && !document.getElementById('combatScreen').style.display) {
-            createTalentButtons();
-        }
+        if (e.target.closest('.shop-item button')) handleShopButton(e.target);
+        if (e.target.closest('.talent button')) handleTalentButton(e.target);
 
-        if (e.target.closest('.shop-item button')) {
-            handleShopButton(e.target);
-        }
-
-        if (e.target.closest('.talent button')) {
-            handleTalentButton(e.target);
+        const bgSelector = document.getElementById('backgroundSelector');
+        if (!bgSelector.contains(e.target) && e.target.id !== 'bgMenuBtn' && bgSelector.classList.contains('active')) {
+            bgSelector.classList.remove('active');
+            const bg = backgrounds.find(bg => bg.name === gameState.currentBackground);
+            document.body.style.backgroundImage = bg.image;
         }
     });
 
@@ -372,25 +361,19 @@ function initGame() {
     initAudio();
     audioElements.musicToggle.addEventListener('click', toggleMusic);
 
-    // Автозапуск музыки при первом клике на улей
     document.getElementById('hive').addEventListener('click', function firstPlay() {
-        if (audioElements.bgMusic.paused) {
-            audioElements.bgMusic.play();
-        }
+        if (audioElements.bgMusic.paused) audioElements.bgMusic.play();
         document.removeEventListener('click', firstPlay);
     }, { once: true });
+
+    window.addEventListener('beforeunload', throttleSaveGameState);
 }
+
 function initAudio() {
     audioElements.bgMusic.muted = gameState.isMusicMuted;
     audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
-
-    // Попытка автовоспроизведения при первом взаимодействии
     document.addEventListener('click', function initialPlay() {
-        if (audioElements.bgMusic.paused) {
-            audioElements.bgMusic.play().catch(error => {
-                console.error('Ошибка воспроизведения музыки:', error);
-            });
-        }
+        if (audioElements.bgMusic.paused) audioElements.bgMusic.play().catch(error => console.error('Ошибка воспроизведения музыки:', error));
         document.removeEventListener('click', initialPlay);
     }, { once: true });
 }
@@ -400,39 +383,126 @@ function toggleMusic() {
     audioElements.bgMusic.muted = gameState.isMusicMuted;
     audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
     localStorage.setItem('musicMuted', gameState.isMusicMuted);
+    throttleSaveGameState();
+}
+// Оптимизация автосохранения с throttle
+let lastSaveTime = 0;
+let savePending = false;
+
+function throttleSaveGameState() {
+    const now = Date.now();
+    if (now - lastSaveTime >= 10000 && !savePending) { // Сохраняем не чаще, чем раз в 10 секунд
+        savePending = true;
+        saveGameStateToCloud().then(() => {
+            lastSaveTime = now;
+            savePending = false;
+        });
+    }
 }
 
-function handleBossClick(e) {
-    if (!gameState.inBattle || !gameState.selectedTalent) {
+// Debounce для оптимизации частых вызовов
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+}
+
+const debouncedCreateTalentButtons = debounce(createTalentButtons, 100);
+
+let lastClick = 0;
+
+function handleHiveClick(e) {
+    if (document.querySelector('.popup.active')) {
+        showMessage('Закройте другие окна!');
         return;
     }
 
-    // Add vibration effect
-    if (navigator.vibrate) {
-        navigator.vibrate(50);
+    if (gameState.inBattle && gameState.selectedTalent) {
+        const clickArea = document.querySelector('.click-area');
+        const rect = clickArea.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const damageEffect = document.createElement('div');
+        damageEffect.className = 'damage-effect';
+        damageEffect.style.left = x + 'px';
+        damageEffect.style.top = y + 'px';
+
+        let damage = calculateDamage(gameState.selectedTalent);
+        damageEffect.textContent = `-${damage}`;
+        clickArea.appendChild(damageEffect);
+        setTimeout(() => damageEffect.remove(), 800);
+        attack(gameState.selectedTalent);
+        return;
     }
+
+    if (!gameState.inBattle) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        for (let i = 0; i < 1; i++) {
+            const heart = document.createElement('div');
+            heart.className = 'heart-effect';
+            heart.innerHTML = '❤️';
+            const x = Math.random() * rect.width;
+            const y = Math.random() * rect.height;
+            heart.style.left = x + 'px';
+            heart.style.top = y + 'px';
+            e.currentTarget.appendChild(heart);
+            setTimeout(() => heart.remove(), 1000);
+        }
+    }
+
+    const currentTime = Date.now();
+    if (currentTime - lastClick < 100) return;
+    lastClick = currentTime;
+    if (isAnimating || gameState.energy <= 0) {
+        if (gameState.energy <= 0) showMessage('Недостаточно энергии!');
+        return;
+    }
+
+    isAnimating = true;
+    const multiplier = gameState.boosts.multiclick ? 2 : 1;
+
+    try {
+        gameState.honey += 1 * multiplier;
+        gameState.energy = Math.max(0, gameState.energy - 1);
+        updateUI(['honey', 'energy']);
+        throttleSaveGameState();
+
+        const hive = document.getElementById('hive');
+        hive.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            hive.style.transform = 'scale(1)';
+            isAnimating = false;
+        }, 100);
+    } catch (error) {
+        console.error('Ошибка при клике:', error);
+        isAnimating = false;
+    }
+}
+
+function handleBossClick(e) {
+    if (!gameState.inBattle || !gameState.selectedTalent) return;
+
+    if (navigator.vibrate) navigator.vibrate(50);
 
     const rect = e.target.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Создаем эффект урона
     const damageEffect = document.createElement('div');
     damageEffect.className = 'damage-effect';
     damageEffect.style.left = x + 'px';
     damageEffect.style.top = y + 'px';
 
-    // Рассчитываем и показываем урон
     let damage = calculateDamage(gameState.selectedTalent);
     damageEffect.textContent = `-${damage}`;
-
     e.target.appendChild(damageEffect);
     setTimeout(() => damageEffect.remove(), 800);
 
-    // Наносим урон выбранным талантом
     attack(gameState.selectedTalent);
 
-    // Добавляем анимацию для обратной связи
     const bossImage = document.getElementById('bossCombatImage');
     bossImage.style.transform = 'scale(0.95)';
     setTimeout(() => bossImage.style.transform = 'scale(1)', 100);
@@ -440,36 +510,29 @@ function handleBossClick(e) {
 
 function calculateDamage(type) {
     switch (type) {
-        case 'basic':
-            return gameState.talents.basic.damage;
-        case 'critical':
-            return Math.random() < gameState.talents.critical.chance ?
-                gameState.talents.basic.damage * 2 :
-                gameState.talents.basic.damage;
-        case 'poison':
-            return gameState.talents.poison.damage;
-        case 'ice':
-            return gameState.craftedTalents.ice.damage; //Added ice damage calculation.
-        default:
-            return 0;
+        case 'basic': return gameState.talents.basic.damage;
+        case 'critical': return Math.random() < gameState.talents.critical.chance ? gameState.talents.basic.damage * 2 : gameState.talents.basic.damage;
+        case 'poison': return gameState.talents.poison.damage;
+        case 'sonic': return gameState.craftedTalents.sonic.damage;
+        case 'fire': return gameState.craftedTalents.fire.damage;
+        case 'ice': return gameState.craftedTalents.ice.damage;
+        default: return 0;
     }
 }
 
 function startEnergyRecovery() {
     gameState.energyRecoveryInterval = setInterval(() => {
-        gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
+        gameState.energy = Math.min(Math.max(gameState.energy + 1, 0), gameState.maxEnergy);
         updateUI(['energy']);
+        updateLevelProgress();
     }, 3000);
-    updateLevelProgress();
 }
 
 function initTalentBuyTab() {
     const container = document.getElementById('buyCharges');
     if (!container) return;
 
-    // Очищаем контейнер перед добавлением новых элементов
     container.innerHTML = '';
-
     Object.entries(gameState.attackCharges).forEach(([type, data]) => {
         const item = document.createElement('div');
         item.className = 'attack-charge-item';
@@ -486,10 +549,9 @@ function initTalentBuyTab() {
                 gameState.honey -= data.basePrice;
                 data.charges += 5;
                 updateUI(['honey']);
-                if (gameState.inBattle) {
-                    createTalentButtons();
-                }
+                if (gameState.inBattle) debouncedCreateTalentButtons();
                 item.querySelector('.charge-counter').textContent = `${data.charges} шт`;
+                throttleSaveGameState();
             } else {
                 showMessage('Недостаточно мёда!');
             }
@@ -502,99 +564,11 @@ function initTalentBuyTab() {
 document.querySelectorAll('.talent-tabs .tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const tabId = btn.dataset.tab;
-        document.querySelectorAll('.talent-tabs .tab-btn, .shop-tab').forEach(el => {
-            el.classList.remove('active');
-        });
+        document.querySelectorAll('.talent-tabs .tab-btn, .shop-tab').forEach(el => el.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById(tabId).classList.add('active');
     });
 });
-
-// =================== ОБРАБОТЧИКИ СОБЫТИЙ ===================
-let lastClick = 0;
-function handleHiveClick(e) {
-    if (document.querySelector('.popup.active')) {
-        showMessage('Закройте другие окна!');
-        return;
-    }
-
-    // Если в бою и выбран талант - наносим урон
-    if (gameState.inBattle && gameState.selectedTalent) {
-        const clickArea = document.querySelector('.click-area');
-        const rect = clickArea.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        // Создаем эффект урона
-        const damageEffect = document.createElement('div');
-        damageEffect.className = 'damage-effect';
-        damageEffect.style.left = x + 'px';
-        damageEffect.style.top = y + 'px';
-
-        // Рассчитываем и показываем урон
-        let damage = calculateDamage(gameState.selectedTalent);
-        damageEffect.textContent = `-${damage}`;
-        clickArea.appendChild(damageEffect);
-
-        setTimeout(() => damageEffect.remove(), 800);
-        attack(gameState.selectedTalent);
-        return;
-    }
-    // Создаем сердечки в случайных местах
-    if (!gameState.inBattle) { // Только вне боя
-        const rect = e.currentTarget.getBoundingClientRect();
-
-        // Создаем 3 сердечка в разных местах
-        for (let i = 0; i < 1; i++) {
-            const heart = document.createElement('div');
-            heart.className = 'heart-effect';
-            heart.innerHTML = '❤️';
-
-            // Случайные координаты в пределах элемента
-            const x = Math.random() * rect.width;
-            const y = Math.random() * rect.height;
-
-            heart.style.left = x + 'px';
-            heart.style.top = y + 'px';
-
-            e.currentTarget.appendChild(heart);
-
-            setTimeout(() => {
-                heart.remove();
-            }, 1000);
-        }
-    }
-    if (document.querySelector('.popup.active')) {
-        showMessage('Закройте другие окна!');
-        return;
-    }
-    const currentTime = Date.now();
-    if (currentTime - lastClick < 100) return;
-    lastClick = currentTime;
-    if (isAnimating || gameState.energy <= 0) {
-        if (gameState.energy <= 0) showEnergyWarning();
-        return;
-    }
-
-    isAnimating = true;
-    const multiplier = gameState.boosts.multiclick ? 2 : 1;
-
-    try {
-        gameState.honey += 1 * multiplier;
-        gameState.energy = Math.max(0, gameState.energy - 1);
-        updateUI(['honey', 'energy']);
-
-        const hive = document.getElementById('hive');
-        hive.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            hive.style.transform = 'scale(1)';
-            isAnimating = false;
-        }, 100);
-    } catch (error) {
-        console.error('Ошибка при клике:', error);
-        isAnimating = false;
-    }
-}
 
 function handleShopButton(button) {
     const shopItem = button.closest('.shop-item');
@@ -610,10 +584,7 @@ function handleTalentButton(button) {
 
 function handleShopTabs(e) {
     const tabBtn = e.target.closest('.tab-btn');
-    if (!tabBtn) return;
-
-    // Убираем вкладку со скинами
-    if (tabBtn.dataset.tab === 'hives') return;
+    if (!tabBtn || tabBtn.dataset.tab === 'hives') return;
 
     document.querySelectorAll('.shop-tab, .tab-btn').forEach(el => el.classList.remove('active'));
     tabBtn.classList.add('active');
@@ -625,138 +596,16 @@ function updateBossAvailability() {
     document.querySelectorAll('.boss-card').forEach(card => {
         const bossType = card.dataset.boss;
         let isLocked = false;
-
-        if (bossType === 'bear' || bossType === 'dragon') {
-            isLocked = gameState.keys[bossType] < 3;
-        } else if (bossType === 'hydra') {
-            isLocked = gameState.keys[bossType] < 3;
-        } else if (bossType === 'kraken') {
+        if (bossType === 'bear' || bossType === 'dragon' || bossType === 'hydra' || bossType === 'kraken') {
             isLocked = gameState.keys[bossType] < 3;
         }
-
         card.classList.toggle('locked', isLocked);
     });
 }
 
 function handleBossSelect(e) {
     const bossCard = e.target.closest('.boss-card');
-    if (bossCard && !bossCard.classList.contains('locked')) {
-        startBattle(bossCard.dataset.boss);
-    }
-}
-function buyBoost(type) {
-    const button = document.querySelector(`.shop-item[data-type="${type}"] button`);
-    if (!button || button.disabled) return;
-
-    if (gameState.honey >= gameConfig.boostPrices[type]) {
-        gameState.honey -= gameConfig.boostPrices[type];
-        button.disabled = true;
-        button.textContent = 'Куплено';
-
-        const boostDuration = {
-            energy: 0,
-            shield: 60000,
-            multiclick: 30000
-        }[type];
-
-        if (boostDuration > 0) {
-            const timerElement = document.createElement('div');
-            timerElement.className = 'boost-timer';
-            document.body.appendChild(timerElement);
-
-            let timeLeft = boostDuration / 1000;
-            const timer = setInterval(() => {
-                timeLeft--;
-                timerElement.textContent = `${button.textContent.split(' ')[0]}: ${timeLeft}s`;
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    timerElement.remove();
-                }
-            }, 1000);
-        }
-
-        switch (type) {
-            case 'energy':
-                gameState.maxEnergy += 40;
-                gameState.energy += 40;
-                break;
-            case 'shield':
-                gameState.boosts.shield = true;
-                setTimeout(() => gameState.boosts.shield = false, 60000);
-                break;
-            case 'multiclick':
-                gameState.boosts.multiclick = true;
-                setTimeout(() => gameState.boosts.multiclick = false, 30000);
-                break;
-        }
-        updateUI(['honey']);
-        showMessage('Буст активирован!');
-    } else {
-        showMessage(`Недостаточно меда! Нужно: ${gameConfig.boostPrices[type]}`);
-    }
-}
-
-function upgradeTalent(talentType) {
-    const talent = talentsConfig[talentType];
-    const currentLevel = gameState.talents[talentType].level;
-
-    if (currentLevel >= talent.maxLevel) return;
-    const cost = talent.getCost(currentLevel);
-    if (gameState.honey < cost) {
-        showMessage('Недостаточно меда!');
-        return;
-    }
-
-    gameState.honey -= cost;
-    gameState.talents[talentType].level++;
-
-    switch (talentType) {
-        case 'basic':
-            gameState.talents.basic.damage = talent.getDamage(gameState.talents.basic.level);
-            // Обновляем урон звукового и ледяного ударов
-            if (gameState.craftedTalents.sonic.level > 0) {
-                gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
-            }
-            if (gameState.craftedTalents.ice.level > 0) {
-                gameState.craftedTalents.ice.damage = 60 * gameState.talents.basic.level;
-            }
-            break;
-        case 'critical':
-            gameState.talents.critical.chance = talent.getChance(gameState.talents.critical.level);
-            // Обновляем урон крафтовых талантов
-            if (gameState.craftedTalents.sonic.level > 0) {
-                gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
-            }
-            if (gameState.craftedTalents.fire.level > 0) {
-                gameState.craftedTalents.fire.damage = 75 * gameState.talents.critical.level;
-            }
-            break;
-        case 'poison':
-            gameState.talents.poison.damage = talent.getDamage(gameState.talents.poison.level);
-            // Обновляем урон огненного и ледяного ударов
-            if (gameState.craftedTalents.fire.level > 0) {
-                gameState.craftedTalents.fire.damage = 75 * gameState.talents.critical.level;
-            }
-            if (gameState.craftedTalents.ice.level > 0) {
-                gameState.craftedTalents.ice.damage = 60 * gameState.talents.poison.level;
-            }
-            break;
-    }
-
-    const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
-    if (button) {
-        const newLevel = gameState.talents[talentType].level;
-        if (newLevel >= talent.maxLevel) {
-            button.textContent = 'MAX';
-            button.disabled = true;
-        } else {
-            button.textContent = `${Math.floor(talent.getCost(newLevel))}`;
-            button.disabled = false;
-        }
-    }
-
-    updateUI(['honey', 'talents']);
-    showMessage('Талант улучшен!');
+    if (bossCard && !bossCard.classList.contains('locked')) startBattle(bossCard.dataset.boss);
 }
 
 // =================== БОЕВАЯ СИСТЕМА ===================
@@ -777,94 +626,63 @@ function startBattle(bossType) {
     if (gameState.inBattle) return;
 
     gameState.inBattle = true;
-    gameState.currentBoss = {
-        ...bossConfig,
-        currentHealth: bossConfig.health,
-        maxHealth: bossConfig.health,
-        type: bossType
-    };
+    gameState.currentBoss = { ...bossConfig, currentHealth: bossConfig.health, maxHealth: bossConfig.health, type: bossType };
 
-    const bossSelection = document.getElementById('bossSelection');
-    if (bossSelection) bossSelection.style.display = 'none';
+    document.getElementById('bossSelection').style.display = 'none';
+    elements.combatScreen.style.display = 'block';
+    elements.bossCombatImage.src = bossConfig.image;
+    elements.battleReward.style.display = 'none';
+    document.getElementById('backToBossSelection').style.display = 'none';
 
-    const combatScreen = document.getElementById('combatScreen');
-    if (combatScreen) combatScreen.style.display = 'block';
-
-    const bossCombatImage = document.getElementById('bossCombatImage');
-    if (bossCombatImage) bossCombatImage.src = bossConfig.image;
-
-    const battleReward = document.getElementById('battleReward');
-    if (battleReward) battleReward.style.display = 'none';
-
-    const backToBossSelection = document.getElementById('backToBossSelection');
-    if (backToBossSelection) backToBossSelection.style.display = 'none';
-
-    const bossHealth = document.getElementById('bossHealth');
-    if (bossHealth) {
-        bossHealth.style.transition = 'none';
-        bossHealth.style.width = '100%';
-    }
-
-    const currentHealth = document.getElementById('currentHealth');
-    if (currentHealth) currentHealth.textContent = bossConfig.health;
-
-    const maxHealth = document.getElementById('maxHealth');
-    if (maxHealth) maxHealth.textContent = bossConfig.health;
-
-    const combatTimer = document.getElementById('combatTimer');
-    if (combatTimer) combatTimer.textContent = bossConfig.time;
+    elements.bossHealth.style.transition = 'none';
+    elements.bossHealth.style.width = '100%';
+    elements.currentHealth.textContent = bossConfig.health;
+    elements.maxHealth.textContent = bossConfig.health;
+    elements.combatTimer.textContent = bossConfig.time;
 
     setTimeout(() => {
-        if (bossHealth) bossHealth.style.transition = 'width 0.3s';
+        elements.bossHealth.style.transition = 'width 0.3s';
         updateCombatUI(true);
     }, 50);
 
-    createTalentButtons();
+    debouncedCreateTalentButtons();
     startBattleTimer(bossConfig.time);
+    throttleSaveGameState();
 }
 
 function createTalentButtons() {
     elements.combatTalents.innerHTML = '';
-
-    // Добавляем обычные таланты
     Object.entries(gameState.talents).forEach(([type, talent]) => {
-        if (talent.level > 0) {
-            const charges = gameState.attackCharges[type].charges;
-            if (charges <= 0) return; // Пропускаем таланты без зарядов
+        const charges = gameState.attackCharges[type].charges;
+        if (charges <= 0 || talent.level <= 0) return;
 
-            const isSelected = gameState.selectedTalent === type;
-            const isDisabled = !gameState.inBattle;
+        const isSelected = gameState.selectedTalent === type;
+        const cooldown = Math.max(0, (gameState.lastAttackTime || 0) + 1000 - Date.now()) / 1000;
 
-            const button = document.createElement('button');
-            button.className = `attack-btn ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
-            button.dataset.attack = type;
-            button.disabled = isDisabled;
-            button.innerHTML = `
-                <div class="talent-icon">${getTalentIcon(type)}</div>
-                <div class="talent-info">
-                    <div>${getTalentButtonText(type)}</div>
-                    <div class="charge-counter">Всего: ${charges}</div>
-                </div>
-            `;
-
-            button.onclick = () => {
-                if (gameState.selectedTalent === type) {
-                    gameState.selectedTalent = null; // Снять выбор
-                } else {
-                    gameState.selectedTalent = type; // Выбрать талант
-                }
-                createTalentButtons(); // Обновить кнопки
-            };
-
-            elements.combatTalents.appendChild(button);
-        }
+        const button = document.createElement('button');
+        button.className = `attack-btn ${isSelected ? 'selected' : ''} ${cooldown > 0 ? 'disabled' : ''}`;
+        button.dataset.attack = type;
+        button.disabled = cooldown > 0 || !gameState.inBattle;
+        button.innerHTML = `
+            <div class="talent-icon">${getTalentIcon(type)}</div>
+            <div class="talent-info">
+                <div>${getTalentButtonText(type)}</div>
+                <div class="charge-counter">Заряды: ${charges}</div>
+                ${cooldown > 0 ? `<div class="cooldown">⌛ ${cooldown.toFixed(1)}s</div>` : ''}
+            </div>
+        `;
+        button.title = `${getAttackName(type)}\nУрон: ${calculateDamage(type)}`;
+        button.onclick = () => {
+            gameState.selectedTalent = isSelected ? null : type;
+            debouncedCreateTalentButtons();
+        };
+        elements.combatTalents.appendChild(button);
     });
 
-    // Добавляем скрафченные таланты
     const craftedTalents = [
         { type: 'sonic', icon: '🔊', name: 'Звуковой' },
         { type: 'fire', icon: '🔥', name: 'Огненный' },
-        { type: 'ice', icon: '❄️', name: 'Ледяной' } // Added ice talent
+        { type: 'ice', icon: '❄️', name: 'Ледяной' }
     ];
 
     craftedTalents.forEach(talent => {
@@ -876,22 +694,48 @@ function createTalentButtons() {
                 <div class="talent-icon">${talent.icon}</div>
                 <div class="talent-info">
                     <div>${talent.name}</div>
-                    <div class="charge-counter">Всего: ${gameState.craftedTalents[talent.type].charges}</div>
+                    <div class="charge-counter">Заряды: ${gameState.craftedTalents[talent.type].charges}</div>
                 </div>
             `;
             button.onclick = () => {
                 gameState.selectedTalent = gameState.selectedTalent === talent.type ? null : talent.type;
-                createTalentButtons();
+                debouncedCreateTalentButtons();
             };
             elements.combatTalents.appendChild(button);
         }
     });
 }
+// Оптимизация автосохранения с throttle
+let lastSaveTime = 0;
+let savePending = false;
+
+function throttleSaveGameState() {
+    const now = Date.now();
+    if (now - lastSaveTime >= 10000 && !savePending) { // Сохраняем не чаще, чем раз в 10 секунд
+        savePending = true;
+        saveGameStateToCloud().then(() => {
+            lastSaveTime = now;
+            savePending = false;
+        });
+    }
+}
+
+// Debounce для оптимизации частых вызовов
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+}
+
+const debouncedCreateTalentButtons = debounce(createTalentButtons, 100);
 
 function startBattleTimer(seconds) {
     if (gameState.battleTimer) clearInterval(gameState.battleTimer);
     let timeLeft = seconds;
     elements.combatTimer.textContent = timeLeft;
+    elements.combatTimer.style.transition = 'color 0.5s ease'; // Улучшение UX: плавный переход цвета
     elements.combatTimer.style.color = 'white';
 
     gameState.battleTimer = setInterval(() => {
@@ -899,17 +743,9 @@ function startBattleTimer(seconds) {
             clearInterval(gameState.battleTimer);
             return;
         }
-        if (!gameState.inBattle) {
-            clearInterval(gameState.battleTimer);
-            return;
-        }
         timeLeft--;
         elements.combatTimer.textContent = timeLeft;
-        elements.combatTimer.style.color = timeLeft <= 10 ? 'red' : 'white';
-        if (gameState.currentBoss.currentHealth <= 0) {
-            clearInterval(gameState.battleTimer);
-            return;
-        }
+        elements.combatTimer.style.color = timeLeft <= 10 ? '#ff4444' : 'white';
         if (timeLeft <= 0) {
             endBattle(false);
             elements.bossCombatImage.classList.add('grayscale');
@@ -918,24 +754,18 @@ function startBattleTimer(seconds) {
 }
 
 function attack(type) {
-    if (!gameState.inBattle || !gameState.selectedTalent) {
-        return;
-    }
+    if (!gameState.inBattle || !gameState.selectedTalent) return;
 
-    // Проверяем кулдаун
     const now = Date.now();
-    if (now - (gameState.lastAttackTime || 0) < 1000) {
-        return; // Пропускаем атаку если прошло менее 1 секунды
-    }
+    if (now - (gameState.lastAttackTime || 0) < 1000) return;
     gameState.lastAttackTime = now;
 
-    // Обработка крафтовых талантов
     if (type === 'sonic' || type === 'fire' || type === 'ice') {
-        if (!gameState.craftedTalents[type]) {
+        const talent = gameState.craftedTalents[type];
+        if (!talent) {
             console.error('Crafted talent not found:', type);
             return;
         }
-        const talent = gameState.craftedTalents[type];
         if (talent.charges <= 0) {
             showMessage(`Нет зарядов ${type === 'sonic' ? 'звукового' : (type === 'fire' ? 'огненного' : 'ледяного')} удара!`);
             return;
@@ -948,36 +778,26 @@ function attack(type) {
         gameState.battleStats[`${type}Damage`] += actualDamage;
         gameState.battleStats.totalDamage += actualDamage;
 
-        if (type === 'sonic') {
-            showSonicEffect(rawDamage);
-        } else if (type === 'fire') {
-            showFireEffect(rawDamage);
-        } else {
-            showIceEffect(rawDamage);
-        }
+        if (type === 'sonic') showSonicEffect(rawDamage);
+        else if (type === 'fire') showFireEffect(rawDamage);
+        else showIceEffect(rawDamage);
 
         updateCombatUI();
-        createTalentButtons();
-        if (gameState.currentBoss.currentHealth <= 0) {
-            endBattle(true);
-        }
+        debouncedCreateTalentButtons();
+        if (gameState.currentBoss.currentHealth <= 0) endBattle(true);
+        throttleSaveGameState();
         return;
     }
 
-
-    // Проверяем заряды
     if (gameState.attackCharges[type].charges <= 0) {
         showMessage('Заряды кончились!');
-        //gameState.selectedTalent = null; // Снимаем выбор таланта
-        createTalentButtons(); // Обновляем кнопки
+        debouncedCreateTalentButtons();
         return;
     }
 
-    // Уменьшаем заряды
     gameState.attackCharges[type].charges--;
     updateTalentBuyTab();
 
-    // Наносим урон
     let damage = 0;
     switch (type) {
         case 'basic':
@@ -985,7 +805,7 @@ function attack(type) {
             const actualBasicDamage = Math.min(damage, gameState.currentBoss.currentHealth);
             gameState.battleStats.basicDamage += actualBasicDamage;
             gameState.battleStats.totalDamage += actualBasicDamage;
-            showBasicEffect(actualBasicDamage); // Добавляем эффект
+            showBasicEffect(actualBasicDamage);
             break;
         case 'critical':
             damage = calculateBasicDamage();
@@ -993,14 +813,13 @@ function attack(type) {
                 damage *= 2;
                 showCriticalEffect(damage);
             } else {
-                showBasicEffect(damage); // Показываем обычный эффект если крит не сработал
+                showBasicEffect(damage);
             }
             const actualCritDamage = Math.min(damage, gameState.currentBoss.currentHealth);
             gameState.battleStats.criticalDamage += actualCritDamage;
             gameState.battleStats.totalDamage += actualCritDamage;
             break;
         case 'poison':
-            // Логика ядовитого урона
             const poisonDamage = gameState.talents.poison.damage;
             const duration = talentsConfig.poison.getDuration(gameState.talents.poison.level);
             const poisonEffect = {
@@ -1008,21 +827,21 @@ function attack(type) {
                 startTime: Date.now(),
                 duration: duration * 1000,
                 timer: null,
+                timeout: null, // Исправление яда: добавлено поле для очистки timeout
                 remaining: duration
             };
             poisonEffect.timer = setInterval(() => {
                 if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
                     return;
-                } gameState.currentBoss.currentHealth -= poisonDamage;
+                }
+                gameState.currentBoss.currentHealth -= poisonDamage;
                 gameState.battleStats.poisonDamage += poisonDamage;
                 gameState.battleStats.totalDamage += poisonDamage;
                 updateCombatUI();
-                if (gameState.currentBoss.currentHealth <= 0) {
-                    endBattle(true);
-                }
+                if (gameState.currentBoss.currentHealth <= 0) endBattle(true);
             }, 1000);
-            setTimeout(() => {
+            poisonEffect.timeout = setTimeout(() => {
                 clearInterval(poisonEffect.timer);
                 gameState.activeEffects.poison = gameState.activeEffects.poison.filter(e => e !== poisonEffect);
                 updatePoisonTimersDisplay();
@@ -1031,46 +850,31 @@ function attack(type) {
             showPoisonTimer(duration);
             break;
     }
-    gameState.battleStats.totalDamage += damage;
 
     if (damage > 0) {
         gameState.currentBoss.currentHealth = Math.max(gameState.currentBoss.currentHealth - damage, 0);
         updateCombatUI();
-
-        if (gameState.currentBoss.currentHealth <= 0) {
-            endBattle(true);
-        }
+        if (gameState.currentBoss.currentHealth <= 0) endBattle(true);
     }
 
-    // Обновляем интерфейс зарядов
-    const chargeCounter = document.querySelector(`[data-attack="${type}"] .charge-counter`);
-    if (chargeCounter) {
-        chargeCounter.textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
-    }
-
-    // Обновляем интерфейс без сброса таланта
-    createTalentButtons();
+    debouncedCreateTalentButtons();
+    throttleSaveGameState();
 }
 
 function endBattle(victory) {
-    // Проверка состояния боя
     if (!gameState.inBattle || !gameState.currentBoss) return;
 
-    // Очистка ядовитых эффектов
-    gameState.activeEffects.poison.forEach(e => {
-        clearInterval(e.timer);
-        clearTimeout(e.timeout);
+    gameState.activeEffects.poison.forEach(effect => {
+        clearInterval(effect.timer);
+        clearTimeout(effect.timeout); // Исправление яда: очистка timeout
     });
     gameState.activeEffects.poison = [];
 
-    // Удаление визуальных таймеров яда
     const poisonContainer = document.getElementById('poisonTimersContainer');
     if (poisonContainer) poisonContainer.innerHTML = '';
 
-    // Сброс визуальных эффектов босса
     elements.bossCombatImage?.classList.remove('grayscale');
 
-    // Настройка наград
     let reward = null;
     if (victory) {
         const bossConfig = gameConfig.bosses[gameState.currentBoss.type];
@@ -1081,25 +885,16 @@ function endBattle(victory) {
         };
     }
 
-    // Обновление состояния игры
-    gameState.battleResult = {
-        victory: victory,
-        boss: { ...gameState.currentBoss },
-        reward: reward
-    };
-
-    // Сброс боевых параметров
+    gameState.battleResult = { victory, boss: { ...gameState.currentBoss }, reward };
     gameState.inBattle = false;
     gameState.currentBoss = null;
     gameState.selectedTalent = null;
 
-    // Очистка таймеров
     if (gameState.battleTimer) {
         clearInterval(gameState.battleTimer);
         gameState.battleTimer = null;
     }
 
-    // Обновляем статистику боя, показывая только использованные таланты
     const stats = document.querySelector('.stats-grid');
     stats.innerHTML = '';
 
@@ -1120,32 +915,22 @@ function endBattle(victory) {
     addStatIfUsed('fire', '🔥', 'Огненный урон');
     addStatIfUsed('ice', '❄️', 'Ледяной урон');
 
-    // Обновление интерфейса
     try {
         updateResultPopup();
         showPopup('battleResult');
         document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
         elements.combatScreen.style.display = 'none';
-        elements.combatTalents.innerHTML = ''; // Очищаем таланты
+        elements.combatTalents.innerHTML = '';
         document.getElementById('bossSelection').style.display = 'block';
     } catch (e) {
         console.error('Ошибка обновления интерфейса:', e);
     }
 
-    // Сбрасываем статистику для следующего боя
-    gameState.battleStats = {
-        basicDamage: 0,
-        criticalDamage: 0,
-        poisonDamage: 0,
-        sonicDamage: 0,
-        fireDamage: 0,
-        iceDamage: 0,
-        totalDamage: 0
-    };
-
-    // Принудительное обновление зарядов
+    gameState.battleStats = { basicDamage: 0, criticalDamage: 0, poisonDamage: 0, sonicDamage: 0, fireDamage: 0, iceDamage: 0, totalDamage: 0 };
     updateTalentBuyTab();
+    throttleSaveGameState();
 }
+
 function updateTalentBuyTab() {
     const container = document.getElementById('buyCharges');
     if (!container) return;
@@ -1169,32 +954,22 @@ function updateResultPopup() {
     const claimBtn = document.getElementById('claimRewardButton');
     const closeBtn = document.getElementById('closeResultButton');
 
-    if (!gameState.battleResult || !gameState.battleResult.boss) return;
+    if (!gameState.battleResult.boss) return;
     const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
     const reward = gameState.battleResult.reward;
 
-    // Установка изображения босса
-    resultBossImage.src = gameState.battleResult.victory
-        ? bossConfig.defeatImage
-        : bossConfig.image;
+    resultBossImage.src = gameState.battleResult.victory ? bossConfig.defeatImage : bossConfig.image;
 
-    // Установка стилей для результата
     if (gameState.battleResult.victory) {
         resultTitle.textContent = "ПОБЕДА!";
         resultTitle.style.color = "#4CAF50";
         claimBtn.style.display = 'block';
         closeBtn.style.display = 'none';
 
-        // Обновление данных наград
         if (reward) {
             rewardHoney.textContent = reward.honey;
             rewardXP.textContent = reward.xp;
-
-            // Обработка ключей
-            const keys = Object.entries(reward.keys || {})
-                .map(([type, amount]) => amount)
-                .reduce((a, b) => a + b, 0);
-
+            const keys = Object.entries(reward.keys || {}).map(([_, amount]) => amount).reduce((a, b) => a + b, 0);
             rewardKeys.textContent = keys > 0 ? keys : '0';
         }
     } else {
@@ -1202,17 +977,15 @@ function updateResultPopup() {
         resultTitle.style.color = "#f44336";
         claimBtn.style.display = 'none';
         closeBtn.style.display = 'block';
-
-        // Сброс значений наград при поражении
         rewardHoney.textContent = '0';
         rewardXP.textContent = '0';
         rewardKeys.textContent = '0';
     }
 
-    // Анимация изображения босса
     resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
     resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
 }
+
 // =================== ОБРАБОТЧИКИ КНОПОК ===================
 document.getElementById('claimRewardButton').addEventListener('click', () => {
     const reward = gameState.battleResult?.reward;
@@ -1220,14 +993,7 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
 
     if (reward) {
         if (bossType === 'wasp' || bossType === 'bear') {
-            if (!gameState.achievements) {
-                gameState.achievements = {
-                    waspKills: 0,
-                    bearKills: 0,
-                    rewards: { kingOfWasps: false },
-                    bearRewards: { kingOfBears: false }
-                };
-            }
+            if (!gameState.achievements) gameState.achievements = { waspKills: 0, bearKills: 0, rewards: { level1: false, level2: false, level3: false }, bearRewards: { level1: false, level2: false, level3: false } };
 
             if (bossType === 'wasp') {
                 gameState.achievements.waspKills++;
@@ -1267,13 +1033,13 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
 
         gameState.honey += reward.honey;
         gameState.xp += reward.xp;
-
         Object.entries(reward.keys).forEach(([type, amount]) => {
             gameState.keys[type] = (gameState.keys[type] || 0) + amount;
         });
 
         checkLevelUp();
         updateUI();
+        throttleSaveGameState();
         gameState.battleResult = null;
         gameState.inBattle = false;
         hidePopup('battleResult');
@@ -1286,41 +1052,47 @@ document.getElementById('closeResultButton').addEventListener('click', () => {
     gameState.inBattle = false;
     hidePopup('battleResult');
     document.getElementById('bossSelection').style.display = 'block';
-    document.getElementById('combatScreen').style.display = 'none';
+    elements.combatScreen.style.display = 'none';
+    throttleSaveGameState();
 });
-
-// Находим блок с обработчиками закрытия попапов и изменяем его:
-// Добавляем функцию для эффекта огненного удара
-function showFireEffect(damage) {
-    const effect = document.createElement('div');
-    effect.className = 'sonic-effect';  // Используем тот же класс для анимации
-    effect.textContent = `🔥 ${damage}`;
-    effect.style.color = '#ff4400';  // Огненный цвет
-    elements.combatScreen.appendChild(effect);
-    setTimeout(() => effect.remove(), 1000);
-}
 
 document.querySelectorAll('.popup .close').forEach(btn => {
     btn.addEventListener('click', () => {
         const popup = btn.closest('.popup');
-        if (popup.id === 'talentsPopup') {
-            resetCrafting();
-        }
+        if (popup.id === 'talentsPopup') resetCrafting();
         if (popup.id === 'battleResultPopup') {
-            // Если это попап результатов
-            if (gameState.battleResult?.victory) {
-                // При победе - имитируем нажатие "Получить награду"
-                document.getElementById('claimRewardButton').click();
-            } else {
-                // При поражении - имитируем нажатие "Выйти"
-                document.getElementById('closeResultButton').click();
-            }
+            if (gameState.battleResult?.victory) document.getElementById('claimRewardButton').click();
+            else document.getElementById('closeResultButton').click();
         } else {
-            // Для других попапов обычное закрытие
             hidePopup(popup.id.replace('Popup', ''));
         }
     });
 });
+// Оптимизация автосохранения с throttle
+let lastSaveTime = 0;
+let savePending = false;
+
+function throttleSaveGameState() {
+    const now = Date.now();
+    if (now - lastSaveTime >= 10000 && !savePending) { // Сохраняем не чаще, чем раз в 10 секунд
+        savePending = true;
+        saveGameStateToCloud().then(() => {
+            lastSaveTime = now;
+            savePending = false;
+        });
+    }
+}
+
+// Debounce для оптимизации частых вызовов
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+}
+
+const debouncedCreateTalentButtons = debounce(createTalentButtons, 100);
 
 // =================== СИСТЕМА УРОВНЕЙ ===================
 function checkLevelUp() {
@@ -1338,6 +1110,7 @@ function checkLevelUp() {
         updateLevelProgress();
         updateUI(['level']);
         updateAchievementsUI();
+        throttleSaveGameState(); // Улучшение: используем throttle вместо прямого saveGameStateToCloud
     }
 }
 
@@ -1349,7 +1122,9 @@ function applyLevelBonuses(levels) {
 
 function updateLevelProgress() {
     const progress = (gameState.xp / gameState.xpToNextLevel) * 100;
+    elements.levelProgress.style.transition = 'width 0.5s ease-in-out'; // Улучшение UX: плавная анимация
     elements.levelProgress.style.width = `${Math.min(progress, 100)}%`;
+    elements.levelProgress.style.backgroundColor = progress > 75 ? '#4CAF50' : progress > 50 ? '#FFC107' : '#F44336'; // Улучшение UX: цветовая индикация
 }
 
 // =================== ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ===================
@@ -1377,13 +1152,10 @@ function updatePoisonTimersDisplay() {
 }
 
 function updateUI(changedKeys = ['all']) {
-    // Сохраняем состояние игры в облако после каждого обновления UI
-    saveToCloud('gameState', JSON.stringify(gameState)).catch(console.error);
     updateBossAvailability();
+    const shouldUpdateAll = changedKeys.includes('all');
     const updates = {
-        honey: () => {
-            if (elements.honey) elements.honey.textContent = Math.floor(gameState.honey);
-        },
+        honey: () => { if (elements.honey) elements.honey.textContent = Math.floor(gameState.honey); },
         energy: () => {
             if (elements.energy) elements.energy.textContent = Math.floor(gameState.energy);
             if (elements.maxEnergy) elements.maxEnergy.textContent = gameState.maxEnergy;
@@ -1391,9 +1163,7 @@ function updateUI(changedKeys = ['all']) {
         level: () => {
             if (elements.level) elements.level.textContent = gameState.level;
             if (elements.xp) elements.xp.textContent = Math.floor(gameState.xp);
-            if (elements.xpToNextLevel) {
-                elements.xpToNextLevel.textContent = Math.floor(gameState.xpToNextLevel);
-            }
+            if (elements.xpToNextLevel) elements.xpToNextLevel.textContent = Math.floor(gameState.xpToNextLevel);
         },
         talents: () => {
             updateTalentUI('basic', 'basicLevel', 'basicDmg');
@@ -1405,149 +1175,75 @@ function updateUI(changedKeys = ['all']) {
     function updateTalentUI(talentType, levelElementId, statElementId) {
         const levelElem = document.getElementById(levelElementId);
         const statElem = document.getElementById(statElementId);
-        if (levelElem) levelElem.textContent = gameState.talents[talentType].level;
+        if (levelElem) levelElem.textContent = `Уровень: ${gameState.talents[talentType].level}`;
         if (statElem) {
-            const value = gameState.talents[talentType][talentType === 'critical' ? 'chance' : 'damage'];
-            statElem.textContent = talentType === 'critical' ? value.toFixed(2) : value;
+            if (talentType === 'basic') statElem.textContent = gameState.talents.basic.damage;
+            else if (talentType === 'critical') statElem.textContent = `${(gameState.talents.critical.chance * 100).toFixed(0)}%`;
+            else if (talentType === 'poison') statElem.textContent = gameState.talents.poison.damage;
         }
     }
 
-    if (changedKeys.includes('all')) {
-        Object.values(updates).forEach(update => update());
-        updateLevelProgress();
-        gameState.updateKeysDisplay();
-    } else {
-        changedKeys.forEach(key => {
-            if (updates[key]) updates[key]();
-        });
-        if (changedKeys.includes('level')) updateLevelProgress();
-    }
-
-    updateLevelProgress();
-}
-// =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
-function showLevelUpEffect(levels) {
-    const div = document.createElement('div');
-    div.className = 'level-up';
-    div.textContent = `Уровень +${levels}!`;
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 2000);
+    if (shouldUpdateAll) Object.values(updates).forEach(fn => fn());
+    else changedKeys.forEach(key => updates[key]?.());
 }
 
-function showCriticalEffect(damage) {
-    const div = document.createElement('div');
-    div.className = 'critical-effect';
-    div.textContent = `CRIT! ${damage}`;
-    elements.combatScreen.appendChild(div);
-    setTimeout(() => div.remove(), 1000);
-}
-
-function showHealEffect(amount) {
-    const healIndicator = document.createElement('div');
-    healIndicator.className = 'heal-effect';
-    healIndicator.textContent = `+${amount} ⚡`;
-    elements.combatScreen.appendChild(healIndicator);
-    setTimeout(() => healIndicator.remove(), 1000);
-}
-
-function showEnergyWarning() {
-    const div = document.createElement('div');
-    div.className = 'energy-warning';
-    div.textContent = 'Недостаточно энергии!';
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 1500);
-}
-
-function showMessage(text) {
+function showMessage(message, duration = 3000) {
     const msg = document.createElement('div');
-    msg.className = 'game-message';
-    msg.textContent = text;
+    msg.className = 'notification';
+    msg.textContent = message;
+    Object.assign(msg.style, {
+        position: 'fixed',
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: 'rgba(0, 0, 0, 0.8)',
+        color: 'white',
+        padding: '10px 20px',
+        borderRadius: '5px',
+        zIndex: '1000',
+        opacity: '0',
+        transition: 'opacity 0.3s' // Улучшение UX: плавное появление/исчезновение
+    });
     document.body.appendChild(msg);
-    setTimeout(() => msg.remove(), 2000);
+    setTimeout(() => msg.style.opacity = '1', 10);
+    setTimeout(() => {
+        msg.style.opacity = '0';
+        setTimeout(() => msg.remove(), 300);
+    }, duration);
 }
 
-function showSonicEffect(damage) {
-    const effect = document.createElement('div');
-    effect.className = 'sonic-effect';
-    effect.textContent = `🔊 ${damage}`;
-    elements.combatScreen.appendChild(effect);
-    setTimeout(() => effect.remove(), 1000);
-}
-
-function showIceEffect(damage) { //Added ice effect
-    const effect = document.createElement('div');
-    effect.className = 'sonic-effect';
-    effect.textContent = `❄️ ${damage}`;
-    effect.style.color = '#00cccc'; // Light blue color
-    elements.combatScreen.appendChild(effect);
-    setTimeout(() => effect.remove(), 1000);
-}
-
-function showBasicEffect(damage) {
-    const effect = document.createElement('div');
-    effect.className = 'basic-effect';
-    effect.textContent = `🗡️ ${damage}`;
-    effect.style.color = '#ffd700'; // Золотой цвет
-    elements.combatScreen.appendChild(effect);
-    setTimeout(() => effect.remove(), 1000);
-}
-
-function showPoisonAttackEffect(damage) {
-    const effect = document.createElement('div');
-    effect.className = 'poison-attack-effect';
-    effect.textContent = `☠️ ${damage}`;
-    effect.style.color = '#32CD32'; // Ядовито-зеленый
-    elements.combatScreen.appendChild(effect);
-    setTimeout(() => effect.remove(), 1000);
-}
-
-// =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
-function showPopup(popupType) {
-    if (popupType === 'battleResult' && !gameState.battleResult) return;
-    hideAllPopups(); // Скрываем все другие попапы
-    const popup = document.getElementById(`${popupType}Popup`);
+function showPopup(type) {
+    hideAllPopups();
+    const popup = document.getElementById(`${type}Popup`);
     if (popup) {
-        popup.classList.add('active'); // Добавляем класс active для отображения
-        document.body.style.overflow = 'hidden'; // Блокируем прокрутку основного контента
-        // Активируем первую вкладку магазина или талантов
-        if (popupType === 'shop') {
-            document.querySelector('#shopPopup .tab-btn[data-tab="boosts"]').click();
-        }
-        if (popupType === 'talents') {
-            document.querySelector('#talentsPopup .tab-btn[data-tab="buyCharges"]').click();
-        }
-        if (popupType === 'battleResult') updateResultPopup(); // Обновляем содержимое результата боя
+        popup.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        if (type === 'talents') document.querySelector('#talentsPopup .tab-btn[data-tab="buyCharges"]').click();
+        if (type === 'battleResult') updateResultPopup();
     }
 }
-
 
 function hidePopup(type) {
     const popup = document.getElementById(`${type}Popup`);
     if (popup) {
         popup.classList.remove('active');
         document.body.style.overflow = '';
-
         if (type === 'battle') {
             gameState.selectedTalent = null;
-            if (!gameState.inBattle) {
-                document.getElementById('combatScreen').style.display = 'none';
-            }
-            createTalentButtons();
+            if (!gameState.inBattle) elements.combatScreen.style.display = 'none';
+            debouncedCreateTalentButtons();
         }
-
         if (type === 'battleResult') {
             gameState.battleResult = null;
             gameState.inBattle = false;
-            document.getElementById('combatScreen').style.display = 'none';
+            elements.combatScreen.style.display = 'none';
         }
     }
 }
 
 function hideAllPopups() {
-    document.querySelectorAll('.popup').forEach(p => {
-        p.classList.remove('active'); // Скрываем все попапы
-    });
-    document.body.style.overflow = ''; // Разблокируем прокрутку основного контента
+    document.querySelectorAll('.popup').forEach(p => p.classList.remove('active'));
+    document.body.style.overflow = '';
 }
 
 function updateShopItems() {
@@ -1564,64 +1260,22 @@ function updateShopItems() {
 
 // =================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===================
 function getAttackName(type) {
-    return {
-        basic: 'Базовый удар',
-        critical: 'Критический удар',
-        poison: 'Ядовитый удар'
-    }[type];
+    return { basic: 'Базовый удар', critical: 'Критический удар', poison: 'Ядовитый удар' }[type];
 }
 
 function calculateBasicDamage() {
     let damage = talentsConfig.basic.getDamage(gameState.talents.basic.level);
     damage *= gameState.boosts.attackSpeed;
-    if (gameState.activeHive === 'inferno') damage += gameState.hiveBonuses.inferno.fireDamage;
+    if (gameState.activeHive === 'inferno') damage += gameState.hiveBonuses?.inferno?.fireDamage || 0; // Примечание: hiveBonuses отсутствует в вашем <DOCUMENT>, оставлено как было
     if (gameState.boosts.shield) damage *= 0.7;
     return Math.round(damage);
 }
 
-function calculateReward(boss) {
-    if (boss.type === 'wasp') {
-        gameState.achievements.waspKills++;
-    }
-    const reward = {
-        honey: boss.honeyReward,
-        xp: boss.xpReward,
-        keys: {}
-    };
-
-    // Обновляем прогресс достижения для осы
-    if (boss.type === 'wasp') {
-        if (!gameState.achievements) {
-            gameState.achievements = { waspKills: 0 };
-        }
-        gameState.achievements.waspKills++;
-
-        if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards?.kingOfWasps) {
-            reward.honey += 1000;
-            reward.xp += 500;
-            if (!gameState.achievements.rewards) {
-                gameState.achievements.rewards = {};
-            }
-            gameState.achievements.rewards.kingOfWasps = true;
-        }
-    }
-
-    if (boss.keyReward) {
-        reward.keys[boss.keyReward.type] = boss.keyReward.amount;
-    }
-    if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards.kingOfWasps) {
-        // Выдать награду
-        gameState.achievements.rewards.kingOfWasps = true;
-    }
-
-    if (gameState.activeHive === 'crystal') {
-        reward.honey = Math.floor(reward.honey * 1.3);
-    }
-
-    return reward;
+function showEnergyWarning() { // Заменяем отсутствующую функцию из вашего <DOCUMENT> на showMessage
+    showMessage('Недостаточно энергии!');
 }
+
 function updateAchievementsUI() {
-    // Обновление достижения осы
     const waspKillCount = document.getElementById('waspKillCount');
     const waspProgress = document.getElementById('waspKillProgress');
     const waspCard = document.querySelector('.achievement-card');
@@ -1653,19 +1307,16 @@ function updateAchievementsUI() {
         }
 
         waspKillCount.textContent = `${Math.min(waspKills, waspTarget)}/${waspTarget}`;
-        const waspProgressValue = (waspKills % 10) * 10;
+        const waspProgressValue = waspKills >= 30 ? 100 : (waspKills % 10) * 10;
         waspProgress.style.width = `${waspProgressValue}%`;
 
         if (waspCard) {
             waspCard.style.background = waspBackground;
             waspCard.querySelector('.achievement-info h3').textContent = `Король ОС (Уровень ${waspLevel + 1})`;
-            if (waspKills < 30) {
-                waspCard.querySelector('.achievement-rewards').innerHTML = waspRewards;
-            }
+            if (waspKills < 30) waspCard.querySelector('.achievement-rewards').innerHTML = waspRewards;
         }
     }
 
-    // Обновление достижения медведя
     const bearKillCount = document.getElementById('bearKillCount');
     const bearProgress = document.getElementById('bearKillProgress');
     const bearCard = document.querySelectorAll('.achievement-card')[1];
@@ -1697,56 +1348,37 @@ function updateAchievementsUI() {
         }
 
         bearKillCount.textContent = `${Math.min(bearKills, bearTarget)}/${bearTarget}`;
-        const bearProgressValue = (bearKills % 10) * 10;
+        const bearProgressValue = bearKills >= 30 ? 100 : (bearKills % 10) * 10;
         bearProgress.style.width = `${bearProgressValue}%`;
 
         if (bearCard) {
             bearCard.style.background = bearBackground;
             bearCard.querySelector('.achievement-info h3').textContent = `Король Медведей (Уровень ${bearLevel + 1})`;
-            if (bearKills < 30) {
-                bearCard.querySelector('.achievement-rewards').innerHTML = bearRewards;
-            }
+            if (bearKills < 30) bearCard.querySelector('.achievement-rewards').innerHTML = bearRewards;
         }
     }
 }
 
 function updateCombatUI() {
     if (!gameState.currentBoss) return;
-    if (gameState.currentBoss.currentHealth < 0) {
-        gameState.currentBoss.currentHealth = 0;
-    }
+    if (gameState.currentBoss.currentHealth < 0) gameState.currentBoss.currentHealth = 0;
     const healthPercent = (gameState.currentBoss.currentHealth / gameState.currentBoss.maxHealth) * 100;
     elements.bossHealth.style.width = `${healthPercent}%`;
     elements.currentHealth.textContent = gameState.currentBoss.currentHealth;
 
-    // Меняем изображение босса в зависимости от здоровья
-    const bossCombatImage = document.getElementById('bossCombatImage');
-    if (bossCombatImage) {
-        if (healthPercent <= 25) {
-            bossCombatImage.src = `img/${gameState.currentBoss.type}_critical.jpg`;
-        } else if (healthPercent <= 50) {
-            bossCombatImage.src = `img/${gameState.currentBoss.type}_wounded.jpg`;
-        } else {
-            bossCombatImage.src = gameConfig.bosses[gameState.currentBoss.type].image;
-        }
+    if (elements.bossCombatImage) {
+        if (healthPercent <= 25) elements.bossCombatImage.src = `img/${gameState.currentBoss.type}_critical.jpg`;
+        else if (healthPercent <= 50) elements.bossCombatImage.src = `img/${gameState.currentBoss.type}_wounded.jpg`;
+        else elements.bossCombatImage.src = gameConfig.bosses[gameState.currentBoss.type].image;
     }
 }
 
 function getTalentButtonText(type) {
-    return {
-        basic: 'Базовый',
-        critical: 'Критический',
-        poison: 'Ядовитый'
-    }[type] || '';
+    return { basic: 'Базовый', critical: 'Критический', poison: 'Ядовитый' }[type] || '';
 }
 
 function getTalentIcon(type) {
-    return {
-        basic: '🗡️',
-        critical: '💥',
-        poison: '☠️',
-        ice: '❄️' //Added ice icon
-    }[type] || '';
+    return { basic: '🗡️', critical: '💥', poison: '☠️', sonic: '🔊', fire: '🔥', ice: '❄️' }[type] || '';
 }
 
 // =================== ФУНКЦИИ КАСТОМИЗАЦИИ ===================
@@ -1756,7 +1388,6 @@ let pets = ['img/pet1.png', 'img/pet2.png', 'img/pet3.png'];
 function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-
     document.getElementById(tabName).classList.add('active');
     document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
 }
@@ -1766,10 +1397,9 @@ function selectSkin() {
     const hiveImg = document.querySelector('.hive-img');
     if (hiveImg) {
         hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
-        // Сохраняем текущий выбор
         gameState.currentSkin = selectedSkin;
-        // Обновляем состояние кнопки
         updateSkinButton();
+        throttleSaveGameState();
     }
     hidePopup('customization');
 }
@@ -1799,12 +1429,11 @@ function selectPet() {
     const petImg = document.querySelector('#pet-img');
     if (petImg) {
         petImg.src = selectedPet;
-        // Сохраняем текущий выбор
         gameState.currentPet = selectedPet;
         gameState.hasPet = true;
         petImg.style.display = 'block';
-        // Обновляем состояние кнопки
         updatePetButton();
+        throttleSaveGameState();
     }
     hidePopup('customization');
 }
@@ -1827,6 +1456,101 @@ function updatePetButton() {
             selectButton.textContent = 'Выбрать';
         }
     }
+}
+// Оптимизация автосохранения с throttle
+let lastSaveTime = 0;
+let savePending = false;
+
+function throttleSaveGameState() {
+    const now = Date.now();
+    if (now - lastSaveTime >= 10000 && !savePending) { // Сохраняем не чаще, чем раз в 10 секунд
+        savePending = true;
+        saveGameStateToCloud().then(() => {
+            lastSaveTime = now;
+            savePending = false;
+        });
+    }
+}
+
+// Debounce для оптимизации частых вызовов
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+}
+
+const debouncedCreateTalentButtons = debounce(createTalentButtons, 100);
+
+// =================== ФУНКЦИИ ЭФФЕКТОВ ===================
+function showSonicEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'sonic-effect';
+    effect.textContent = `🔊 ${damage}`;
+    effect.style.color = '#00aaff';
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
+function showFireEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'sonic-effect';
+    effect.textContent = `🔥 ${damage}`;
+    effect.style.color = '#ff4400';
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
+function showIceEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'sonic-effect';
+    effect.textContent = `❄️ ${damage}`;
+    effect.style.color = '#00ccff';
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
+function showBasicEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'damage-effect';
+    effect.textContent = `🗡️ ${damage}`;
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 800);
+}
+
+function showCriticalEffect(damage) {
+    const effect = document.createElement('div');
+    effect.className = 'damage-effect critical';
+    effect.textContent = `💥 ${damage}`;
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 800);
+}
+
+function showPoisonTimer(duration) {
+    let timerContainer = document.getElementById('poisonTimersContainer');
+    if (!timerContainer) {
+        timerContainer = document.createElement('div');
+        timerContainer.id = 'poisonTimersContainer';
+        timerContainer.className = 'poison-timers';
+        elements.combatScreen.appendChild(timerContainer);
+    }
+
+    const timerElement = document.createElement('div');
+    timerElement.className = 'poison-timer';
+    timerElement.innerHTML = `☠️ ${duration}s`; // Упрощённый вариант из вашего <DOCUMENT>
+    timerContainer.appendChild(timerElement);
+
+    setTimeout(() => timerElement.remove(), duration * 1000); // Удаляем после окончания
+    throttleSaveGameState(); // Сохраняем с throttle
+}
+
+function showLevelUpEffect(levels) {
+    const effect = document.createElement('div');
+    effect.className = 'level-up-effect';
+    effect.textContent = `Уровень повышен! +${levels}`;
+    document.body.appendChild(effect);
+    setTimeout(() => effect.remove(), 2000); // Улучшение UX: эффект повышения уровня
 }
 
 // =================== СИСТЕМА КРАФТИНГА ===================
@@ -1858,159 +1582,204 @@ function initCrafting() {
         });
     });
 
-    const sonicButton = document.getElementById('sonicButton');
-    const fireButton = document.getElementById('fireButton');
-    const iceButton = document.getElementById('iceButton'); //Added ice button
+    const craftButtons = {
+        sonic: document.getElementById('sonicButton'),
+        fire: document.getElementById('fireButton'),
+        ice: document.getElementById('iceButton')
+    };
 
-    sonicButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (gameState.attackCharges.basic.charges >= 1 && gameState.attackCharges.critical.charges >= 1) {
-            gameState.attackCharges.basic.charges -= 1;
-            gameState.attackCharges.critical.charges -= 1;
+    Object.entries(craftButtons).forEach(([type, button]) => {
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const requiredCharges = {
+                sonic: ['basic', 'critical'],
+                fire: ['critical', 'poison'],
+                ice: ['poison', 'basic']
+            }[type];
 
-            gameState.craftedTalents.sonic.charges += 1;
-            gameState.craftedTalents.sonic.level = Math.max(
-                gameState.talents.basic.level,
-                gameState.talents.critical.level
-            );
+            if (gameState.attackCharges[requiredCharges[0]].charges >= 1 && gameState.attackCharges[requiredCharges[1]].charges >= 1) {
+                gameState.attackCharges[requiredCharges[0]].charges -= 1;
+                gameState.attackCharges[requiredCharges[1]].charges -= 1;
+                gameState.craftedTalents[type].charges += 1;
+                gameState.craftedTalents[type].level = Math.max(
+                    gameState.talents[requiredCharges[0]].level,
+                    gameState.talents[requiredCharges[1]].level
+                );
 
-            showMessage('✨ Создан новый талант: Звуковой удар!');
-            resetCrafting();
-            updateTalentBuyTab();
-            if (gameState.inBattle) {
-                setTimeout(() => createTalentButtons(), 100);
+                showMessage(`✨ Создан новый талант: ${type === 'sonic' ? 'Звуковой' : type === 'fire' ? 'Огненный' : 'Ледяной'} удар!`);
+                resetCrafting();
+                updateTalentBuyTab();
+                if (gameState.inBattle) setTimeout(() => debouncedCreateTalentButtons(), 100);
+                throttleSaveGameState();
+            } else {
+                showMessage('Недостаточно зарядов!');
             }
-        } else {
-            showMessage('Недостаточно зарядов!');
-        }
+        });
+        button.style.display = 'none';
     });
-
-    fireButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (gameState.attackCharges.critical.charges >= 1 && gameState.attackCharges.poison.charges >= 1) {
-            gameState.attackCharges.critical.charges -= 1;
-            gameState.attackCharges.poison.charges -= 1;
-
-            gameState.craftedTalents.fire.charges += 1;
-            gameState.craftedTalents.fire.level = Math.max(
-                gameState.talents.critical.level,
-                gameState.talents.poison.level
-            );
-
-            showMessage('🔥 Создан новый талант: Огненный удар!');
-            resetCrafting();
-            updateTalentBuyTab();
-            if (gameState.inBattle) {
-                setTimeout(() => createTalentButtons(), 100);
-            }
-        } else {
-            showMessage('Недостаточно зарядов!');
-        }
-    });
-
-    iceButton.addEventListener('click', (e) => { //Added ice button event listener
-        e.stopPropagation();
-        if (gameState.attackCharges.poison.charges >= 1 && gameState.attackCharges.basic.charges >= 1) {
-            gameState.attackCharges.poison.charges -= 1;
-            gameState.attackCharges.basic.charges -= 1;
-
-            gameState.craftedTalents.ice.charges += 1;
-            gameState.craftedTalents.ice.level = Math.max(
-                gameState.talents.poison.level,
-                gameState.talents.basic.level
-            );
-
-            showMessage('❄️ Создан новый талант: Ледяной удар!');
-            resetCrafting();
-            updateTalentBuyTab();
-            if (gameState.inBattle) {
-                setTimeout(() => createTalentButtons(), 100);
-            }
-        } else {
-            showMessage('Недостаточно зарядов!');
-        }
-    });
-
-    if (sonicButton) sonicButton.style.display = 'none';
-    if (fireButton) fireButton.style.display = 'none';
-    if (iceButton) iceButton.style.display = 'none';
 }
 
 function checkRecipe() {
     const slots = document.querySelectorAll('.craft-slot');
     const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
 
-    // Проверяем рецепт звукового удара
-    const isSonicRecipe = talents.length === 2 &&
-        talents.includes('basic') &&
-        talents.includes('critical');
+    const recipes = {
+        sonic: talents.length === 2 && talents.includes('basic') && talents.includes('critical'),
+        fire: talents.length === 2 && talents.includes('critical') && talents.includes('poison'),
+        ice: talents.length === 2 && talents.includes('poison') && talents.includes('basic')
+    };
 
-    // Проверяем рецепт огненного удара
-    const isFireRecipe = talents.length === 2 &&
-        talents.includes('critical') &&
-        talents.includes('poison');
+    const craftButtons = {
+        sonic: document.getElementById('sonicButton'),
+        fire: document.getElementById('fireButton'),
+        ice: document.getElementById('iceButton')
+    };
 
-    // Проверяем рецепт ледяного удара
-    const isIceRecipe = talents.length === 2 &&
-        talents.includes('poison') &&
-        talents.includes('basic');
-
-
-    const sonicButton = document.getElementById('sonicButton');
-    const fireButton = document.getElementById('fireButton');
-    const iceButton = document.getElementById('iceButton');
-
-    // Управляем кнопкой звукового удара
-    if (sonicButton) {
-        sonicButton.style.display = isSonicRecipe ? 'block' : 'none';
-        if (isSonicRecipe) {
-            sonicButton.disabled = gameState.attackCharges.basic.charges < 1 ||
-                gameState.attackCharges.critical.charges < 1;
+    Object.entries(craftButtons).forEach(([type, button]) => {
+        button.style.display = recipes[type] ? 'block' : 'none';
+        if (recipes[type]) {
+            const requiredCharges = {
+                sonic: ['basic', 'critical'],
+                fire: ['critical', 'poison'],
+                ice: ['poison', 'basic']
+            }[type];
+            button.disabled = gameState.attackCharges[requiredCharges[0]].charges < 1 || gameState.attackCharges[requiredCharges[1]].charges < 1;
         }
-    }
+    });
 
-    // Управляем кнопкой огненного удара
-    if (fireButton) {
-        fireButton.style.display = isFireRecipe ? 'block' : 'none';
-        if (isFireRecipe) {
-            fireButton.disabled = gameState.attackCharges.critical.charges < 1 ||
-                gameState.attackCharges.poison.charges < 1;
-        }
-    }
-
-    // Управляем кнопкой ледяного удара
-    if (iceButton) {
-        iceButton.style.display = isIceRecipe ? 'block' : 'none';
-        if (isIceRecipe) {
-            iceButton.disabled = gameState.attackCharges.basic.charges < 1 ||
-                gameState.attackCharges.poison.charges < 1;
-        }
-    }
-
-    return isSonicRecipe || isFireRecipe || isIceRecipe;
+    return Object.values(recipes).some(v => v);
 }
 
 function resetCrafting() {
     gameState.selectedForCraft = [];
-    document.querySelectorAll('.talent-card').forEach(card => {
-        card.classList.remove('selected');
-    });
+    document.querySelectorAll('.talent-card').forEach(card => card.classList.remove('selected'));
     document.querySelectorAll('.craft-slot').forEach(slot => {
         slot.innerHTML = '';
         slot.dataset.talent = '';
         slot.classList.remove('filled');
     });
-    const sonicButton = document.getElementById('sonicButton');
-    const fireButton = document.getElementById('fireButton');
-    const iceButton = document.getElementById('iceButton'); //Added ice button
-    if (sonicButton) {
-        sonicButton.style.display = 'none';
+    ['sonicButton', 'fireButton', 'iceButton'].forEach(id => {
+        const button = document.getElementById(id);
+        if (button) button.style.display = 'none';
+    });
+}
+
+// =================== ФОНЫ ===================
+const backgrounds = [
+    { name: 'default', cost: 0, image: 'url("img/background1.png")', preview: 'img/background1.png' },
+    { name: 'forest', cost: 1000, image: 'url("img/background2.png")', preview: 'img/background2.png' },
+    { name: 'city', cost: 2500, image: 'url("img/background3.png")', preview: 'img/background3.png' },
+    { name: 'space', cost: 5000, image: 'url("img/bg_space.jpg")', preview: 'img/bg_space_preview.jpg' }
+];
+
+let currentBgIndex = 0;
+let previousBg = '';
+
+function updateBackgroundUI() {
+    const currentBg = backgrounds[currentBgIndex];
+    document.body.style.backgroundImage = currentBg.image;
+
+    const actionBtn = document.getElementById('bgActionBtn');
+    const isPurchased = gameState.purchasedBackgrounds.includes(currentBg.name);
+    const isSelected = gameState.currentBackground === currentBg.name;
+
+    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
+    actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
+}
+
+document.getElementById('bgMenuBtn').addEventListener('click', () => {
+    previousBg = gameState.currentBackground;
+    document.getElementById('backgroundSelector').classList.add('active');
+    currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
+    updateBackgroundUI();
+});
+
+document.getElementById('bgPrevBtn').addEventListener('click', () => {
+    currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
+    updateBackgroundUI();
+});
+
+document.getElementById('bgNextBtn').addEventListener('click', () => {
+    currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
+    updateBackgroundUI();
+});
+
+document.getElementById('bgActionBtn').addEventListener('click', () => {
+    const currentBg = backgrounds[currentBgIndex];
+    if (!gameState.purchasedBackgrounds.includes(currentBg.name)) {
+        if (gameState.honey >= currentBg.cost) {
+            gameState.honey -= currentBg.cost;
+            gameState.purchasedBackgrounds.push(currentBg.name);
+            updateUI(['honey']);
+            throttleSaveGameState();
+        } else {
+            showMessage('Недостаточно мёда!');
+            return;
+        }
     }
-    if (fireButton) {
-        fireButton.style.display = 'none';
+    gameState.currentBackground = currentBg.name;
+    showMessage(`Фон "${currentBg.name}" выбран!`);
+    updateBackgroundUI();
+    throttleSaveGameState();
+});
+
+document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
+
+// =================== ПОКУПКА УЛЬЕВ И БУСТОВ ===================
+function buyHive(type) {
+    const price = gameConfig.hivePrices[type];
+    if (!price || gameState.purchasedHives.includes(type)) return;
+
+    if (gameState.honey >= price) {
+        gameState.honey -= price;
+        gameState.purchasedHives.push(type);
+        gameState.activeHive = type;
+        updateHiveDisplay();
+        updateUI(['honey']);
+        updateShopItems();
+        throttleSaveGameState();
+        showMessage(`Куплен улей: ${type}!`);
+    } else {
+        showMessage(`Недостаточно мёда! Нужно: ${price}`);
     }
-    if (iceButton) { //Added ice button reset
-        iceButton.style.display = 'none';
+}
+
+function buyBoost(type) {
+    const button = document.querySelector(`.shop-item[data-type="${type}"] button`);
+    if (!button || button.disabled) return;
+
+    if (gameState.honey >= gameConfig.boostPrices[type]) {
+        gameState.honey -= gameConfig.boostPrices[type];
+        button.disabled = true;
+        button.textContent = 'Куплено';
+
+        const boostDuration = { energy: 0, shield: 60000, multiclick: 30000 }[type];
+        if (boostDuration > 0) {
+            const timerElement = document.createElement('div');
+            timerElement.className = 'boost-timer';
+            document.body.appendChild(timerElement);
+
+            let timeLeft = boostDuration / 1000;
+            const timer = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = `${type}: ${timeLeft}s`; // Улучшение UX: показываем тип буста
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    timerElement.remove();
+                }
+            }, 1000);
+        }
+
+        switch (type) {
+            case 'energy': gameState.maxEnergy += 40; gameState.energy += 40; break;
+            case 'shield': gameState.boosts.shield = true; setTimeout(() => gameState.boosts.shield = false, 60000); break;
+            case 'multiclick': gameState.boosts.multiclick = true; setTimeout(() => gameState.boosts.multiclick = false, 30000); break;
+        }
+        updateUI(['honey']);
+        throttleSaveGameState();
+        showMessage('Буст активирован!');
+    } else {
+        showMessage(`Недостаточно меда! Нужно: ${gameConfig.boostPrices[type]}`);
     }
 }
 
@@ -2018,23 +1787,21 @@ function resetCrafting() {
 document.getElementById('backToBossSelection').addEventListener('click', () => {
     endBattle(false);
     document.getElementById('bossSelection').style.display = 'block';
-    document.getElementById('combatScreen').style.display = 'none';
+    elements.combatScreen.style.display = 'none';
+    throttleSaveGameState();
 });
 
 window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('gameScreen').style.display = 'block';
 });
 
-const shopTabs = document.querySelector('#shopPopup .shop-tabs');
-if (shopTabs) {
-    shopTabs.addEventListener('click', e => {
+const shopTabsElement = document.querySelector('#shopPopup .shop-tabs');
+if (shopTabsElement) {
+    shopTabsElement.addEventListener('click', e => {
         const tabBtn = e.target.closest('.tab-btn');
         if (!tabBtn) return;
 
-        document.querySelectorAll('#shopPopup .tab-btn, #shopPopup .shop-tab').forEach(el => {
-            el.classList.remove('active');
-        });
-
+        document.querySelectorAll('#shopPopup .tab-btn, #shopPopup .shop-tab').forEach(el => el.classList.remove('active'));
         tabBtn.classList.add('active');
         const tabId = `shop${tabBtn.dataset.tab.charAt(0).toUpperCase() + tabBtn.dataset.tab.slice(1)}`;
         document.getElementById(tabId).classList.add('active');
@@ -2045,13 +1812,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initGame();
     initCrafting();
     document.getElementById('gameScreen').style.display = 'block';
-    const elementsToCheck = [
-        'battleResultPopup',
-        'resultTitle',
-        'resultBossImage',
-        'claimRewardButton'
-    ];
 
+    const elementsToCheck = ['battleResultPopup', 'resultTitle', 'resultBossImage', 'claimRewardButton'];
     elementsToCheck.forEach(id => {
         if (!document.getElementById(id)) {
             console.error(`Элемент с ID "${id}" не найден! Проверьте HTML.`);
@@ -2060,17 +1822,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('claimRewardButton')?.addEventListener('click', () => {
         const reward = gameState.battleResult?.reward;
-
         if (reward) {
             gameState.honey += reward.honey;
             gameState.xp += reward.xp;
-
             Object.entries(reward.keys).forEach(([type, amount]) => {
                 gameState.keys[type] = (gameState.keys[type] || 0) + amount;
             });
 
             checkLevelUp();
             updateUI();
+            throttleSaveGameState();
             hidePopup('battleResult');
             document.getElementById('bossSelection').style.display = 'block';
         }
@@ -2084,211 +1845,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// =================== ФУНКЦИИ ТАЙМЕРОВ ЯДА ===================
-function showPoisonTimer(duration) {
-    let timerContainer = document.getElementById('poisonTimersContainer');
-    if (!timerContainer) {
-        timerContainer = document.createElement('div');
-        timerContainer.id = 'poisonTimersContainer';
-        timerContainer.className = 'poison-timers';
-        elements.combatScreen.appendChild(timerContainer);
-    }
-
-    const timerElement = document.createElement('div');
-    timerElement.className = 'poison-timer';
-    const timerId = `poison-timer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    timerElement.id = timerId;
-
-    timerElement.innerHTML = `
-        <span class="poison-icon">☠️</span>
-        <span class="poison-duration">${duration}s</span>
-        <div class="poison-progress"></div>
-    `;
-
-    const progressBar = timerElement.querySelector('.poison-progress');
-    progressBar.style.animation = `poison-progress ${duration}s linear forwards`;
-
-    timerContainer.appendChild(timerElement);
-
-    const poisonEffect = {
-        id: timerId,
-        startTime: Date.now(),
-        duration: duration * 1000,
-        timerElement: timerElement,
-        interval: null,
-        timeout: null
-    };
-
-    gameState.activeEffects.poison.push(poisonEffect);
-
-    poisonEffect.interval = setInterval(() => {
-        const currentTime = Date.now();
-        const elapsed = currentTime - poisonEffect.startTime;
-        const remaining = Math.ceil((poisonEffect.duration - elapsed) / 1000);
-
-        const durationElement = timerElement.querySelector('.poison-duration');
-        if (durationElement) {
-            durationElement.textContent = `${remaining}s`;
-
-            if (remaining <= 5) {
-                const intensity = 100 + Math.floor(30 * (remaining / 5));
-                timerElement.style.backgroundColor = `rgba(50, ${intensity}, 50, 0.9)`;
-            }
-        }
-
-        if (remaining <= 0) {
-            clearInterval(poisonEffect.interval);
-            removePoisonTimer(timerId);
-        }
-    }, 100);
-
-    poisonEffect.timeout = setTimeout(() => {
-        removePoisonTimer(timerId);
-    }, poisonEffect.duration + 500);
-
-    setTimeout(() => {
-        timerElement.style.opacity = '1';
-        timerElement.style.transform = 'translateY(0)';
-    }, 10);
-}
-
-function removePoisonTimer(timerId) {
-    const timerElement = document.getElementById(timerId);
-    if (timerElement) {
-        timerElement.style.opacity = '0';
-        timerElement.style.transform = 'translateY(-20px)';
-        setTimeout(() => timerElement.remove(), 500);
-    }
-
-    gameState.activeEffects.poison = gameState.activeEffects.poison.filter(effect => {
-        if (effect.id === timerId) {
-            clearInterval(effect.interval);
-            clearTimeout(effect.timeout);
-            return false;
-        }
-        return true;
-    });
-
-    if (gameState.inBattle) {
-        createTalentButtons();
-    }
-}
-
-function updatePoisonTimers() {
-    const activeEffects = gameState.activeEffects.poison;
-    const timerContainer = document.getElementById('poisonTimersContainer');
-    if (!timerContainer) return;
-
-    const currentTime = Date.now();
-
-    activeEffects.forEach(effect => {
-        const remaining = Math.ceil((effect.duration - (currentTime - effect.startTime)) / 1000);
-        if (remaining > 0) {
-            showPoisonTimer(remaining);
-        }
-    });
-}
-const backgrounds = [
-    {
-        name: 'default',
-        cost: 0,
-        image: 'url("img/background1.png")',
-        preview: 'img/background1.png'
-    },
-    {
-        name: 'forest',
-        cost: 1000,
-        image: 'url("img/background2.png")',
-        preview: 'img/background2.png'
-    },
-    {
-        name: 'city',
-        cost: 2500,
-        image: 'url("img/background3.png")',
-        preview: 'img/background3.png'
-    },
-    {
-        name: 'space',
-        cost: 5000,
-        image: 'url("img/bg_space.jpg")',
-        preview: 'img/bg_space_preview.jpg'
-    }
-];
-
-let currentBgIndex = 0;
-let previousBg = ''; // Переменная для сохранения текущего фона перед открытием меню
-
-// Функция для обновления фона на главном экране
-function updateBackgroundUI() {
-    const currentBg = backgrounds[currentBgIndex];
-
-    // Обновляем фон на главном экране сразу
-    document.body.style.backgroundImage = currentBg.image;
-
-    const actionBtn = document.getElementById('bgActionBtn');
-    const isPurchased = gameState.purchasedBackgrounds.includes(currentBg.name);
-    const isSelected = gameState.currentBackground === currentBg.name;
-
-    // Изменяем текст кнопки в зависимости от того, куплен ли фон
-    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
-
-    // Блокируем кнопку, если это текущий выбранный фон
-    actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
-}
-
-// Обработчик кнопки выбора фона
-document.getElementById('bgMenuBtn').addEventListener('click', () => {
-    previousBg = gameState.currentBackground; // Сохраняем текущий фон
-    document.getElementById('backgroundSelector').classList.add('active');
-    currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
-    updateBackgroundUI();
-});
-
-// Обработчики кнопок переключения фонов
-document.getElementById('bgPrevBtn').addEventListener('click', () => {
-    currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
-    updateBackgroundUI();
-});
-
-document.getElementById('bgNextBtn').addEventListener('click', () => {
-    currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
-    updateBackgroundUI();
-});
-
-// Обработчик кнопки покупки или выбора фона
-document.getElementById('bgActionBtn').addEventListener('click', () => {
-    const currentBg = backgrounds[currentBgIndex];
-
-    if (!gameState.purchasedBackgrounds.includes(currentBg.name)) {
-        if (gameState.honey >= currentBg.cost) {
-            gameState.honey -= currentBg.cost;
-            gameState.purchasedBackgrounds.push(currentBg.name);
-            updateUI(['honey']);
-        } else {
-            showMessage('Недостаточно мёда!');
-            return;
-        }
-    }
-
-    // После выбора фона, обновляем текущий фон
-    gameState.currentBackground = currentBg.name;
-    showMessage(`Фон "${currentBg.name}" выбран!`);
-    updateBackgroundUI();  // Обновляем UI
-});
-
-// Инициализация фона на главной странице
-document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
-
-// Закрытие меню при клике вне его
+// Закрытие меню фонов при клике вне его
 document.addEventListener('click', (e) => {
     const bgSelector = document.getElementById('backgroundSelector');
-    if (!bgSelector.contains(e.target) &&
-        e.target.id !== 'bgMenuBtn' &&
-        bgSelector.classList.contains('active')) {
+    if (!bgSelector.contains(e.target) && e.target.id !== 'bgMenuBtn' && bgSelector.classList.contains('active')) {
         bgSelector.classList.remove('active');
-        // Восстанавливаем фон при закрытии меню
-        if (gameState.currentBackground === previousBg) {
-            document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
-        }
+        const bg = backgrounds.find(bg => bg.name === gameState.currentBackground);
+        document.body.style.backgroundImage = bg.image;
     }
 });
