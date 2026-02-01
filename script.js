@@ -162,7 +162,8 @@ class GameState {
     }
 
     reset() {
-        this.honey = 100000;
+        // ИЗМЕНЕНО: начальные значения
+        this.honey = 0; // Было: 100000
         this.xp = 0;
         this.level = 1;
         this.energy = 100;
@@ -222,6 +223,9 @@ class GameState {
 
                     // Обновляем статус UI
                     updateFirebaseStatusUI(true);
+                } else {
+                    console.warn('Не удалось сохранить в Firebase (нет интернета)');
+                    updateFirebaseStatusUI(false);
                 }
             }
         } catch (error) {
@@ -254,7 +258,7 @@ class GameState {
     // Применение загруженных данных
     applyLoadedData(data) {
         // Основные данные
-        this.honey = data.honey || 100000;
+        this.honey = data.honey || 0; // ИЗМЕНЕНО: по умолчанию 0
         this.xp = data.xp || 0;
         this.level = data.level || 1;
         this.energy = data.energy || 100;
@@ -354,7 +358,7 @@ function updateFirebaseStatusUI(isOnline) {
         } else {
             statusElement.style.display = 'block';
             statusDot.className = 'status-dot offline';
-            statusText.textContent = 'Только локальное сохранение';
+            statusText.textContent = 'Нет интернета - данные не сохраняются';
         }
     }
 }
@@ -372,15 +376,22 @@ async function initGame() {
         if (window.firebaseManager) {
             const firebaseReady = await window.firebaseManager.init();
             if (!firebaseReady) {
-                console.warn('Firebase не удалось инициализировать, используется локальное сохранение');
+                console.warn('Firebase не удалось инициализировать, игра запущена без сохранения');
+                updateFirebaseStatusUI(false);
             }
         }
 
         // Создаем состояние игры
         gameState = new GameState();
 
-        // Загружаем сохраненные данные
-        await gameState.load();
+        // Пробуем загрузить сохраненные данные из Firebase
+        const loaded = await gameState.load();
+
+        if (!loaded) {
+            console.log('Создаем новый профиль');
+            gameState.reset();
+            updateFirebaseStatusUI(false);
+        }
 
         // Настраиваем UI
         const petImg = document.querySelector('#pet-img');
@@ -479,32 +490,22 @@ async function initGame() {
             document.removeEventListener('click', firstPlay);
         }, { once: true });
 
-        // Автосохранение каждые 30 секунд
+        // Автосохранение каждые 30 секунд (ТОЛЬКО ПРИ НАЛИЧИИ ИНТЕРНЕТА)
         setInterval(() => {
             if (gameState && typeof gameState.save === 'function') {
                 gameState.save();
             }
         }, 30000);
-        
+
         // Устанавливаем фон после загрузки игры
-if (gameState && gameState.currentBackground) {
-  const currentBg = backgrounds.find(bg => bg.name === gameState.currentBackground);
-  if (currentBg) {
-    document.body.style.backgroundImage = currentBg.image;
-  }
-}
-
-        // Сохранение при закрытии окна
-        window.addEventListener('beforeunload', () => {
-            if (gameState && typeof gameState.save === 'function') {
-                // Используем синхронное сохранение или храним в localStorage
-                if (window.firebaseManager) {
-                    window.firebaseManager.saveLocal(gameState);
-                }
+        if (gameState && gameState.currentBackground) {
+            const currentBg = backgrounds.find(bg => bg.name === gameState.currentBackground);
+            if (currentBg) {
+                document.body.style.backgroundImage = currentBg.image;
             }
-        });
+        }
 
-        // Сохраняем при первой загрузке
+        // Сохраняем при первой загрузке (если есть интернет)
         setTimeout(() => gameState.save(true), 2000);
 
         console.log('Игра успешно загружена!');
@@ -2394,8 +2395,6 @@ document.getElementById('bgActionBtn').addEventListener('click', () => {
     // Сохраняем после выбора фона
     setTimeout(() => gameState.save(), 100);
 });
-
-// Инициализация фона будет в initGame
 
 // Закрытие меню фона при клике вне его
 document.addEventListener('click', (e) => {

@@ -6,7 +6,7 @@ class FirebaseManager {
     this.auth = null;
     this.currentUser = null;
     this.isOnline = true;
-    this.localSaveKey = 'aiko_tapbot_local_save';
+    // Убрано локальное сохранение
     this.saveQueue = [];
     this.isSaving = false;
 
@@ -42,11 +42,12 @@ class FirebaseManager {
       this.db = firebase.firestore();
       this.auth = firebase.auth();
 
-      // Настраиваем настройки Firestore для оффлайн-работы
+      // Отключаем оффлайн-режим (только онлайн работа)
       try {
-        await this.db.enablePersistence();
+        // Не включаем персистентность для оффлайн режима
+        console.log('Работа только в онлайн режиме');
       } catch (err) {
-        console.warn('Оффлайн режим недоступен:', err);
+        console.warn('Firestore инициализация:', err);
       }
 
       // Авторизуемся анонимно
@@ -76,7 +77,6 @@ class FirebaseManager {
         if (user) {
           console.log('Пользователь онлайн:', user.uid);
           this.isOnline = true;
-          this.syncLocalData(); // Синхронизируем локальные данные
         } else {
           this.isOnline = false;
         }
@@ -90,12 +90,11 @@ class FirebaseManager {
     }
   }
 
-  // Сохранение данных игры
+  // Сохранение данных игры (ТОЛЬКО ПРИ НАЛИЧИИ ИНТЕРНЕТА)
   async saveGameData(gameState) {
     try {
       if (!this.currentUser || !this.isOnline) {
-        // Сохраняем локально, если нет соединения
-        this.saveLocal(gameState);
+        console.warn('Нет подключения к интернету. Данные не сохранены.');
         return false;
       }
 
@@ -138,19 +137,14 @@ class FirebaseManager {
       await this.db.collection('users').doc(this.currentUser.uid).set(dataToSave, { merge: true });
 
       console.log('Данные сохранены в Firebase');
-
-      // Также сохраняем локально для резервной копии
-      this.saveLocal(dataToSave);
-
       return true;
     } catch (error) {
-      console.error('Ошибка сохранения:', error);
-      this.saveLocal(gameState); // Сохраняем локально при ошибке
+      console.error('Ошибка сохранения в Firebase:', error);
       return false;
     }
   }
 
-  // Загрузка данных игры
+  // Загрузка данных игры (ТОЛЬКО ИЗ FIREBASE)
   async loadGameData() {
     try {
       // Пробуем загрузить из Firebase
@@ -160,10 +154,6 @@ class FirebaseManager {
         if (doc.exists) {
           const data = doc.data();
           console.log('Данные загружены из Firebase');
-
-          // Сохраняем локально как кэш
-          this.saveLocal(data);
-
           return {
             success: true,
             data: data,
@@ -172,37 +162,17 @@ class FirebaseManager {
         }
       }
 
-      // Если нет данных в Firebase, пробуем локальные
-      const localData = this.loadLocal();
-      if (localData) {
-        console.log('Данные загружены из локального хранилища');
-        return {
-          success: true,
-          data: localData,
-          source: 'local'
-        };
-      }
-
-      // Если данных нет вообще
-      console.log('Нет сохраненных данных, используется новый профиль');
+      // Если нет данных в Firebase или нет интернета
+      console.log('Нет сохраненных данных в облаке, используется новый профиль');
       return {
         success: false,
         data: null,
         source: 'new'
       };
     } catch (error) {
-      console.error('Ошибка загрузки:', error);
+      console.error('Ошибка загрузки из Firebase:', error);
 
-      // Пробуем локальные данные при ошибке
-      const localData = this.loadLocal();
-      if (localData) {
-        return {
-          success: true,
-          data: localData,
-          source: 'local'
-        };
-      }
-
+      // При ошибке загрузки возвращаем новый профиль
       return {
         success: false,
         data: null,
@@ -211,82 +181,14 @@ class FirebaseManager {
     }
   }
 
-  // Локальное сохранение (LocalStorage)
-  saveLocal(data) {
-    try {
-      const saveData = {
-        ...data,
-        savedAt: Date.now(),
-        offline: true
-      };
-
-      localStorage.setItem(this.localSaveKey, JSON.stringify(saveData));
-    } catch (error) {
-      console.error('Ошибка локального сохранения:', error);
-    }
-  }
-
-  // Локальная загрузка
-  loadLocal() {
-    try {
-      const saved = localStorage.getItem(this.localSaveKey);
-      if (saved) {
-        const data = JSON.parse(saved);
-        // Удаляем временные поля
-        delete data.savedAt;
-        delete data.offline;
-        return data;
-      }
-      return null;
-    } catch (error) {
-      console.error('Ошибка загрузки из локального хранилища:', error);
-      return null;
-    }
-  }
-
-  // Синхронизация локальных данных с Firebase
-  async syncLocalData() {
-    try {
-      const localData = this.loadLocal();
-      if (localData && this.currentUser) {
-        // Загружаем данные из Firebase
-        const remoteDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
-
-        if (remoteDoc.exists) {
-          const remoteData = remoteDoc.data();
-          const localTimestamp = localData.savedAt || 0;
-          const remoteTimestamp = remoteData.lastSaved?.toMillis?.() || 0;
-
-          // Используем более свежие данные
-          if (remoteTimestamp > localTimestamp) {
-            console.log('Используем данные из Firebase (более свежие)');
-            return remoteData;
-          } else {
-            console.log('Используем локальные данные (более свежие)');
-            await this.saveGameData(localData); // Обновляем Firebase
-            return localData;
-          }
-        } else {
-          // Если в Firebase нет данных, сохраняем локальные
-          await this.saveGameData(localData);
-          return localData;
-        }
-      }
-    } catch (error) {
-      console.error('Ошибка синхронизации:', error);
-    }
-
-    return null;
-  }
-
   // Удаление данных
   async deleteData() {
     try {
-      if (this.currentUser) {
+      if (this.currentUser && this.isOnline) {
         await this.db.collection('users').doc(this.currentUser.uid).delete();
+        return true;
       }
-      localStorage.removeItem(this.localSaveKey);
-      return true;
+      return false;
     } catch (error) {
       console.error('Ошибка удаления данных:', error);
       return false;

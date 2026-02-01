@@ -2103,6 +2103,7 @@ body {
 
 .status-dot.offline {
   background: #f44336;
+  animation: none;
 }
 
 @keyframes pulse {
@@ -2123,6 +2124,7 @@ body {
 
 @media (max-width: 480px) {
   .firebase-status {
-    display: none; /* Скрываем на очень маленьких экранах */
+    font-size: 8px;
+    padding: 3px 6px;
   }
 }
