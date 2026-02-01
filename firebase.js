@@ -10,7 +10,21 @@ class FirebaseManager {
     this.saveQueue = [];
     this.isSaving = false;
 
+    // Конфигурация Firebase (ваши данные)
+    this.firebaseConfig = {
+      apiKey: "AIzaSyAhzdARqvqC4a6zCaXUVoO9Ij94mtoNha0",
+      authDomain: "hiko-ca02d.firebaseapp.com",
+      projectId: "hiko-ca02d",
+      storageBucket: "hiko-ca02d.firebasestorage.app",
+      messagingSenderId: "100480722325",
+      appId: "1:100480722325:web:781a1fb54807b047e1829c",
+      measurementId: "G-3E97NRDJTD"
+    };
+
     // Инициализация Firebase (версия 8)
+    this.init().catch(console.error);
+  }
+
   async init() {
     try {
       console.log('Инициализация Firebase...');
