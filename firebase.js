@@ -1,4 +1,4 @@
-// firebase.js - Firebase инициализация и управление данными
+// firebase.js - Firebase инициализация и управление данными (версия 8)
 
 class FirebaseManager {
   constructor() {
@@ -10,18 +10,7 @@ class FirebaseManager {
     this.saveQueue = [];
     this.isSaving = false;
 
-    // ⚠️ ВАЖНО: ЗАМЕНИТЕ ЭТИ ДАННЫЕ НА СВОИ ИЗ FIREBASE CONSOLE!
-    this.firebaseConfig = {
-      apiKey: "AIzaSyAhzdARqvqC4a6zCaXUVoO9Ij94mtoNha0",
-      authDomain: "hiko-ca02d.firebaseapp.com",
-      projectId: "hiko-ca02d",
-      storageBucket: "hiko-ca02d.firebasestorage.app",
-      messagingSenderId: "100480722325",
-      appId: "1:100480722325:web:781a1fb54807b047e1829c"
-    };
-  }
-
-  // Инициализация Firebase
+    // Инициализация Firebase (версия 8)
   async init() {
     try {
       console.log('Инициализация Firebase...');
@@ -31,7 +20,7 @@ class FirebaseManager {
         throw new Error('Firebase не загружен. Проверьте подключение скриптов.');
       }
 
-      // Инициализируем Firebase
+      // Инициализируем Firebase (версия 8)
       if (!firebase.apps.length) {
         firebase.initializeApp(this.firebaseConfig);
       }
@@ -40,10 +29,11 @@ class FirebaseManager {
       this.auth = firebase.auth();
 
       // Настраиваем настройки Firestore для оффлайн-работы
-      this.db.enablePersistence()
-        .catch(err => {
-          console.warn('Оффлайн режим недоступен:', err);
-        });
+      try {
+        await this.db.enablePersistence();
+      } catch (err) {
+        console.warn('Оффлайн режим недоступен:', err);
+      }
 
       // Авторизуемся анонимно
       await this.authenticate();
@@ -227,7 +217,11 @@ class FirebaseManager {
     try {
       const saved = localStorage.getItem(this.localSaveKey);
       if (saved) {
-        return JSON.parse(saved);
+        const data = JSON.parse(saved);
+        // Удаляем временные поля
+        delete data.savedAt;
+        delete data.offline;
+        return data;
       }
       return null;
     } catch (error) {

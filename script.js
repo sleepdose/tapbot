@@ -485,6 +485,14 @@ async function initGame() {
                 gameState.save();
             }
         }, 30000);
+        
+        // Устанавливаем фон после загрузки игры
+if (gameState && gameState.currentBackground) {
+  const currentBg = backgrounds.find(bg => bg.name === gameState.currentBackground);
+  if (currentBg) {
+    document.body.style.backgroundImage = currentBg.image;
+  }
+}
 
         // Сохранение при закрытии окна
         window.addEventListener('beforeunload', () => {
@@ -2387,16 +2395,18 @@ document.getElementById('bgActionBtn').addEventListener('click', () => {
     setTimeout(() => gameState.save(), 100);
 });
 
-document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
+// Инициализация фона будет в initGame
 
+// Закрытие меню фона при клике вне его
 document.addEventListener('click', (e) => {
-    const bgSelector = document.getElementById('backgroundSelector');
+  const bgSelector = document.getElementById('backgroundSelector');
+  const bgMenuBtn = document.getElementById('bgMenuBtn');
+
+  if (bgSelector && bgMenuBtn) {
     if (!bgSelector.contains(e.target) &&
-        e.target.id !== 'bgMenuBtn' &&
+        e.target !== bgMenuBtn &&
         bgSelector.classList.contains('active')) {
-        bgSelector.classList.remove('active');
-        if (gameState.currentBackground === previousBg) {
-            document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
-        }
+      bgSelector.classList.remove('active');
     }
+  }
 });
