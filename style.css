@@ -2072,3 +2072,57 @@ body {
     opacity: 0;
   }
 }
+/* =================== СТИЛИ ДЛЯ FIREBASE =================== */
+
+.firebase-status {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 9999;
+  transition: opacity 0.3s;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.online {
+  background: #4CAF50;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.offline {
+  background: #f44336;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* =================== АДАПТИВНОСТЬ =================== */
+@media (max-width: 768px) {
+  .firebase-status {
+    top: 5px;
+    left: 5px;
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .firebase-status {
+    display: none; /* Скрываем на очень маленьких экранах */
+  }
+}

@@ -8,30 +8,6 @@ try {
     alert('Ошибка инициализации. Пожалуйста, убедитесь что приложение открыто в Telegram.');
 }
 
-// Подключаем основной код игры
-const gameScript = document.createElement('script');
-gameScript.src = 'script.js';
-document.body.appendChild(gameScript);
-
-// Добавляем функции для интеграции с Telegram
-function sendScoreToBot(score) {
-    tg.sendData(JSON.stringify({
-        type: 'score',
-        value: score
-    }));
-}
-
-// Когда игра загружена
-document.addEventListener('DOMContentLoaded', () => {
-    // Настраиваем тему
-    if (tg.colorScheme === 'dark') {
-        document.body.classList.add('dark-theme');
-    }
-
-    // Показываем основной экран
-    document.getElementById('gameScreen').style.display = 'block';
-});
-
 // =================== КОНФИГУРАЦИЯ И ЭЛЕМЕНТЫ DOM ===================
 'use strict';
 
@@ -117,7 +93,7 @@ const gameConfig = {
     boostPrices: { energy: 1000, shield: 1200, multiclick: 800 }
 };
 
-// =================== КЛАСС СОСТОЯНИЯ ИГРЫ ===================
+// =================== КЛАСС СОСТОЯНИЯ ИГРЫ С FIREBASE ===================
 class GameState {
     constructor() {
         this.achievements = {
@@ -148,7 +124,6 @@ class GameState {
         this.currentSkin = 'img/skin1.png';
         this.currentPet = 'img/pet1.png';
         this.battleResult = null;
-        this.reset();
         this.isMusicMuted = localStorage.getItem('musicMuted') === 'true';
         this.previewHive = 'basic';
         this.attackCooldowns = {
@@ -178,6 +153,12 @@ class GameState {
             iceDamage: 0,
             totalDamage: 0
         };
+
+        // Для автосохранения
+        this.lastSaveTime = 0;
+        this.saveCooldown = 10000; // 10 секунд между автосохранениями
+
+        this.reset();
     }
 
     reset() {
@@ -222,6 +203,110 @@ class GameState {
             el.textContent = this.keys[bossType];
         });
     }
+
+    // Метод сохранения в Firebase
+    async save(force = false) {
+        const now = Date.now();
+
+        // Проверяем кулдаун (чтобы не сохранять слишком часто)
+        if (!force && now - this.lastSaveTime < this.saveCooldown) {
+            return;
+        }
+
+        try {
+            if (window.firebaseManager) {
+                const success = await window.firebaseManager.saveGameData(this);
+                if (success) {
+                    console.log('Игра сохранена в Firebase');
+                    this.lastSaveTime = now;
+
+                    // Обновляем статус UI
+                    updateFirebaseStatusUI(true);
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка сохранения:', error);
+            updateFirebaseStatusUI(false);
+        }
+    }
+
+    // Метод загрузки из Firebase
+    async load() {
+        try {
+            if (window.firebaseManager) {
+                const result = await window.firebaseManager.loadGameData();
+
+                if (result.success && result.data) {
+                    this.applyLoadedData(result.data);
+                    console.log('Данные загружены из:', result.source);
+                    updateFirebaseStatusUI(result.source === 'firebase');
+                    return true;
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            updateFirebaseStatusUI(false);
+        }
+
+        return false;
+    }
+
+    // Применение загруженных данных
+    applyLoadedData(data) {
+        // Основные данные
+        this.honey = data.honey || 100000;
+        this.xp = data.xp || 0;
+        this.level = data.level || 1;
+        this.energy = data.energy || 100;
+        this.maxEnergy = data.maxEnergy || 100;
+        this.xpToNextLevel = data.xpToNextLevel || this.calculateXPRequired(1);
+
+        // Таланты
+        this.talents = data.talents || {
+            basic: { level: 1, damage: 10 },
+            critical: { level: 1, chance: 0.2 },
+            poison: { level: 1, damage: 3 }
+        };
+
+        // Заряды
+        this.attackCharges = data.attackCharges || {
+            basic: { charges: 15, basePrice: 50 },
+            critical: { charges: 15, basePrice: 75 },
+            poison: { charges: 15, basePrice: 100 }
+        };
+
+        // Крафтовые таланты
+        this.craftedTalents = data.craftedTalents || {
+            sonic: { level: 0, damage: 50, charges: 0 },
+            fire: { level: 0, damage: 75, charges: 0 },
+            ice: { level: 0, damage: 60, charges: 0 }
+        };
+
+        // Ключи
+        this.keys = data.keys || { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
+
+        // Достижения
+        this.achievements = data.achievements || {
+            waspKills: 0,
+            bearKills: 0,
+            currentLevel: 0,
+            rewards: { level1: false, level2: false, level3: false },
+            bearRewards: { level1: false, level2: false, level3: false }
+        };
+
+        // Фоны
+        this.purchasedBackgrounds = data.purchasedBackgrounds || ['default'];
+        this.currentBackground = data.currentBackground || 'default';
+
+        // Скины и питомцы
+        this.currentSkin = data.currentSkin || 'img/skin1.png';
+        this.currentPet = data.currentPet || 'img/pet1.png';
+        this.hasPet = data.hasPet || false;
+
+        // Ульи
+        this.activeHive = data.activeHive || 'basic';
+        this.purchasedHives = data.purchasedHives || ['basic'];
+    }
 }
 
 const talentsConfig = {
@@ -243,105 +328,188 @@ const talentsConfig = {
     }
 };
 
-let gameState = new GameState();
+let gameState;
 let isAnimating = false;
 
-// =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
-function initGame() {
-    const petImg = document.querySelector('#pet-img');
-    if (petImg) {
-        petImg.style.display = 'none';
-    }
+// =================== ФУНКЦИИ ДЛЯ FIREBASE ===================
+function updateFirebaseStatusUI(isOnline) {
+    const statusElement = document.getElementById('firebaseStatus');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
 
-    const requiredElements = Object.keys(elements)
-        .filter(key => key !== 'levelProgress')
-        .map(key => elements[key]?.id || key);
+    if (statusElement && statusDot && statusText) {
+        if (isOnline) {
+            statusElement.style.display = 'block';
+            statusDot.className = 'status-dot online';
+            statusText.textContent = 'Сохранено в облаке';
 
-    const missingElements = requiredElements
-        .filter(id => !document.getElementById(id));
-
-    if (missingElements.length > 0) {
-        console.error('Отсутствуют элементы:', missingElements);
-        alert(`Ошибка загрузки! Отсутствуют: ${missingElements.join(', ')}`);
-        throw new Error('Critical UI elements missing');
-    }
-
-    const hiveImg = document.querySelector('.hive-img');
-    if (!hiveImg) {
-        console.error('Элемент .hive-img не найден!');
-        return;
-    }
-    hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
-
-    const hiveElement = document.getElementById('hive');
-    if (hiveElement) {
-        hiveElement.addEventListener('click', handleHiveClick);
-    }
-
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => showPopup(btn.dataset.popup));
-    });
-
-    document.querySelectorAll('.close').forEach(btn => {
-        btn.addEventListener('click', hideAllPopups);
-    });
-    // Difficulty tabs removed
-    const bossCombatImage = document.getElementById('bossCombatImage');
-    if (bossCombatImage) {
-        bossCombatImage.addEventListener('click', handleBossClick);
-    }
-    const shopTabs = document.querySelector('.shop-tabs');
-    if (shopTabs) {
-        shopTabs.addEventListener('click', handleShopTabs);
-    }
-
-    document.getElementById('battlePopup').addEventListener('click', handleBossSelect);
-
-    document.addEventListener('click', e => {
-        const isCombatElement = e.target.closest('#combatScreen') ||
-            e.target.closest('.attack-btn') ||
-            e.target.closest('.battle-reward');
-        const isPopup = e.target.closest('.popup');
-        const isNavButton = e.target.closest('.nav-btn');
-
-        if (!isPopup && !isNavButton && !isCombatElement) {
-            hideAllPopups();
+            // Скрываем через 3 секунды
+            setTimeout(() => {
+                statusElement.style.opacity = '0';
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                    statusElement.style.opacity = '1';
+                }, 500);
+            }, 3000);
+        } else {
+            statusElement.style.display = 'block';
+            statusDot.className = 'status-dot offline';
+            statusText.textContent = 'Только локальное сохранение';
         }
-
-        if (gameState.inBattle && !document.getElementById('combatScreen').style.display) {
-            createTalentButtons();
-        }
-
-        if (e.target.closest('.shop-item button')) {
-            handleShopButton(e.target);
-        }
-
-        if (e.target.closest('.talent button')) {
-            handleTalentButton(e.target);
-        }
-    });
-
-    window.addEventListener('resize', () => {
-        updateHiveDisplay();
-        updateCombatUI(true);
-    });
-
-    updateShopItems();
-    updateUI();
-    startEnergyRecovery();
-    gameState.updateKeysDisplay();
-    initTalentBuyTab();
-    initAudio();
-    audioElements.musicToggle.addEventListener('click', toggleMusic);
-
-    // Автозапуск музыки при первом клике на улей
-    document.getElementById('hive').addEventListener('click', function firstPlay() {
-        if (audioElements.bgMusic.paused) {
-            audioElements.bgMusic.play();
-        }
-        document.removeEventListener('click', firstPlay);
-    }, { once: true });
+    }
 }
+
+// =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
+async function initGame() {
+    console.log('Загрузка игры AIKO TAPBOT...');
+
+    try {
+        // Показываем статус загрузки
+        document.getElementById('firebaseStatus').style.display = 'block';
+        document.getElementById('statusText').textContent = 'Загрузка...';
+
+        // Инициализируем Firebase
+        if (window.firebaseManager) {
+            const firebaseReady = await window.firebaseManager.init();
+            if (!firebaseReady) {
+                console.warn('Firebase не удалось инициализировать, используется локальное сохранение');
+            }
+        }
+
+        // Создаем состояние игры
+        gameState = new GameState();
+
+        // Загружаем сохраненные данные
+        await gameState.load();
+
+        // Настраиваем UI
+        const petImg = document.querySelector('#pet-img');
+        if (petImg) {
+            petImg.style.display = gameState.hasPet ? 'block' : 'none';
+            petImg.src = gameState.currentPet;
+        }
+
+        const requiredElements = Object.keys(elements)
+            .filter(key => key !== 'levelProgress')
+            .map(key => elements[key]?.id || key);
+
+        const missingElements = requiredElements
+            .filter(id => !document.getElementById(id));
+
+        if (missingElements.length > 0) {
+            console.error('Отсутствуют элементы:', missingElements);
+            alert(`Ошибка загрузки! Отсутствуют: ${missingElements.join(', ')}`);
+            throw new Error('Critical UI elements missing');
+        }
+
+        const hiveImg = document.querySelector('.hive-img');
+        if (!hiveImg) {
+            console.error('Элемент .hive-img не найден!');
+            return;
+        }
+        hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
+
+        const hiveElement = document.getElementById('hive');
+        if (hiveElement) {
+            hiveElement.addEventListener('click', handleHiveClick);
+        }
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => showPopup(btn.dataset.popup));
+        });
+
+        document.querySelectorAll('.close').forEach(btn => {
+            btn.addEventListener('click', hideAllPopups);
+        });
+
+        const bossCombatImage = document.getElementById('bossCombatImage');
+        if (bossCombatImage) {
+            bossCombatImage.addEventListener('click', handleBossClick);
+        }
+        const shopTabs = document.querySelector('.shop-tabs');
+        if (shopTabs) {
+            shopTabs.addEventListener('click', handleShopTabs);
+        }
+
+        document.getElementById('battlePopup').addEventListener('click', handleBossSelect);
+
+        document.addEventListener('click', e => {
+            const isCombatElement = e.target.closest('#combatScreen') ||
+                e.target.closest('.attack-btn') ||
+                e.target.closest('.battle-reward');
+            const isPopup = e.target.closest('.popup');
+            const isNavButton = e.target.closest('.nav-btn');
+
+            if (!isPopup && !isNavButton && !isCombatElement) {
+                hideAllPopups();
+            }
+
+            if (gameState.inBattle && !document.getElementById('combatScreen').style.display) {
+                createTalentButtons();
+            }
+
+            if (e.target.closest('.shop-item button')) {
+                handleShopButton(e.target);
+            }
+
+            if (e.target.closest('.talent button')) {
+                handleTalentButton(e.target);
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            updateHiveDisplay();
+            updateCombatUI(true);
+        });
+
+        updateShopItems();
+        updateUI();
+        startEnergyRecovery();
+        gameState.updateKeysDisplay();
+        initTalentBuyTab();
+        initAudio();
+        audioElements.musicToggle.addEventListener('click', toggleMusic);
+        initCrafting();
+
+        // Автозапуск музыки при первом клике на улей
+        document.getElementById('hive').addEventListener('click', function firstPlay() {
+            if (audioElements.bgMusic.paused) {
+                audioElements.bgMusic.play();
+            }
+            document.removeEventListener('click', firstPlay);
+        }, { once: true });
+
+        // Автосохранение каждые 30 секунд
+        setInterval(() => {
+            if (gameState && typeof gameState.save === 'function') {
+                gameState.save();
+            }
+        }, 30000);
+
+        // Сохранение при закрытии окна
+        window.addEventListener('beforeunload', () => {
+            if (gameState && typeof gameState.save === 'function') {
+                // Используем синхронное сохранение или храним в localStorage
+                if (window.firebaseManager) {
+                    window.firebaseManager.saveLocal(gameState);
+                }
+            }
+        });
+
+        // Сохраняем при первой загрузке
+        setTimeout(() => gameState.save(true), 2000);
+
+        console.log('Игра успешно загружена!');
+
+    } catch (error) {
+        console.error('Ошибка инициализации:', error);
+        // Создаем новое состояние при ошибке
+        gameState = new GameState();
+        gameState.reset();
+        updateFirebaseStatusUI(false);
+    }
+}
+
 function initAudio() {
     audioElements.bgMusic.muted = gameState.isMusicMuted;
     audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
@@ -411,7 +579,7 @@ function calculateDamage(type) {
         case 'poison':
             return gameState.talents.poison.damage;
         case 'ice':
-            return gameState.craftedTalents.ice.damage; //Added ice damage calculation.
+            return gameState.craftedTalents.ice.damage;
         default:
             return 0;
     }
@@ -452,6 +620,9 @@ function initTalentBuyTab() {
                     createTalentButtons();
                 }
                 item.querySelector('.charge-counter').textContent = `${data.charges} шт`;
+
+                // Сохраняем после покупки
+                setTimeout(() => gameState.save(), 100);
             } else {
                 showMessage('Недостаточно мёда!');
             }
@@ -503,7 +674,7 @@ function handleHiveClick(e) {
         return;
     }
     // Создаем сердечки в случайных местах
-    if (!gameState.inBattle) { // Только вне боя
+    if (!gameState.inBattle) {
         const rect = e.currentTarget.getBoundingClientRect();
 
         // Создаем 3 сердечка в разных местах
@@ -552,6 +723,9 @@ function handleHiveClick(e) {
             hive.style.transform = 'scale(1)';
             isAnimating = false;
         }, 100);
+
+        // Автосохранение
+        setTimeout(() => gameState.save(), 100);
     } catch (error) {
         console.error('Ошибка при клике:', error);
         isAnimating = false;
@@ -606,6 +780,7 @@ function handleBossSelect(e) {
         startBattle(bossCard.dataset.boss);
     }
 }
+
 function buyBoost(type) {
     const button = document.querySelector(`.shop-item[data-type="${type}"] button`);
     if (!button || button.disabled) return;
@@ -653,6 +828,9 @@ function buyBoost(type) {
         }
         updateUI(['honey']);
         showMessage('Буст активирован!');
+
+        // Сохраняем после покупки
+        setTimeout(() => gameState.save(), 100);
     } else {
         showMessage(`Недостаточно меда! Нужно: ${gameConfig.boostPrices[type]}`);
     }
@@ -719,6 +897,9 @@ function upgradeTalent(talentType) {
 
     updateUI(['honey', 'talents']);
     showMessage('Талант улучшен!');
+
+    // Сохраняем после улучшения
+    setTimeout(() => gameState.save(), 100);
 }
 
 // =================== БОЕВАЯ СИСТЕМА ===================
@@ -826,7 +1007,7 @@ function createTalentButtons() {
     const craftedTalents = [
         { type: 'sonic', icon: '🔊', name: 'Звуковой' },
         { type: 'fire', icon: '🔥', name: 'Огненный' },
-        { type: 'ice', icon: '❄️', name: 'Ледяной' } // Added ice talent
+        { type: 'ice', icon: '❄️', name: 'Ледяной' }
     ];
 
     craftedTalents.forEach(talent => {
@@ -926,12 +1107,10 @@ function attack(type) {
         return;
     }
 
-
     // Проверяем заряды
     if (gameState.attackCharges[type].charges <= 0) {
         showMessage('Заряды кончились!');
-        //gameState.selectedTalent = null; // Снимаем выбор таланта
-        createTalentButtons(); // Обновляем кнопки
+        createTalentButtons();
         return;
     }
 
@@ -947,7 +1126,7 @@ function attack(type) {
             const actualBasicDamage = Math.min(damage, gameState.currentBoss.currentHealth);
             gameState.battleStats.basicDamage += actualBasicDamage;
             gameState.battleStats.totalDamage += actualBasicDamage;
-            showBasicEffect(actualBasicDamage); // Добавляем эффект
+            showBasicEffect(actualBasicDamage);
             break;
         case 'critical':
             damage = calculateBasicDamage();
@@ -955,14 +1134,13 @@ function attack(type) {
                 damage *= 2;
                 showCriticalEffect(damage);
             } else {
-                showBasicEffect(damage); // Показываем обычный эффект если крит не сработал
+                showBasicEffect(damage);
             }
             const actualCritDamage = Math.min(damage, gameState.currentBoss.currentHealth);
             gameState.battleStats.criticalDamage += actualCritDamage;
             gameState.battleStats.totalDamage += actualCritDamage;
             break;
         case 'poison':
-            // Логика ядовитого урона
             const poisonDamage = gameState.talents.poison.damage;
             const duration = talentsConfig.poison.getDuration(gameState.talents.poison.level);
             const poisonEffect = {
@@ -976,7 +1154,8 @@ function attack(type) {
                 if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
                     return;
-                } gameState.currentBoss.currentHealth -= poisonDamage;
+                }
+                gameState.currentBoss.currentHealth -= poisonDamage;
                 gameState.battleStats.poisonDamage += poisonDamage;
                 gameState.battleStats.totalDamage += poisonDamage;
                 updateCombatUI();
@@ -1010,12 +1189,11 @@ function attack(type) {
         chargeCounter.textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
     }
 
-    // Обновляем интерфейс без сброса таланта
+    // Обновляем интерфейс
     createTalentButtons();
 }
 
 function endBattle(victory) {
-    // Проверка состояния боя
     if (!gameState.inBattle || !gameState.currentBoss) return;
 
     // Очистка ядовитых эффектов
@@ -1025,14 +1203,11 @@ function endBattle(victory) {
     });
     gameState.activeEffects.poison = [];
 
-    // Удаление визуальных таймеров яда
     const poisonContainer = document.getElementById('poisonTimersContainer');
     if (poisonContainer) poisonContainer.innerHTML = '';
 
-    // Сброс визуальных эффектов босса
     elements.bossCombatImage?.classList.remove('grayscale');
 
-    // Настройка наград
     let reward = null;
     if (victory) {
         const bossConfig = gameConfig.bosses[gameState.currentBoss.type];
@@ -1043,25 +1218,21 @@ function endBattle(victory) {
         };
     }
 
-    // Обновление состояния игры
     gameState.battleResult = {
         victory: victory,
         boss: { ...gameState.currentBoss },
         reward: reward
     };
 
-    // Сброс боевых параметров
     gameState.inBattle = false;
     gameState.currentBoss = null;
     gameState.selectedTalent = null;
 
-    // Очистка таймеров
     if (gameState.battleTimer) {
         clearInterval(gameState.battleTimer);
         gameState.battleTimer = null;
     }
 
-    // Обновляем статистику боя, показывая только использованные таланты
     const stats = document.querySelector('.stats-grid');
     stats.innerHTML = '';
 
@@ -1082,19 +1253,17 @@ function endBattle(victory) {
     addStatIfUsed('fire', '🔥', 'Огненный урон');
     addStatIfUsed('ice', '❄️', 'Ледяной урон');
 
-    // Обновление интерфейса
     try {
         updateResultPopup();
         showPopup('battleResult');
         document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
         elements.combatScreen.style.display = 'none';
-        elements.combatTalents.innerHTML = ''; // Очищаем таланты
+        elements.combatTalents.innerHTML = '';
         document.getElementById('bossSelection').style.display = 'block';
     } catch (e) {
         console.error('Ошибка обновления интерфейса:', e);
     }
 
-    // Сбрасываем статистику для следующего боя
     gameState.battleStats = {
         basicDamage: 0,
         criticalDamage: 0,
@@ -1105,9 +1274,12 @@ function endBattle(victory) {
         totalDamage: 0
     };
 
-    // Принудительное обновление зарядов
     updateTalentBuyTab();
+
+    // Сохраняем прогресс после боя
+    setTimeout(() => gameState.save(), 500);
 }
+
 function updateTalentBuyTab() {
     const container = document.getElementById('buyCharges');
     if (!container) return;
@@ -1135,24 +1307,20 @@ function updateResultPopup() {
     const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
     const reward = gameState.battleResult.reward;
 
-    // Установка изображения босса
     resultBossImage.src = gameState.battleResult.victory
         ? bossConfig.defeatImage
         : bossConfig.image;
 
-    // Установка стилей для результата
     if (gameState.battleResult.victory) {
         resultTitle.textContent = "ПОБЕДА!";
         resultTitle.style.color = "#4CAF50";
         claimBtn.style.display = 'block';
         closeBtn.style.display = 'none';
 
-        // Обновление данных наград
         if (reward) {
             rewardHoney.textContent = reward.honey;
             rewardXP.textContent = reward.xp;
 
-            // Обработка ключей
             const keys = Object.entries(reward.keys || {})
                 .map(([type, amount]) => amount)
                 .reduce((a, b) => a + b, 0);
@@ -1165,17 +1333,15 @@ function updateResultPopup() {
         claimBtn.style.display = 'none';
         closeBtn.style.display = 'block';
 
-        // Сброс значений наград при поражении
         rewardHoney.textContent = '0';
         rewardXP.textContent = '0';
         rewardKeys.textContent = '0';
     }
 
-    // Анимация изображения босса
     resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
     resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
 }
-// =================== ОБРАБОТЧИКИ КНОПОК ===================
+
 document.getElementById('claimRewardButton').addEventListener('click', () => {
     const reward = gameState.battleResult?.reward;
     const bossType = gameState.battleResult?.boss?.type;
@@ -1240,6 +1406,9 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
         gameState.inBattle = false;
         hidePopup('battleResult');
         document.getElementById('bossSelection').style.display = 'block';
+
+        // Сохраняем после получения награды
+        setTimeout(() => gameState.save(), 100);
     }
 });
 
@@ -1251,13 +1420,11 @@ document.getElementById('closeResultButton').addEventListener('click', () => {
     document.getElementById('combatScreen').style.display = 'none';
 });
 
-// Находим блок с обработчиками закрытия попапов и изменяем его:
-// Добавляем функцию для эффекта огненного удара
 function showFireEffect(damage) {
     const effect = document.createElement('div');
-    effect.className = 'sonic-effect';  // Используем тот же класс для анимации
+    effect.className = 'sonic-effect';
     effect.textContent = `🔥 ${damage}`;
-    effect.style.color = '#ff4400';  // Огненный цвет
+    effect.style.color = '#ff4400';
     elements.combatScreen.appendChild(effect);
     setTimeout(() => effect.remove(), 1000);
 }
@@ -1269,16 +1436,12 @@ document.querySelectorAll('.popup .close').forEach(btn => {
             resetCrafting();
         }
         if (popup.id === 'battleResultPopup') {
-            // Если это попап результатов
             if (gameState.battleResult?.victory) {
-                // При победе - имитируем нажатие "Получить награду"
                 document.getElementById('claimRewardButton').click();
             } else {
-                // При поражении - имитируем нажатие "Выйти"
                 document.getElementById('closeResultButton').click();
             }
         } else {
-            // Для других попапов обычное закрытие
             hidePopup(popup.id.replace('Popup', ''));
         }
     });
@@ -1300,6 +1463,9 @@ function checkLevelUp() {
         updateLevelProgress();
         updateUI(['level']);
         updateAchievementsUI();
+
+        // Сохраняем при повышении уровня
+        setTimeout(() => gameState.save(), 100);
     }
 }
 
@@ -1385,6 +1551,7 @@ function updateUI(changedKeys = ['all']) {
 
     updateLevelProgress();
 }
+
 // =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
 function showLevelUpEffect(levels) {
     const div = document.createElement('div');
@@ -1434,11 +1601,11 @@ function showSonicEffect(damage) {
     setTimeout(() => effect.remove(), 1000);
 }
 
-function showIceEffect(damage) { //Added ice effect
+function showIceEffect(damage) {
     const effect = document.createElement('div');
     effect.className = 'sonic-effect';
     effect.textContent = `❄️ ${damage}`;
-    effect.style.color = '#00cccc'; // Light blue color
+    effect.style.color = '#00cccc';
     elements.combatScreen.appendChild(effect);
     setTimeout(() => effect.remove(), 1000);
 }
@@ -1447,7 +1614,7 @@ function showBasicEffect(damage) {
     const effect = document.createElement('div');
     effect.className = 'basic-effect';
     effect.textContent = `🗡️ ${damage}`;
-    effect.style.color = '#ffd700'; // Золотой цвет
+    effect.style.color = '#ffd700';
     elements.combatScreen.appendChild(effect);
     setTimeout(() => effect.remove(), 1000);
 }
@@ -1456,7 +1623,7 @@ function showPoisonAttackEffect(damage) {
     const effect = document.createElement('div');
     effect.className = 'poison-attack-effect';
     effect.textContent = `☠️ ${damage}`;
-    effect.style.color = '#32CD32'; // Ядовито-зеленый
+    effect.style.color = '#32CD32';
     elements.combatScreen.appendChild(effect);
     setTimeout(() => effect.remove(), 1000);
 }
@@ -1464,22 +1631,20 @@ function showPoisonAttackEffect(damage) {
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
 function showPopup(popupType) {
     if (popupType === 'battleResult' && !gameState.battleResult) return;
-    hideAllPopups(); // Скрываем все другие попапы
+    hideAllPopups();
     const popup = document.getElementById(`${popupType}Popup`);
     if (popup) {
-        popup.classList.add('active'); // Добавляем класс active для отображения
-        document.body.style.overflow = 'hidden'; // Блокируем прокрутку основного контента
-        // Активируем первую вкладку магазина или талантов
+        popup.classList.add('active');
+        document.body.style.overflow = 'hidden';
         if (popupType === 'shop') {
             document.querySelector('#shopPopup .tab-btn[data-tab="boosts"]').click();
         }
         if (popupType === 'talents') {
             document.querySelector('#talentsPopup .tab-btn[data-tab="buyCharges"]').click();
         }
-        if (popupType === 'battleResult') updateResultPopup(); // Обновляем содержимое результата боя
+        if (popupType === 'battleResult') updateResultPopup();
     }
 }
-
 
 function hidePopup(type) {
     const popup = document.getElementById(`${type}Popup`);
@@ -1505,9 +1670,9 @@ function hidePopup(type) {
 
 function hideAllPopups() {
     document.querySelectorAll('.popup').forEach(p => {
-        p.classList.remove('active'); // Скрываем все попапы
+        p.classList.remove('active');
     });
-    document.body.style.overflow = ''; // Разблокируем прокрутку основного контента
+    document.body.style.overflow = '';
 }
 
 function updateShopItems() {
@@ -1549,7 +1714,6 @@ function calculateReward(boss) {
         keys: {}
     };
 
-    // Обновляем прогресс достижения для осы
     if (boss.type === 'wasp') {
         if (!gameState.achievements) {
             gameState.achievements = { waspKills: 0 };
@@ -1570,7 +1734,6 @@ function calculateReward(boss) {
         reward.keys[boss.keyReward.type] = boss.keyReward.amount;
     }
     if (gameState.achievements.waspKills >= 10 && !gameState.achievements.rewards.kingOfWasps) {
-        // Выдать награду
         gameState.achievements.rewards.kingOfWasps = true;
     }
 
@@ -1580,8 +1743,8 @@ function calculateReward(boss) {
 
     return reward;
 }
+
 function updateAchievementsUI() {
-    // Обновление достижения осы
     const waspKillCount = document.getElementById('waspKillCount');
     const waspProgress = document.getElementById('waspKillProgress');
     const waspCard = document.querySelector('.achievement-card');
@@ -1625,7 +1788,6 @@ function updateAchievementsUI() {
         }
     }
 
-    // Обновление достижения медведя
     const bearKillCount = document.getElementById('bearKillCount');
     const bearProgress = document.getElementById('bearKillProgress');
     const bearCard = document.querySelectorAll('.achievement-card')[1];
@@ -1679,7 +1841,6 @@ function updateCombatUI() {
     elements.bossHealth.style.width = `${healthPercent}%`;
     elements.currentHealth.textContent = gameState.currentBoss.currentHealth;
 
-    // Меняем изображение босса в зависимости от здоровья
     const bossCombatImage = document.getElementById('bossCombatImage');
     if (bossCombatImage) {
         if (healthPercent <= 25) {
@@ -1705,14 +1866,11 @@ function getTalentIcon(type) {
         basic: '🗡️',
         critical: '💥',
         poison: '☠️',
-        ice: '❄️' //Added ice icon
+        ice: '❄️'
     }[type] || '';
 }
 
 // =================== ФУНКЦИИ КАСТОМИЗАЦИИ ===================
-let skins = ['img/skin1.png', 'img/skin2.png', 'img/skin3.png'];
-let pets = ['img/pet1.png', 'img/pet2.png', 'img/pet3.png'];
-
 function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -1726,12 +1884,13 @@ function selectSkin() {
     const hiveImg = document.querySelector('.hive-img');
     if (hiveImg) {
         hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
-        // Сохраняем текущий выбор
         gameState.currentSkin = selectedSkin;
-        // Обновляем состояние кнопки
         updateSkinButton();
     }
     hidePopup('customization');
+
+    // Сохраняем после выбора скина
+    gameState.save(true);
 }
 
 function previewSkin(skin, name) {
@@ -1759,14 +1918,15 @@ function selectPet() {
     const petImg = document.querySelector('#pet-img');
     if (petImg) {
         petImg.src = selectedPet;
-        // Сохраняем текущий выбор
         gameState.currentPet = selectedPet;
         gameState.hasPet = true;
         petImg.style.display = 'block';
-        // Обновляем состояние кнопки
         updatePetButton();
     }
     hidePopup('customization');
+
+    // Сохраняем после выбора питомца
+    gameState.save(true);
 }
 
 function previewPet(pet, name) {
@@ -1820,7 +1980,7 @@ function initCrafting() {
 
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
-    const iceButton = document.getElementById('iceButton'); //Added ice button
+    const iceButton = document.getElementById('iceButton');
 
     sonicButton.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1840,6 +2000,9 @@ function initCrafting() {
             if (gameState.inBattle) {
                 setTimeout(() => createTalentButtons(), 100);
             }
+
+            // Сохраняем после крафта
+            setTimeout(() => gameState.save(), 100);
         } else {
             showMessage('Недостаточно зарядов!');
         }
@@ -1863,12 +2026,15 @@ function initCrafting() {
             if (gameState.inBattle) {
                 setTimeout(() => createTalentButtons(), 100);
             }
+
+            // Сохраняем после крафта
+            setTimeout(() => gameState.save(), 100);
         } else {
             showMessage('Недостаточно зарядов!');
         }
     });
 
-    iceButton.addEventListener('click', (e) => { //Added ice button event listener
+    iceButton.addEventListener('click', (e) => {
         e.stopPropagation();
         if (gameState.attackCharges.poison.charges >= 1 && gameState.attackCharges.basic.charges >= 1) {
             gameState.attackCharges.poison.charges -= 1;
@@ -1886,6 +2052,9 @@ function initCrafting() {
             if (gameState.inBattle) {
                 setTimeout(() => createTalentButtons(), 100);
             }
+
+            // Сохраняем после крафта
+            setTimeout(() => gameState.save(), 100);
         } else {
             showMessage('Недостаточно зарядов!');
         }
@@ -1900,27 +2069,22 @@ function checkRecipe() {
     const slots = document.querySelectorAll('.craft-slot');
     const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
 
-    // Проверяем рецепт звукового удара
     const isSonicRecipe = talents.length === 2 &&
         talents.includes('basic') &&
         talents.includes('critical');
 
-    // Проверяем рецепт огненного удара
     const isFireRecipe = talents.length === 2 &&
         talents.includes('critical') &&
         talents.includes('poison');
 
-    // Проверяем рецепт ледяного удара
     const isIceRecipe = talents.length === 2 &&
         talents.includes('poison') &&
         talents.includes('basic');
-
 
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
     const iceButton = document.getElementById('iceButton');
 
-    // Управляем кнопкой звукового удара
     if (sonicButton) {
         sonicButton.style.display = isSonicRecipe ? 'block' : 'none';
         if (isSonicRecipe) {
@@ -1929,7 +2093,6 @@ function checkRecipe() {
         }
     }
 
-    // Управляем кнопкой огненного удара
     if (fireButton) {
         fireButton.style.display = isFireRecipe ? 'block' : 'none';
         if (isFireRecipe) {
@@ -1938,7 +2101,6 @@ function checkRecipe() {
         }
     }
 
-    // Управляем кнопкой ледяного удара
     if (iceButton) {
         iceButton.style.display = isIceRecipe ? 'block' : 'none';
         if (isIceRecipe) {
@@ -1962,16 +2124,10 @@ function resetCrafting() {
     });
     const sonicButton = document.getElementById('sonicButton');
     const fireButton = document.getElementById('fireButton');
-    const iceButton = document.getElementById('iceButton'); //Added ice button
-    if (sonicButton) {
-        sonicButton.style.display = 'none';
-    }
-    if (fireButton) {
-        fireButton.style.display = 'none';
-    }
-    if (iceButton) { //Added ice button reset
-        iceButton.style.display = 'none';
-    }
+    const iceButton = document.getElementById('iceButton');
+    if (sonicButton) sonicButton.style.display = 'none';
+    if (fireButton) fireButton.style.display = 'none';
+    if (iceButton) iceButton.style.display = 'none';
 }
 
 // =================== ЗАПУСК ИГРЫ ===================
@@ -2003,7 +2159,6 @@ if (shopTabs) {
 
 document.addEventListener('DOMContentLoaded', () => {
     initGame();
-    initCrafting();
     document.getElementById('gameScreen').style.display = 'block';
     const elementsToCheck = [
         'battleResultPopup',
@@ -2148,6 +2303,7 @@ function updatePoisonTimers() {
         }
     });
 }
+
 const backgrounds = [
     {
         name: 'default',
@@ -2176,35 +2332,29 @@ const backgrounds = [
 ];
 
 let currentBgIndex = 0;
-let previousBg = ''; // Переменная для сохранения текущего фона перед открытием меню
+let previousBg = '';
 
-// Функция для обновления фона на главном экране
 function updateBackgroundUI() {
     const currentBg = backgrounds[currentBgIndex];
 
-    // Обновляем фон на главном экране сразу
     document.body.style.backgroundImage = currentBg.image;
 
     const actionBtn = document.getElementById('bgActionBtn');
     const isPurchased = gameState.purchasedBackgrounds.includes(currentBg.name);
     const isSelected = gameState.currentBackground === currentBg.name;
 
-    // Изменяем текст кнопки в зависимости от того, куплен ли фон
     actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
 
-    // Блокируем кнопку, если это текущий выбранный фон
     actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
 }
 
-// Обработчик кнопки выбора фона
 document.getElementById('bgMenuBtn').addEventListener('click', () => {
-    previousBg = gameState.currentBackground; // Сохраняем текущий фон
+    previousBg = gameState.currentBackground;
     document.getElementById('backgroundSelector').classList.add('active');
     currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
     updateBackgroundUI();
 });
 
-// Обработчики кнопок переключения фонов
 document.getElementById('bgPrevBtn').addEventListener('click', () => {
     currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
     updateBackgroundUI();
@@ -2215,7 +2365,6 @@ document.getElementById('bgNextBtn').addEventListener('click', () => {
     updateBackgroundUI();
 });
 
-// Обработчик кнопки покупки или выбора фона
 document.getElementById('bgActionBtn').addEventListener('click', () => {
     const currentBg = backgrounds[currentBgIndex];
 
@@ -2230,23 +2379,22 @@ document.getElementById('bgActionBtn').addEventListener('click', () => {
         }
     }
 
-    // После выбора фона, обновляем текущий фон
     gameState.currentBackground = currentBg.name;
     showMessage(`Фон "${currentBg.name}" выбран!`);
-    updateBackgroundUI();  // Обновляем UI
+    updateBackgroundUI();
+
+    // Сохраняем после выбора фона
+    setTimeout(() => gameState.save(), 100);
 });
 
-// Инициализация фона на главной странице
 document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
 
-// Закрытие меню при клике вне его
 document.addEventListener('click', (e) => {
     const bgSelector = document.getElementById('backgroundSelector');
     if (!bgSelector.contains(e.target) &&
         e.target.id !== 'bgMenuBtn' &&
         bgSelector.classList.contains('active')) {
         bgSelector.classList.remove('active');
-        // Восстанавливаем фон при закрытии меню
         if (gameState.currentBackground === previousBg) {
             document.body.style.backgroundImage = backgrounds.find(bg => bg.name === gameState.currentBackground).image;
         }

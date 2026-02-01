@@ -7,9 +7,19 @@
   <title>AIKO TAPBOT</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Подключаем Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
 </head>
 
 <body>
+  <!-- Панель статуса Firebase -->
+  <div id="firebaseStatus" class="firebase-status" style="display: none;">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Подключение...</span>
+  </div>
+
   <div class="effect-indicators"></div>
   <div id="gameScreen">
     <div class="stats">
@@ -388,6 +398,9 @@
   </audio>
 
   <button id="musicToggle" class="music-btn">♪</button>
+
+  <!-- Подключаем наши скрипты -->
+  <script src="firebase.js"></script>
   <script src="script.js"></script>
 </body>
 
