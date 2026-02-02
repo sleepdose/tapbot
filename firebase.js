@@ -10,7 +10,7 @@ class FirebaseManager {
     this.isSaving = false;
     this.MAX_FRIENDS = 20;
 
-    // Конфигурация Firebase (ваши данные)
+    // Конфигурация Firebase
     this.firebaseConfig = {
       apiKey: "AIzaSyAhzdARqvqC4a6zCaXUVoO9Ij94mtoNha0",
       authDomain: "hiko-ca02d.firebaseapp.com",
@@ -21,7 +21,7 @@ class FirebaseManager {
       measurementId: "G-3E97NRDJTD"
     };
 
-    // Инициализация Firebase (версия 8)
+    // Инициализация Firebase
     this.init().catch(console.error);
   }
 
@@ -34,7 +34,7 @@ class FirebaseManager {
         throw new Error('Firebase не загружен. Проверьте подключение скриптов.');
       }
 
-      // Инициализируем Firebase (версия 8)
+      // Инициализируем Firebase
       if (!firebase.apps.length) {
         firebase.initializeApp(this.firebaseConfig);
       }
@@ -42,12 +42,8 @@ class FirebaseManager {
       this.db = firebase.firestore();
       this.auth = firebase.auth();
 
-      // Отключаем оффлайн-режим (только онлайн работа)
-      try {
-        console.log('Работа только в онлайн режиме');
-      } catch (err) {
-        console.warn('Firestore инициализация:', err);
-      }
+      // Отключаем оффлайн-режим
+      console.log('Работа только в онлайн режиме');
 
       // Авторизуемся анонимно
       await this.authenticate();
@@ -61,12 +57,61 @@ class FirebaseManager {
     }
   }
 
-  // Аутентификация пользователя
+  // Аутентификация пользователя с сохранением Telegram ID
   async authenticate() {
     try {
-      // Пробуем анонимную аутентификацию
-      const userCredential = await this.auth.signInAnonymously();
-      this.currentUser = userCredential.user;
+      // Получаем Telegram ID
+      const telegramId = this.getTelegramId();
+      console.log('Telegram ID пользователя:', telegramId);
+
+      if (telegramId) {
+        // Пробуем найти существующего пользователя по Telegram ID
+        const usersSnapshot = await this.db.collection('users')
+          .where('telegramId', '==', telegramId)
+          .limit(1)
+          .get();
+
+        if (!usersSnapshot.empty) {
+          // Нашли существующего пользователя
+          const userDoc = usersSnapshot.docs[0];
+          const customUserId = userDoc.id;
+
+          // Создаем кастомный токен (в реальном приложении это делается на сервере)
+          // Для демо используем UID из документа
+          console.log('Найден существующий пользователь:', customUserId);
+
+          // Используем анонимную аутентификацию, но связываем с данными
+          const userCredential = await this.auth.signInAnonymously();
+          this.currentUser = userCredential.user;
+
+          // Обновляем auth UID в документе пользователя
+          await this.db.collection('users').doc(userDoc.id).update({
+            authUid: this.currentUser.uid,
+            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+        } else {
+          // Новый пользователь - анонимная аутентификация
+          const userCredential = await this.auth.signInAnonymously();
+          this.currentUser = userCredential.user;
+
+          // Создаем запись пользователя с Telegram ID
+          await this.db.collection('users').doc(this.currentUser.uid).set({
+            telegramId: telegramId,
+            username: this.getTelegramUsername() || `Игрок ${telegramId}`,
+            authUid: this.currentUser.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+
+          console.log('Создан новый пользователь с Telegram ID:', telegramId);
+        }
+      } else {
+        // Анонимная аутентификация без Telegram ID
+        console.log('Telegram ID не найден, используем анонимную аутентификацию');
+        const userCredential = await this.auth.signInAnonymously();
+        this.currentUser = userCredential.user;
+      }
 
       console.log('Пользователь авторизован:', this.currentUser.uid);
 
@@ -89,13 +134,51 @@ class FirebaseManager {
     }
   }
 
-  // Сохранение данных игры (ТОЛЬКО ПРИ НАЛИЧИИ ИНТЕРНЕТА)
+  // Получение Telegram ID из WebApp
+  getTelegramId() {
+    try {
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+        const telegramData = window.Telegram.WebApp.initDataUnsafe;
+        if (telegramData.user && telegramData.user.id) {
+          return telegramData.user.id;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Ошибка получения Telegram ID:', error);
+      return null;
+    }
+  }
+
+  // Получение имени пользователя Telegram
+  getTelegramUsername() {
+    try {
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+        const telegramData = window.Telegram.WebApp.initDataUnsafe;
+        if (telegramData.user) {
+          return telegramData.user.username ||
+                 telegramData.user.first_name ||
+                 `Игрок ${telegramData.user.id}`;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Ошибка получения имени пользователя:', error);
+      return null;
+    }
+  }
+
+  // Сохранение данных игры
   async saveGameData(gameState) {
     try {
       if (!this.currentUser || !this.isOnline) {
         console.warn('Нет подключения к интернету. Данные не сохранены.');
         return false;
       }
+
+      // Получаем Telegram ID
+      const telegramId = this.getTelegramId();
+      const telegramUsername = this.getTelegramUsername();
 
       const dataToSave = {
         // Основные данные
@@ -130,14 +213,21 @@ class FirebaseManager {
         lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
         lastActive: firebase.firestore.FieldValue.serverTimestamp(),
         version: '1.0.0',
-        telegramId: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || null,
-        username: window.Telegram?.WebApp?.initDataUnsafe?.user?.username || `Игрок ${window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 'Аноним'}`
+
+        // Telegram данные (всегда обновляем)
+        telegramId: telegramId,
+        username: telegramUsername || `Игрок ${telegramId || 'Аноним'}`,
+
+        // Дополнительные данные для системы друзей
+        level: gameState.level,
+        honey: gameState.honey,
+        xp: gameState.xp
       };
 
       // Сохраняем в Firebase
       await this.db.collection('users').doc(this.currentUser.uid).set(dataToSave, { merge: true });
 
-      console.log('Данные сохранены в Firebase');
+      console.log('Данные сохранены в Firebase с Telegram ID:', telegramId);
       return true;
     } catch (error) {
       console.error('Ошибка сохранения в Firebase:', error);
@@ -145,7 +235,7 @@ class FirebaseManager {
     }
   }
 
-  // Загрузка данных игры (ТОЛЬКО ИЗ FIREBASE)
+  // Загрузка данных игры
   async loadGameData() {
     try {
       // Пробуем загрузить из Firebase
@@ -155,6 +245,8 @@ class FirebaseManager {
         if (doc.exists) {
           const data = doc.data();
           console.log('Данные загружены из Firebase');
+          console.log('Telegram ID в загруженных данных:', data.telegramId);
+
           return {
             success: true,
             data: data,
@@ -172,13 +264,28 @@ class FirebaseManager {
       };
     } catch (error) {
       console.error('Ошибка загрузки из Firebase:', error);
-
-      // При ошибке загрузки возвращаем новый профиль
       return {
         success: false,
         data: null,
         source: 'error'
       };
+    }
+  }
+
+  // Получение текущего Telegram ID
+  async getCurrentTelegramId() {
+    try {
+      if (!this.currentUser || !this.isOnline) return null;
+
+      const doc = await this.db.collection('users').doc(this.currentUser.uid).get();
+      if (doc.exists) {
+        const data = doc.data();
+        return data.telegramId || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Ошибка получения Telegram ID:', error);
+      return null;
     }
   }
 
@@ -211,13 +318,12 @@ class FirebaseManager {
         return { success: false, error: 'Нет подключения к интернету' };
       }
 
-      // Получаем текущего пользователя
-      const currentUserDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
-      const currentUserData = currentUserDoc.data();
-      const currentTelegramId = currentUserData.telegramId;
+      // Получаем Telegram ID текущего пользователя
+      const currentTelegramId = await this.getCurrentTelegramId();
+      console.log('Текущий Telegram ID:', currentTelegramId);
 
       if (!currentTelegramId) {
-        return { success: false, error: 'У текущего пользователя нет telegramId' };
+        return { success: false, error: 'У текущего пользователя нет telegramId. Перезагрузите игру.' };
       }
 
       // Проверяем, не пытаемся ли добавить самого себя
@@ -234,6 +340,7 @@ class FirebaseManager {
       // Ищем пользователя по telegramId
       const usersSnapshot = await this.db.collection('users')
         .where('telegramId', '==', parseInt(targetTelegramId))
+        .limit(1)
         .get();
 
       if (usersSnapshot.empty) {
@@ -255,6 +362,7 @@ class FirebaseManager {
         .where('fromUser', 'in', [this.currentUser.uid, targetUserId])
         .where('toUser', 'in', [this.currentUser.uid, targetUserId])
         .where('status', 'in', ['pending', 'accepted'])
+        .limit(1)
         .get();
 
       if (!existingRequest.empty) {
@@ -271,11 +379,16 @@ class FirebaseManager {
         }
       }
 
+      // Получаем данные текущего пользователя
+      const currentUserDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+      const currentUserData = currentUserDoc.data();
+
       // Создаем заявку
       await this.db.collection('friendRequests').add({
         fromUser: this.currentUser.uid,
         fromTelegramId: currentTelegramId,
         fromName: currentUserData.username || `Игрок ${currentTelegramId}`,
+        fromLevel: currentUserData.level || 1,
         toUser: targetUserId,
         toTelegramId: targetUserData.telegramId,
         toName: targetUserData.username || `Игрок ${targetUserData.telegramId}`,
@@ -381,6 +494,18 @@ class FirebaseManager {
   // Добавление друзей в коллекцию дружбы
   async addFriend(userId1, userId2) {
     try {
+      // Проверяем, не существует ли уже такой дружбы
+      const existingFriendship = await this.db.collection('friendships')
+        .where('user1', 'in', [userId1, userId2])
+        .where('user2', 'in', [userId1, userId2])
+        .limit(1)
+        .get();
+
+      if (!existingFriendship.empty) {
+        console.log('Дружба уже существует');
+        return true;
+      }
+
       // Создаем связь дружбы
       await this.db.collection('friendships').add({
         user1: userId1,
@@ -435,7 +560,7 @@ class FirebaseManager {
           friends.push({
             id: friendId,
             telegramId: friendData.telegramId,
-            username: friendData.username || `Игрок ${friendData.telegramId}`,
+            username: friendData.username || `Игрок ${friendData.telegramId || 'Неизвестно'}`,
             level: friendData.level || 1,
             honey: friendData.honey || 0,
             xp: friendData.xp || 0,
