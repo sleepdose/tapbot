@@ -60,7 +60,6 @@ class FirebaseManager {
   // Аутентификация пользователя с сохранением Telegram ID
   async authenticate() {
     try {
-      // Получаем Telegram ID
       const telegramId = this.getTelegramId();
       const telegramUsername = this.getTelegramUsername();
 
@@ -83,7 +82,7 @@ class FirebaseManager {
 
       // Добавляем Telegram данные если они есть
       if (telegramId) {
-        userData.telegramId = Number(telegramId); // Сохраняем как число
+        userData.telegramId = Number(telegramId);
         userData.username = telegramUsername || `Игрок ${telegramId}`;
 
         // Проверяем, есть ли уже пользователь с таким Telegram ID
@@ -93,7 +92,6 @@ class FirebaseManager {
           .get();
 
         if (!usersSnapshot.empty) {
-          // Обновляем существующего пользователя
           const userDoc = usersSnapshot.docs[0];
           console.log('Найден существующий пользователь:', userDoc.id);
 
@@ -102,11 +100,9 @@ class FirebaseManager {
           delete oldData.telegramId;
           delete oldData.username;
           delete oldData.authUid;
+          delete oldData.createdAt;
 
           Object.assign(userData, oldData);
-
-          // Обновляем текущий документ
-          await this.db.collection('users').doc(this.currentUser.uid).set(userData, { merge: true });
 
           // Удаляем старый документ если UID отличается
           if (userDoc.id !== this.currentUser.uid) {
@@ -115,7 +111,6 @@ class FirebaseManager {
           }
         }
       } else {
-        // Без Telegram ID
         userData.username = 'Анонимный игрок';
         console.log('Используется анонимная аутентификация');
       }
@@ -124,7 +119,6 @@ class FirebaseManager {
       await this.db.collection('users').doc(this.currentUser.uid).set(userData, { merge: true });
 
       console.log('Пользователь сохранен в Firebase');
-      console.log('Данные:', userData);
 
       // Слушаем изменения статуса аутентификации
       this.auth.onAuthStateChanged(user => {
@@ -182,12 +176,11 @@ class FirebaseManager {
   // Сохранение данных игры
   async saveGameData(gameState) {
     try {
-      if (!this.currentUser || !this.isOnline) {
+      if (!this.currentUser || !this.isOnline || !this.db) {
         console.warn('Нет подключения к интернету. Данные не сохранены.');
         return false;
       }
 
-      // Получаем Telegram ID
       const telegramId = this.getTelegramId();
       const telegramUsername = this.getTelegramUsername();
 
@@ -224,16 +217,18 @@ class FirebaseManager {
         lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
         lastActive: firebase.firestore.FieldValue.serverTimestamp(),
         version: '1.0.0',
-
-        // Telegram данные (всегда обновляем)
-        telegramId: telegramId ? Number(telegramId) : null,
-        username: telegramUsername || `Игрок ${telegramId || 'Аноним'}`,
       };
 
-      // Сохраняем в Firebase
+      // Добавляем Telegram данные только если они есть
+      if (telegramId) {
+        dataToSave.telegramId = Number(telegramId);
+        dataToSave.username = telegramUsername || `Игрок ${telegramId}`;
+      }
+
+      // Сохраняем в Firebase с обработкой ошибок записи
       await this.db.collection('users').doc(this.currentUser.uid).set(dataToSave, { merge: true });
 
-      console.log('Данные сохранены в Firebase с Telegram ID:', telegramId);
+      console.log('Данные сохранены в Firebase');
       return true;
     } catch (error) {
       console.error('Ошибка сохранения в Firebase:', error);
@@ -316,7 +311,7 @@ class FirebaseManager {
 
   // =================== МЕТОДЫ ДЛЯ СИСТЕМЫ ДРУЗЕЙ ===================
 
-  // Отправка заявки в друзья
+  // Отправка заявки в друзья - ИСПРАВЛЕННАЯ ВЕРСИЯ
   async sendFriendRequest(targetTelegramId, message = '') {
     try {
       if (!this.currentUser || !this.isOnline) {
@@ -337,7 +332,6 @@ class FirebaseManager {
       console.log('=== ОТПРАВКА ЗАЯВКИ В ДРУЗЬЯ ===');
       console.log('Текущий пользователь Telegram ID:', currentTelegramId);
       console.log('Целевой Telegram ID:', targetTelegramId);
-      console.log('Текущий пользователь данные:', currentUserData);
 
       if (!currentTelegramId) {
         return {
@@ -386,16 +380,34 @@ class FirebaseManager {
         return { success: false, error: 'У этого пользователя максимальное количество друзей' };
       }
 
-      // Проверяем, нет ли уже существующей заявки
-      const existingRequest = await this.db.collection('friendRequests')
-        .where('fromUser', 'in', [this.currentUser.uid, targetUserId])
-        .where('toUser', 'in', [this.currentUser.uid, targetUserId])
+      // ИСПРАВЛЕННЫЙ КОД: Разделяем на два отдельных запроса
+
+      // Запрос 1: Проверяем, отправил ли текущий пользователь заявку целевому
+      const outgoingRequest = await this.db.collection('friendRequests')
+        .where('fromUser', '==', this.currentUser.uid)
+        .where('toUser', '==', targetUserId)
         .where('status', 'in', ['pending', 'accepted'])
         .limit(1)
         .get();
 
-      if (!existingRequest.empty) {
-        const existingData = existingRequest.docs[0].data();
+      // Запрос 2: Проверяем, отправил ли целевой пользователь заявку текущему
+      const incomingRequest = await this.db.collection('friendRequests')
+        .where('fromUser', '==', targetUserId)
+        .where('toUser', '==', this.currentUser.uid)
+        .where('status', 'in', ['pending', 'accepted'])
+        .limit(1)
+        .get();
+
+      // Объединяем результаты
+      let existingRequest = null;
+      if (!outgoingRequest.empty) {
+        existingRequest = outgoingRequest.docs[0];
+      } else if (!incomingRequest.empty) {
+        existingRequest = incomingRequest.docs[0];
+      }
+
+      if (existingRequest) {
+        const existingData = existingRequest.data();
         if (existingData.status === 'accepted') {
           return { success: false, error: 'Вы уже друзья с этим пользователем' };
         } else if (existingData.status === 'pending') {
@@ -435,17 +447,21 @@ class FirebaseManager {
     try {
       if (!this.currentUser || !this.isOnline) return { incoming: [], outgoing: [] };
 
-      const incomingRequests = await this.db.collection('friendRequests')
+      // Входящие заявки
+      const incomingRequestsQuery = this.db.collection('friendRequests')
         .where('toUser', '==', this.currentUser.uid)
         .where('status', '==', 'pending')
-        .orderBy('createdAt', 'desc')
-        .get();
+        .orderBy('createdAt', 'desc');
 
-      const outgoingRequests = await this.db.collection('friendRequests')
+      const incomingRequests = await incomingRequestsQuery.get();
+
+      // Исходящие заявки
+      const outgoingRequestsQuery = this.db.collection('friendRequests')
         .where('fromUser', '==', this.currentUser.uid)
         .where('status', '==', 'pending')
-        .orderBy('createdAt', 'desc')
-        .get();
+        .orderBy('createdAt', 'desc');
+
+      const outgoingRequests = await outgoingRequestsQuery.get();
 
       return {
         incoming: incomingRequests.docs.map(doc => ({ id: doc.id, ...doc.data() })),
@@ -453,7 +469,27 @@ class FirebaseManager {
       };
     } catch (error) {
       console.error('Ошибка получения заявок:', error);
-      return { incoming: [], outgoing: [] };
+
+      // Если ошибка из-за порядка сортировки, пробуем без сортировки
+      try {
+        const incomingRequests = await this.db.collection('friendRequests')
+          .where('toUser', '==', this.currentUser.uid)
+          .where('status', '==', 'pending')
+          .get();
+
+        const outgoingRequests = await this.db.collection('friendRequests')
+          .where('fromUser', '==', this.currentUser.uid)
+          .where('status', '==', 'pending')
+          .get();
+
+        return {
+          incoming: incomingRequests.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+          outgoing: outgoingRequests.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        };
+      } catch (retryError) {
+        console.error('Ошибка при повторной попытке:', retryError);
+        return { incoming: [], outgoing: [] };
+      }
     }
   }
 
@@ -511,21 +547,31 @@ class FirebaseManager {
       }
     } catch (error) {
       console.error('Ошибка обработки заявки:', error);
-      return { success: false, error: 'Ошибка обработки заявки' };
+      return { success: false, error: 'Ошибка обработки заявки: ' + error.message };
     }
   }
 
   // Добавление друзей в коллекцию дружбы
   async addFriend(userId1, userId2) {
     try {
-      // Проверяем, не существует ли уже такой дружбы
-      const existingFriendship = await this.db.collection('friendships')
-        .where('user1', 'in', [userId1, userId2])
-        .where('user2', 'in', [userId1, userId2])
+      // ИСПРАВЛЕННЫЙ КОД: Разделяем на два отдельных запроса
+
+      // Запрос 1: Проверяем, где userId1 - user1, userId2 - user2
+      const friendshipQuery1 = await this.db.collection('friendships')
+        .where('user1', '==', userId1)
+        .where('user2', '==', userId2)
         .limit(1)
         .get();
 
-      if (!existingFriendship.empty) {
+      // Запрос 2: Проверяем, где userId1 - user2, userId2 - user1
+      const friendshipQuery2 = await this.db.collection('friendships')
+        .where('user1', '==', userId2)
+        .where('user2', '==', userId1)
+        .limit(1)
+        .get();
+
+      // Объединяем результаты
+      if (!friendshipQuery1.empty || !friendshipQuery2.empty) {
         console.log('Дружба уже существует');
         return true;
       }
@@ -627,15 +673,32 @@ class FirebaseManager {
     try {
       if (!this.currentUser || !this.isOnline) return false;
 
-      // Находим и удаляем дружескую связь
-      const friendshipQuery = await this.db.collection('friendships')
-        .where('user1', 'in', [this.currentUser.uid, friendId])
-        .where('user2', 'in', [this.currentUser.uid, friendId])
+      // ИСПРАВЛЕННЫЙ КОД: Разделяем на два отдельных запроса
+
+      // Запрос 1: Проверяем, где currentUser - user1
+      const friendshipQuery1 = await this.db.collection('friendships')
+        .where('user1', '==', this.currentUser.uid)
+        .where('user2', '==', friendId)
         .limit(1)
         .get();
 
-      if (!friendshipQuery.empty) {
-        await friendshipQuery.docs[0].ref.delete();
+      // Запрос 2: Проверяем, где currentUser - user2
+      const friendshipQuery2 = await this.db.collection('friendships')
+        .where('user1', '==', friendId)
+        .where('user2', '==', this.currentUser.uid)
+        .limit(1)
+        .get();
+
+      // Объединяем результаты
+      let friendshipDoc = null;
+      if (!friendshipQuery1.empty) {
+        friendshipDoc = friendshipQuery1.docs[0];
+      } else if (!friendshipQuery2.empty) {
+        friendshipDoc = friendshipQuery2.docs[0];
+      }
+
+      if (friendshipDoc) {
+        await friendshipDoc.ref.delete();
         console.log('Друг удален');
         return true;
       }
