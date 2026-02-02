@@ -420,22 +420,47 @@ async function updateMyTelegramId() {
     const myId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const myIdElement = document.getElementById('myTelegramId');
 
+    console.log('Telegram WebApp данные:', window.Telegram?.WebApp?.initDataUnsafe);
+    console.log('Telegram ID из WebApp:', myId);
+
     if (myId) {
       myIdElement.textContent = myId;
 
       // Получаем количество друзей для отображения
       if (window.firebaseManager) {
-        const friendsCount = await window.firebaseManager.getFriendsCount(window.firebaseManager.currentUser?.uid);
-        const friendsCounter = document.createElement('div');
-        friendsCounter.innerHTML = `<span style="font-size: 0.9em; color: rgba(255,255,255,0.7);">Друзей: ${friendsCount}/20</span>`;
-        myIdElement.parentElement.appendChild(friendsCounter);
+        // Даем время на загрузку Firebase
+        setTimeout(async () => {
+          try {
+            const friendsCount = await window.firebaseManager.getFriendsCount(window.firebaseManager.currentUser?.uid);
+            const friendsCounter = document.createElement('div');
+            friendsCounter.innerHTML = `<span style="font-size: 0.9em; color: rgba(255,255,255,0.7);">Друзей: ${friendsCount}/20</span>`;
+            myIdElement.parentElement.appendChild(friendsCounter);
+
+            // Проверяем, сохранен ли Telegram ID в Firebase
+            const telegramId = await window.firebaseManager.getCurrentTelegramId();
+            console.log('Telegram ID из Firebase:', telegramId);
+
+            if (!telegramId) {
+              console.warn('Telegram ID не найден в Firebase. Попробуем сохранить игру...');
+              // Пробуем сохранить игру, чтобы Telegram ID записался
+              if (gameState) {
+                await gameState.save(true);
+                console.log('Игра сохранена для записи Telegram ID');
+              }
+            }
+          } catch (error) {
+            console.error('Ошибка получения данных друзей:', error);
+          }
+        }, 2000);
       }
     } else {
       myIdElement.textContent = 'Недоступно в браузере';
       document.getElementById('copyMyIdBtn').style.display = 'none';
+      console.warn('Telegram ID не доступен. Запустите игру через Telegram.');
     }
   } catch (error) {
     console.error('Ошибка получения Telegram ID:', error);
+    document.getElementById('myTelegramId').textContent = 'Ошибка загрузки';
   }
 }
 
@@ -813,6 +838,11 @@ function formatDate(timestamp) {
 // =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
 async function initGame() {
     console.log('Загрузка игры AIKO TAPBOT...');
+    console.log('Telegram WebApp доступен:', !!window.Telegram?.WebApp);
+    console.log('Telegram данные:', window.Telegram?.WebApp?.initDataUnsafe);
+
+    // Добавляем кнопку отладки (можно убрать после тестирования)
+    addTelegramIdDebugButton();
 
     try {
         // Показываем статус загрузки
