@@ -384,18 +384,26 @@ function updatePreloaderProgress(percent) {
 }
 
 function hidePreloader() {
-    const preloader = document.getElementById('preloader');
-    if (preloader) {
-        setTimeout(() => {
-            preloader.classList.add('hidden');
-            // Удаляем прелоадер из DOM после анимации
-            setTimeout(() => {
-                if (preloader.parentNode) {
-                    preloader.style.display = 'none';
-                }
-            }, 500);
-        }, 500);
-    }
+  const preloader = document.getElementById('preloader');
+  const gameScreen = document.getElementById('gameScreen');
+
+  if (preloader) {
+    setTimeout(() => {
+      preloader.classList.add('hidden');
+
+      // ПОКАЗЫВАЕМ ИГРОВОЙ ЭКРАН
+      if (gameScreen) {
+        gameScreen.style.display = 'block';
+      }
+
+      // Удаляем прелоадер из DOM после анимации
+      setTimeout(() => {
+        if (preloader.parentNode) {
+          preloader.style.display = 'none';
+        }
+      }, 500);
+    }, 500);
+  }
 }
 
 // =================== СИСТЕМА ДРУЗЕЙ ===================
