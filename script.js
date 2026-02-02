@@ -335,6 +335,7 @@ const talentsConfig = {
 
 let gameState;
 let isAnimating = false;
+let isGameInitialized = false;
 
 // =================== ФУНКЦИИ ДЛЯ FIREBASE ===================
 function updateFirebaseStatusUI(isOnline) {
@@ -361,6 +362,39 @@ function updateFirebaseStatusUI(isOnline) {
             statusDot.className = 'status-dot offline';
             statusText.textContent = 'Нет интернета - данные не сохраняются';
         }
+    }
+}
+
+// =================== ПРЕЛОАДЕР ===================
+function showPreloader(text = 'Загрузка AIKO TAPBOT...') {
+    const preloader = document.getElementById('preloader');
+    const statusText = document.getElementById('preloaderStatus');
+
+    if (preloader) {
+        preloader.classList.remove('hidden');
+        if (statusText) statusText.textContent = text;
+    }
+}
+
+function updatePreloaderProgress(percent) {
+    const progressBar = document.getElementById('preloaderProgress');
+    if (progressBar) {
+        progressBar.style.width = `${Math.min(percent, 100)}%`;
+    }
+}
+
+function hidePreloader() {
+    const preloader = document.getElementById('preloader');
+    if (preloader) {
+        setTimeout(() => {
+            preloader.classList.add('hidden');
+            // Удаляем прелоадер из DOM после анимации
+            setTimeout(() => {
+                if (preloader.parentNode) {
+                    preloader.style.display = 'none';
+                }
+            }, 500);
+        }, 500);
     }
 }
 
@@ -906,20 +940,22 @@ function formatDate(timestamp) {
 
 // =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
 async function initGame() {
+    if (isGameInitialized) {
+        console.warn('Игра уже инициализирована');
+        return;
+    }
+
     console.log('=== ЗАГРУЗКА ИГРЫ AIKO TAPBOT ===');
     console.log('Telegram WebApp доступен:', !!window.Telegram?.WebApp);
     console.log('Telegram данные:', window.Telegram?.WebApp?.initDataUnsafe);
 
-    // Добавляем кнопки отладки (можно убрать после тестирования)
-    addTelegramIdDebugButton();
-    addTestButton();
+    // Показываем прелоадер
+    showPreloader('Инициализация игры...');
+    updatePreloaderProgress(10);
 
     try {
-        // Показываем статус загрузки
-        document.getElementById('firebaseStatus').style.display = 'block';
-        document.getElementById('statusText').textContent = 'Загрузка...';
-
         // Инициализируем Firebase
+        updatePreloaderProgress(20);
         if (window.firebaseManager) {
             const firebaseReady = await window.firebaseManager.init();
             if (!firebaseReady) {
@@ -928,10 +964,13 @@ async function initGame() {
             }
         }
 
+        updatePreloaderProgress(30);
+
         // Создаем состояние игры
         gameState = new GameState();
 
         // Пробуем загрузить сохраненные данные из Firebase
+        updatePreloaderProgress(40);
         const loaded = await gameState.load();
 
         if (!loaded) {
@@ -939,6 +978,8 @@ async function initGame() {
             gameState.reset();
             updateFirebaseStatusUI(false);
         }
+
+        updatePreloaderProgress(60);
 
         // Настраиваем UI
         const petImg = document.querySelector('#pet-img');
@@ -1030,6 +1071,7 @@ async function initGame() {
         initCrafting();
 
         // Инициализация системы друзей
+        updatePreloaderProgress(80);
         initFriendsSystem();
 
         // Автозапуск музыки при первом клике на улей
@@ -1058,14 +1100,38 @@ async function initGame() {
         // Сохраняем при первой загрузке (если есть интернет)
         setTimeout(() => gameState.save(true), 2000);
 
-        console.log('=== ИГРА УСПЕШНО ЗАГРУЖЕНА ===');
+        updatePreloaderProgress(100);
+
+        // Скрываем прелоадер с задержкой
+        setTimeout(() => {
+            hidePreloader();
+            isGameInitialized = true;
+            console.log('=== ИГРА УСПЕШНО ЗАГРУЖЕНА ===');
+        }, 1000);
 
     } catch (error) {
         console.error('Ошибка инициализации:', error);
+        // Показываем ошибку пользователю
+        const statusText = document.getElementById('preloaderStatus');
+        if (statusText) {
+            statusText.textContent = 'Ошибка загрузки. Пожалуйста, перезагрузите игру.';
+            statusText.style.color = '#ff6b6b';
+        }
+
+        // Скрываем прелоадер через 3 секунды
+        setTimeout(hidePreloader, 3000);
+
         // Создаем новое состояние при ошибке
         gameState = new GameState();
         gameState.reset();
         updateFirebaseStatusUI(false);
+        isGameInitialized = true;
+    }
+
+    // Добавляем кнопки отладки (можно убрать после тестирования)
+    if (window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1')) {
+        addTelegramIdDebugButton();
+        addTestButton();
     }
 }
 
@@ -1145,9 +1211,15 @@ function calculateDamage(type) {
 }
 
 function startEnergyRecovery() {
+    if (gameState.energyRecoveryInterval) {
+        clearInterval(gameState.energyRecoveryInterval);
+    }
+
     gameState.energyRecoveryInterval = setInterval(() => {
-        gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
-        updateUI(['energy']);
+        if (gameState.energy < gameState.maxEnergy) {
+            gameState.energy = Math.min(gameState.energy + 1, gameState.maxEnergy);
+            updateUI(['energy']);
+        }
     }, 3000);
     updateLevelProgress();
 }
@@ -1902,7 +1974,7 @@ function updateResultPopup() {
 }
 
 // Обработчик получения награды
-document.getElementById('claimRewardButton').addEventListener('click', () => {
+function claimBattleReward() {
     const reward = gameState.battleResult?.reward;
     const bossType = gameState.battleResult?.boss?.type;
 
@@ -1970,16 +2042,16 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
         // Сохраняем после получения награды
         setTimeout(() => gameState.save(), 100);
     }
-});
+}
 
 // Обработчик закрытия результатов
-document.getElementById('closeResultButton').addEventListener('click', () => {
+function closeBattleResult() {
     gameState.battleResult = null;
     gameState.inBattle = false;
     hidePopup('battleResult');
     document.getElementById('bossSelection').style.display = 'block';
     document.getElementById('combatScreen').style.display = 'none';
-});
+}
 
 function showFireEffect(damage) {
     const effect = document.createElement('div');
@@ -1998,9 +2070,9 @@ document.querySelectorAll('.popup .close').forEach(btn => {
         }
         if (popup.id === 'battleResultPopup') {
             if (gameState.battleResult?.victory) {
-                document.getElementById('claimRewardButton').click();
+                claimBattleReward();
             } else {
-                document.getElementById('closeResultButton').click();
+                closeBattleResult();
             }
         } else {
             hidePopup(popup.id.replace('Popup', ''));
@@ -2818,6 +2890,7 @@ function addTestButton() {
     document.body.appendChild(testBtn);
 }
 
+// =================== СИСТЕМА ФОНОВ ===================
 const backgrounds = [
     {
         name: 'default',
@@ -2862,53 +2935,63 @@ function updateBackgroundUI() {
     actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
 }
 
-document.getElementById('bgMenuBtn').addEventListener('click', () => {
-    previousBg = gameState.currentBackground;
-    document.getElementById('backgroundSelector').classList.add('active');
-    currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
-    updateBackgroundUI();
-});
+// Инициализация обработчиков фона
+function initBackgroundSystem() {
+    document.getElementById('bgMenuBtn').addEventListener('click', () => {
+        previousBg = gameState.currentBackground;
+        document.getElementById('backgroundSelector').classList.add('active');
+        currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
+        updateBackgroundUI();
+    });
 
-document.getElementById('bgPrevBtn').addEventListener('click', () => {
-    currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
-    updateBackgroundUI();
-});
+    document.getElementById('bgPrevBtn').addEventListener('click', () => {
+        currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
+        updateBackgroundUI();
+    });
 
-document.getElementById('bgNextBtn').addEventListener('click', () => {
-    currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
-    updateBackgroundUI();
-});
+    document.getElementById('bgNextBtn').addEventListener('click', () => {
+        currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
+        updateBackgroundUI();
+    });
 
-document.getElementById('bgActionBtn').addEventListener('click', () => {
-    const currentBg = backgrounds[currentBgIndex];
+    document.getElementById('bgActionBtn').addEventListener('click', () => {
+        const currentBg = backgrounds[currentBgIndex];
 
-    if (!gameState.purchasedBackgrounds.includes(currentBg.name)) {
-        if (gameState.honey >= currentBg.cost) {
-            gameState.honey -= currentBg.cost;
-            gameState.purchasedBackgrounds.push(currentBg.name);
-            updateUI(['honey']);
-        } else {
-            showMessage('Недостаточно мёда!');
-            return;
+        if (!gameState.purchasedBackgrounds.includes(currentBg.name)) {
+            if (gameState.honey >= currentBg.cost) {
+                gameState.honey -= currentBg.cost;
+                gameState.purchasedBackgrounds.push(currentBg.name);
+                updateUI(['honey']);
+            } else {
+                showMessage('Недостаточно мёда!');
+                return;
+            }
         }
-    }
 
-    gameState.currentBackground = currentBg.name;
-    showMessage(`Фон "${currentBg.name}" выбран!`);
-    updateBackgroundUI();
+        gameState.currentBackground = currentBg.name;
+        showMessage(`Фон "${currentBg.name}" выбран!`);
+        updateBackgroundUI();
 
-    // Сохраняем после выбора фона
-    setTimeout(() => gameState.save(), 100);
-});
+        // Сохраняем после выбора фона
+        setTimeout(() => gameState.save(), 100);
+    });
+}
 
 // =================== ЗАПУСК ИГРЫ ===================
-window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('gameScreen').style.display = 'block';
+// Обработка глобальных ошибок
+window.addEventListener('error', function(e) {
+    console.error('Глобальная ошибка:', e.error);
+
+    // Показываем пользователю сообщение об ошибке
+    if (gameState && isGameInitialized) {
+        showMessage('⚠️ Произошла ошибка. Попробуйте перезагрузить игру.');
+    }
 });
 
+// Инициализация при загрузке DOM
 document.addEventListener('DOMContentLoaded', () => {
+    // Инициализируем игру
     initGame();
-    document.getElementById('gameScreen').style.display = 'block';
 
     // Проверка необходимых элементов
     const elementsToCheck = [
@@ -2923,4 +3006,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(`Элемент с ID "${id}" не найден! Проверьте HTML.`);
         }
     });
+
+    // Инициализация системы фонов
+    initBackgroundSystem();
 });
