@@ -417,45 +417,55 @@ function initFriendsSystem() {
 // Обновление своего Telegram ID
 async function updateMyTelegramId() {
   try {
-    const myId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     const myIdElement = document.getElementById('myTelegramId');
+    const copyBtn = document.getElementById('copyMyIdBtn');
 
-    console.log('Telegram WebApp данные:', window.Telegram?.WebApp?.initDataUnsafe);
-    console.log('Telegram ID из WebApp:', myId);
+    // Получаем Telegram ID из WebApp
+    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
 
-    if (myId) {
-      myIdElement.textContent = myId;
+    console.log('=== ОБНОВЛЕНИЕ TELEGRAM ID ===');
+    console.log('Telegram ID из WebApp:', telegramId);
 
-      // Получаем количество друзей для отображения
+    if (telegramId) {
+      myIdElement.textContent = telegramId;
+      copyBtn.style.display = 'inline-block';
+
+      // Проверяем, сохранен ли Telegram ID в Firebase
       if (window.firebaseManager) {
-        // Даем время на загрузку Firebase
         setTimeout(async () => {
           try {
-            const friendsCount = await window.firebaseManager.getFriendsCount(window.firebaseManager.currentUser?.uid);
-            const friendsCounter = document.createElement('div');
-            friendsCounter.innerHTML = `<span style="font-size: 0.9em; color: rgba(255,255,255,0.7);">Друзей: ${friendsCount}/20</span>`;
-            myIdElement.parentElement.appendChild(friendsCounter);
+            const telegramIdFromFirebase = await window.firebaseManager.getCurrentTelegramId();
+            console.log('Telegram ID из Firebase:', telegramIdFromFirebase);
 
-            // Проверяем, сохранен ли Telegram ID в Firebase
-            const telegramId = await window.firebaseManager.getCurrentTelegramId();
-            console.log('Telegram ID из Firebase:', telegramId);
-
-            if (!telegramId) {
-              console.warn('Telegram ID не найден в Firebase. Попробуем сохранить игру...');
-              // Пробуем сохранить игру, чтобы Telegram ID записался
+            if (!telegramIdFromFirebase) {
+              console.warn('Telegram ID не найден в Firebase. Сохраняем игру...');
               if (gameState) {
                 await gameState.save(true);
                 console.log('Игра сохранена для записи Telegram ID');
               }
             }
+
+            // Получаем количество друзей для отображения
+            const friendsCount = await window.firebaseManager.getFriendsCount(window.firebaseManager.currentUser?.uid);
+            console.log('Количество друзей:', friendsCount);
+
+            // Обновляем счетчик друзей
+            let counter = myIdElement.parentElement.querySelector('.friends-counter');
+            if (!counter) {
+              counter = document.createElement('div');
+              counter.className = 'friends-counter';
+              myIdElement.parentElement.appendChild(counter);
+            }
+            counter.innerHTML = `<span style="font-size: 0.9em; color: rgba(255,255,255,0.7);">Друзей: ${friendsCount}/20</span>`;
+
           } catch (error) {
             console.error('Ошибка получения данных друзей:', error);
           }
         }, 2000);
       }
     } else {
-      myIdElement.textContent = 'Недоступно в браузере';
-      document.getElementById('copyMyIdBtn').style.display = 'none';
+      myIdElement.textContent = 'Откройте игру через Telegram';
+      copyBtn.style.display = 'none';
       console.warn('Telegram ID не доступен. Запустите игру через Telegram.');
     }
   } catch (error) {
@@ -467,12 +477,24 @@ async function updateMyTelegramId() {
 // Копирование своего Telegram ID
 function copyMyTelegramId() {
   const myId = document.getElementById('myTelegramId').textContent;
-  if (myId && myId !== 'Недоступно в браузере') {
+  if (myId && myId !== 'Откройте игру через Telegram') {
     navigator.clipboard.writeText(myId).then(() => {
       showMessage('✅ ID скопирован в буфер обмена!');
+    }).catch(() => {
+      // Fallback для старых браузеров
+      const textArea = document.createElement('textarea');
+      textArea.value = myId;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      showMessage('✅ ID скопирован в буфер обмена!');
     });
+  } else {
+    showMessage('❌ Нет Telegram ID для копирования');
   }
 }
+
 // Принудительное сохранение Telegram ID
 async function forceSaveTelegramId() {
   try {
@@ -490,7 +512,7 @@ async function forceSaveTelegramId() {
 
         // Сохраняем данные пользователя напрямую
         await window.firebaseManager.db.collection('users').doc(window.firebaseManager.currentUser.uid).set({
-          telegramId: telegramId,
+          telegramId: Number(telegramId),
           username: telegramUsername,
           lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
@@ -509,31 +531,13 @@ async function forceSaveTelegramId() {
   }
 }
 
-// Добавьте кнопку для принудительного сохранения (опционально)
-function addTelegramIdDebugButton() {
-  const debugBtn = document.createElement('button');
-  debugBtn.textContent = '🔄 Сохранить Telegram ID';
-  debugBtn.style.cssText = `
-    position: fixed;
-    top: 120px;
-    right: 15px;
-    padding: 8px 12px;
-    background: rgba(139, 69, 19, 0.9);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 0.8em;
-    z-index: 1000;
-    cursor: pointer;
-  `;
-  debugBtn.onclick = forceSaveTelegramId;
-  document.body.appendChild(debugBtn);
-}
-
 // Загрузка списка друзей
 async function loadFriendsList() {
   try {
-    if (!window.firebaseManager) return;
+    if (!window.firebaseManager) {
+      showMessage('❌ Firebase не инициализирован');
+      return;
+    }
 
     const friendsContainer = document.getElementById('friendsContainer');
     friendsContainer.innerHTML = '<div class="loading">Загрузка...</div>';
@@ -541,6 +545,7 @@ async function loadFriendsList() {
     const friends = await window.firebaseManager.getFriends();
     gameState.friends = friends;
 
+    console.log('Загружено друзей:', friends.length);
     displayFriendsList(friends);
   } catch (error) {
     console.error('Ошибка загрузки друзей:', error);
@@ -688,7 +693,7 @@ async function sendFriendRequest() {
     }
 
     if (!window.firebaseManager) {
-      showMessage('❌ Ошибка соединения');
+      showMessage('❌ Ошибка соединения с сервером');
       return;
     }
 
@@ -733,13 +738,21 @@ async function sendFriendRequest() {
 // Загрузка заявок в друзья
 async function loadFriendRequests() {
   try {
-    if (!window.firebaseManager) return;
+    if (!window.firebaseManager) {
+      showMessage('❌ Firebase не инициализирован');
+      return;
+    }
 
     const requestsContainer = document.getElementById('requestsContainer');
     requestsContainer.innerHTML = '<div class="loading">Загрузка...</div>';
 
     const requests = await window.firebaseManager.getFriendRequests();
     gameState.friendRequests = requests;
+
+    console.log('Загружено заявок:', {
+      incoming: requests.incoming.length,
+      outgoing: requests.outgoing.length
+    });
 
     // Обновляем счетчик заявок
     const badge = document.getElementById('requestsCount');
@@ -818,7 +831,7 @@ function createRequestCard(request, type) {
       const requestId = e.target.dataset.requestId;
       const result = await window.firebaseManager.respondToFriendRequest(requestId, true);
       if (result.success) {
-        showMessage('✅ Заявка принята!');
+        showMessage('✅ Заявка принята! Теперь вы друзья!');
         loadFriendRequests();
         loadFriendsList();
       } else {
@@ -893,12 +906,13 @@ function formatDate(timestamp) {
 
 // =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
 async function initGame() {
-    console.log('Загрузка игры AIKO TAPBOT...');
+    console.log('=== ЗАГРУЗКА ИГРЫ AIKO TAPBOT ===');
     console.log('Telegram WebApp доступен:', !!window.Telegram?.WebApp);
     console.log('Telegram данные:', window.Telegram?.WebApp?.initDataUnsafe);
 
-    // Добавляем кнопку отладки (можно убрать после тестирования)
+    // Добавляем кнопки отладки (можно убрать после тестирования)
     addTelegramIdDebugButton();
+    addTestButton();
 
     try {
         // Показываем статус загрузки
@@ -1044,7 +1058,7 @@ async function initGame() {
         // Сохраняем при первой загрузке (если есть интернет)
         setTimeout(() => gameState.save(true), 2000);
 
-        console.log('Игра успешно загружена!');
+        console.log('=== ИГРА УСПЕШНО ЗАГРУЖЕНА ===');
 
     } catch (error) {
         console.error('Ошибка инициализации:', error);
@@ -2677,138 +2691,131 @@ function resetCrafting() {
     if (iceButton) iceButton.style.display = 'none';
 }
 
-// =================== ЗАПУСК ИГРЫ ===================
-document.getElementById('backToBossSelection').addEventListener('click', () => {
-    endBattle(false);
-    document.getElementById('bossSelection').style.display = 'block';
-    document.getElementById('combatScreen').style.display = 'none';
-});
+// =================== ДЕБАГ И ТЕСТ ФУНКЦИИ ===================
 
-// Обработчик видимости страницы
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && gameState.battleResult && !document.querySelector('#battleResultPopup.active')) {
-        updateResultPopup();
-        showPopup('battleResult');
-    }
-});
+// Функция отладки Telegram данных
+async function debugTelegramData() {
+    try {
+        console.log('=== ДЕБАГ ТЕЛЕГРАМ ДАННЫХ ===');
 
-// Обработчик закрытия всех попапов при клике вне их
-document.addEventListener('click', (e) => {
-    const bgSelector = document.getElementById('backgroundSelector');
-    const bgMenuBtn = document.getElementById('bgMenuBtn');
+        // 1. Проверяем данные из Telegram WebApp
+        const webAppData = window.Telegram?.WebApp?.initDataUnsafe;
+        console.log('Telegram WebApp данные:', webAppData);
+        console.log('Telegram ID из WebApp:', webAppData?.user?.id);
+        console.log('Telegram username:', webAppData?.user?.username);
 
-    if (bgSelector && bgMenuBtn) {
-        if (!bgSelector.contains(e.target) &&
-            e.target !== bgMenuBtn &&
-            bgSelector.classList.contains('active')) {
-            bgSelector.classList.remove('active');
+        // 2. Проверяем данные в Firebase
+        if (window.firebaseManager && window.firebaseManager.currentUser) {
+            const doc = await window.firebaseManager.db
+                .collection('users')
+                .doc(window.firebaseManager.currentUser.uid)
+                .get();
+
+            if (doc.exists) {
+                console.log('Данные из Firebase:', doc.data());
+                console.log('Telegram ID в Firebase:', doc.data().telegramId);
+            } else {
+                console.log('Пользователь не найден в Firebase');
+            }
+        } else {
+            console.log('Firebase не инициализирован');
         }
+
+        showMessage('✅ Данные проверены (см. консоль)');
+    } catch (error) {
+        console.error('Ошибка дебага:', error);
+        showMessage('❌ Ошибка дебага');
     }
-});
+}
 
-// =================== ФУНКЦИИ ТАЙМЕРОВ ЯДА ===================
-function showPoisonTimer(duration) {
-    let timerContainer = document.getElementById('poisonTimersContainer');
-    if (!timerContainer) {
-        timerContainer = document.createElement('div');
-        timerContainer.id = 'poisonTimersContainer';
-        timerContainer.className = 'poison-timers';
-        elements.combatScreen.appendChild(timerContainer);
-    }
+// Функция тестирования системы друзей
+async function testFriendSystem() {
+    try {
+        console.log('=== ТЕСТ СИСТЕМЫ ДРУЗЕЙ ===');
 
-    const timerElement = document.createElement('div');
-    timerElement.className = 'poison-timer';
-    const timerId = `poison-timer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    timerElement.id = timerId;
+        // 1. Проверяем Firebase
+        if (!window.firebaseManager || !window.firebaseManager.currentUser) {
+            console.error('Firebase не инициализирован');
+            showMessage('❌ Firebase не инициализирован');
+            return;
+        }
 
-    timerElement.innerHTML = `
-        <span class="poison-icon">☠️</span>
-        <span class="poison-duration">${duration}s</span>
-        <div class="poison-progress"></div>
-    `;
+        // 2. Проверяем Telegram ID
+        const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+        console.log('Telegram ID из WebApp:', telegramId);
 
-    const progressBar = timerElement.querySelector('.poison-progress');
-    progressBar.style.animation = `poison-progress ${duration}s linear forwards`;
+        // 3. Проверяем данные в Firebase
+        const userDoc = await window.firebaseManager.db
+            .collection('users')
+            .doc(window.firebaseManager.currentUser.uid)
+            .get();
 
-    timerContainer.appendChild(timerElement);
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            console.log('Данные пользователя:', userData);
+            console.log('Telegram ID в Firebase:', userData.telegramId);
 
-    const poisonEffect = {
-        id: timerId,
-        startTime: Date.now(),
-        duration: duration * 1000,
-        timerElement: timerElement,
-        interval: null,
-        timeout: null
-    };
-
-    gameState.activeEffects.poison.push(poisonEffect);
-
-    poisonEffect.interval = setInterval(() => {
-        const currentTime = Date.now();
-        const elapsed = currentTime - poisonEffect.startTime;
-        const remaining = Math.ceil((poisonEffect.duration - elapsed) / 1000);
-
-        const durationElement = timerElement.querySelector('.poison-duration');
-        if (durationElement) {
-            durationElement.textContent = `${remaining}s`;
-
-            if (remaining <= 5) {
-                const intensity = 100 + Math.floor(30 * (remaining / 5));
-                timerElement.style.backgroundColor = `rgba(50, ${intensity}, 50, 0.9)`;
+            if (!userData.telegramId) {
+                showMessage('❌ Telegram ID не сохранен в Firebase');
+            } else {
+                showMessage('✅ Telegram ID сохранен: ' + userData.telegramId);
             }
         }
 
-        if (remaining <= 0) {
-            clearInterval(poisonEffect.interval);
-            removePoisonTimer(timerId);
-        }
-    }, 100);
+        // 4. Загружаем друзей для проверки
+        const friends = await window.firebaseManager.getFriends();
+        console.log('Количество друзей:', friends.length);
 
-    poisonEffect.timeout = setTimeout(() => {
-        removePoisonTimer(timerId);
-    }, poisonEffect.duration + 500);
+        // 5. Загружаем заявки для проверки
+        const requests = await window.firebaseManager.getFriendRequests();
+        console.log('Заявки:', requests);
 
-    setTimeout(() => {
-        timerElement.style.opacity = '1';
-        timerElement.style.transform = 'translateY(0)';
-    }, 10);
-}
-
-function removePoisonTimer(timerId) {
-    const timerElement = document.getElementById(timerId);
-    if (timerElement) {
-        timerElement.style.opacity = '0';
-        timerElement.style.transform = 'translateY(-20px)';
-        setTimeout(() => timerElement.remove(), 500);
-    }
-
-    gameState.activeEffects.poison = gameState.activeEffects.poison.filter(effect => {
-        if (effect.id === timerId) {
-            clearInterval(effect.interval);
-            clearTimeout(effect.timeout);
-            return false;
-        }
-        return true;
-    });
-
-    if (gameState.inBattle) {
-        createTalentButtons();
+    } catch (error) {
+        console.error('Ошибка теста:', error);
+        showMessage('❌ Ошибка теста: ' + error.message);
     }
 }
 
-function updatePoisonTimers() {
-    const activeEffects = gameState.activeEffects.poison;
-    const timerContainer = document.getElementById('poisonTimersContainer');
-    if (!timerContainer) return;
+// Добавление кнопки для отладки Telegram
+function addTelegramIdDebugButton() {
+    const debugBtn = document.createElement('button');
+    debugBtn.textContent = '🔧 Debug';
+    debugBtn.style.cssText = `
+        position: fixed;
+        top: 120px;
+        right: 15px;
+        padding: 8px 12px;
+        background: rgba(139, 69, 19, 0.9);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.8em;
+        z-index: 1000;
+        cursor: pointer;
+    `;
+    debugBtn.onclick = debugTelegramData;
+    document.body.appendChild(debugBtn);
+}
 
-    const currentTime = Date.now();
-
-    activeEffects.forEach(effect => {
-        const remaining = Math.ceil((effect.duration - (currentTime - effect.startTime)) / 1000);
-        if (remaining > 0) {
-            showPoisonTimer(remaining);
-        }
-    });
+// Добавление кнопки для тестирования системы друзей
+function addTestButton() {
+    const testBtn = document.createElement('button');
+    testBtn.textContent = '🧪 Test';
+    testBtn.style.cssText = `
+        position: fixed;
+        top: 160px;
+        right: 15px;
+        padding: 8px 12px;
+        background: rgba(0, 100, 255, 0.9);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.8em;
+        z-index: 1000;
+        cursor: pointer;
+    `;
+    testBtn.onclick = testFriendSystem;
+    document.body.appendChild(testBtn);
 }
 
 const backgrounds = [
