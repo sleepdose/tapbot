@@ -473,6 +473,62 @@ function copyMyTelegramId() {
     });
   }
 }
+// Принудительное сохранение Telegram ID
+async function forceSaveTelegramId() {
+  try {
+    if (window.firebaseManager && gameState) {
+      console.log('Принудительное сохранение Telegram ID...');
+
+      // Получаем Telegram ID из WebApp
+      const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+      const telegramUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username ||
+                              window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name ||
+                              `Игрок ${telegramId || 'Аноним'}`;
+
+      if (telegramId) {
+        console.log('Сохраняем Telegram ID:', telegramId);
+
+        // Сохраняем данные пользователя напрямую
+        await window.firebaseManager.db.collection('users').doc(window.firebaseManager.currentUser.uid).set({
+          telegramId: telegramId,
+          username: telegramUsername,
+          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        showMessage('✅ Telegram ID сохранен!');
+
+        // Обновляем отображение
+        updateMyTelegramId();
+      } else {
+        showMessage('❌ Telegram ID не найден');
+      }
+    }
+  } catch (error) {
+    console.error('Ошибка сохранения Telegram ID:', error);
+    showMessage('❌ Ошибка сохранения Telegram ID');
+  }
+}
+
+// Добавьте кнопку для принудительного сохранения (опционально)
+function addTelegramIdDebugButton() {
+  const debugBtn = document.createElement('button');
+  debugBtn.textContent = '🔄 Сохранить Telegram ID';
+  debugBtn.style.cssText = `
+    position: fixed;
+    top: 120px;
+    right: 15px;
+    padding: 8px 12px;
+    background: rgba(139, 69, 19, 0.9);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.8em;
+    z-index: 1000;
+    cursor: pointer;
+  `;
+  debugBtn.onclick = forceSaveTelegramId;
+  document.body.appendChild(debugBtn);
+}
 
 // Загрузка списка друзей
 async function loadFriendsList() {
