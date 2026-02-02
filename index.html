@@ -14,6 +14,18 @@
 </head>
 
 <body>
+  <!-- Прелоадер -->
+  <div id="preloader" class="preloader">
+    <div class="preloader-content">
+      <div class="preloader-spinner"></div>
+      <div class="preloader-text">Загрузка AIKO TAPBOT...</div>
+      <div class="preloader-subtext" id="preloaderStatus">Подключение к серверу</div>
+      <div class="preloader-progress">
+        <div class="preloader-progress-bar" id="preloaderProgress"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Панель статуса Firebase -->
   <div id="firebaseStatus" class="firebase-status" style="display: none;">
     <span class="status-dot" id="statusDot"></span>
@@ -21,7 +33,7 @@
   </div>
 
   <div class="effect-indicators"></div>
-  <div id="gameScreen">
+  <div id="gameScreen" style="display: none;">
     <div class="stats">
       <div class="stat"><span id="energy">100</span>/<span id="maxEnergy">100</span></div>
       <div class="stat">Ур. <span id="level">1</span></div>
