@@ -153,6 +153,8 @@ class GameState {
             iceDamage: 0,
             totalDamage: 0
         };
+        this.friends = [];
+        this.friendRequests = { incoming: [], outgoing: [] };
 
         // Для автосохранения
         this.lastSaveTime = 0;
@@ -162,8 +164,7 @@ class GameState {
     }
 
     reset() {
-        // ИЗМЕНЕНО: начальные значения
-        this.honey = 0; // Было: 100000
+        this.honey = 0;
         this.xp = 0;
         this.level = 1;
         this.energy = 100;
@@ -258,7 +259,7 @@ class GameState {
     // Применение загруженных данных
     applyLoadedData(data) {
         // Основные данные
-        this.honey = data.honey || 0; // ИЗМЕНЕНО: по умолчанию 0
+        this.honey = data.honey || 0;
         this.xp = data.xp || 0;
         this.level = data.level || 1;
         this.energy = data.energy || 100;
@@ -361,6 +362,452 @@ function updateFirebaseStatusUI(isOnline) {
             statusText.textContent = 'Нет интернета - данные не сохраняются';
         }
     }
+}
+
+// =================== СИСТЕМА ДРУЗЕЙ ===================
+
+// Инициализация системы друзей
+function initFriendsSystem() {
+  // Инициализация вкладок
+  document.querySelectorAll('.friends-tabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.tab;
+      document.querySelectorAll('.friends-tabs .tab-btn, .friends-tab').forEach(el => {
+        el.classList.remove('active');
+      });
+      btn.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+
+      if (tabId === 'friendsList') {
+        loadFriendsList();
+      } else if (tabId === 'friendRequests') {
+        loadFriendRequests();
+      }
+    });
+  });
+
+  // Кнопка отправки заявки
+  document.getElementById('sendFriendRequestBtn').addEventListener('click', sendFriendRequest);
+
+  // Кнопка копирования своего ID
+  document.getElementById('copyMyIdBtn').addEventListener('click', copyMyTelegramId);
+
+  // Поиск по друзьям - теперь только по ID
+  document.getElementById('searchFriend').addEventListener('input', filterFriendsList);
+
+  // Показываем подсказку под полем поиска
+  const searchInput = document.getElementById('searchFriend');
+  searchInput.placeholder = 'Поиск по Telegram ID...';
+
+  // Добавляем подсказку
+  const searchContainer = document.querySelector('.friends-search');
+  const hint = document.createElement('div');
+  hint.className = 'search-hint';
+  hint.innerHTML = '🔍 Введите Telegram ID для поиска друзей';
+  hint.style.fontSize = '0.8em';
+  hint.style.color = 'rgba(255,255,255,0.6)';
+  hint.style.marginTop = '5px';
+  hint.style.textAlign = 'center';
+  searchContainer.appendChild(hint);
+
+  // Показываем свой Telegram ID
+  updateMyTelegramId();
+}
+
+// Обновление своего Telegram ID
+async function updateMyTelegramId() {
+  try {
+    const myId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const myIdElement = document.getElementById('myTelegramId');
+
+    if (myId) {
+      myIdElement.textContent = myId;
+
+      // Получаем количество друзей для отображения
+      if (window.firebaseManager) {
+        const friendsCount = await window.firebaseManager.getFriendsCount(window.firebaseManager.currentUser?.uid);
+        const friendsCounter = document.createElement('div');
+        friendsCounter.innerHTML = `<span style="font-size: 0.9em; color: rgba(255,255,255,0.7);">Друзей: ${friendsCount}/20</span>`;
+        myIdElement.parentElement.appendChild(friendsCounter);
+      }
+    } else {
+      myIdElement.textContent = 'Недоступно в браузере';
+      document.getElementById('copyMyIdBtn').style.display = 'none';
+    }
+  } catch (error) {
+    console.error('Ошибка получения Telegram ID:', error);
+  }
+}
+
+// Копирование своего Telegram ID
+function copyMyTelegramId() {
+  const myId = document.getElementById('myTelegramId').textContent;
+  if (myId && myId !== 'Недоступно в браузере') {
+    navigator.clipboard.writeText(myId).then(() => {
+      showMessage('✅ ID скопирован в буфер обмена!');
+    });
+  }
+}
+
+// Загрузка списка друзей
+async function loadFriendsList() {
+  try {
+    if (!window.firebaseManager) return;
+
+    const friendsContainer = document.getElementById('friendsContainer');
+    friendsContainer.innerHTML = '<div class="loading">Загрузка...</div>';
+
+    const friends = await window.firebaseManager.getFriends();
+    gameState.friends = friends;
+
+    displayFriendsList(friends);
+  } catch (error) {
+    console.error('Ошибка загрузки друзей:', error);
+    document.getElementById('friendsContainer').innerHTML =
+      '<div class="empty-state">❌ Ошибка загрузки друзей</div>';
+  }
+}
+
+// Отображение списка друзей
+function displayFriendsList(friends, searchQuery = '') {
+  const friendsContainer = document.getElementById('friendsContainer');
+  friendsContainer.innerHTML = '';
+
+  if (friends.length === 0) {
+    if (searchQuery) {
+      friendsContainer.innerHTML = `
+        <div class="empty-state">
+          🔍 Друзья с ID "${searchQuery}" не найдены
+        </div>
+      `;
+    } else {
+      friendsContainer.innerHTML = '<div class="empty-state">👥 У вас пока нет друзей</div>';
+    }
+    return;
+  }
+
+  // Показываем счетчик друзей
+  const friendsCounter = document.createElement('div');
+  friendsCounter.className = 'friends-counter';
+  friendsCounter.innerHTML = `<span>Друзей: ${friends.length}/20</span>`;
+  if (friends.length >= 20) {
+    friendsCounter.innerHTML += '<span style="color: #ff6b6b; margin-left: 10px;">Лимит достигнут!</span>';
+  }
+  friendsContainer.appendChild(friendsCounter);
+
+  friends.forEach(friend => {
+    const friendCard = createFriendCard(friend);
+    friendsContainer.appendChild(friendCard);
+  });
+}
+
+// Создание карточки друга
+function createFriendCard(friend) {
+  const card = document.createElement('div');
+  card.className = 'friend-card';
+
+  const status = window.firebaseManager.getOnlineStatus(friend.lastOnline);
+  const statusText = {
+    online: '🟢 В сети',
+    away: '🟡 Был недавно',
+    offline: '🔴 Не в сети'
+  }[status];
+
+  const statusColor = {
+    online: '#4CAF50',
+    away: '#ff9800',
+    offline: '#f44336'
+  }[status];
+
+  card.innerHTML = `
+    <div class="friend-header">
+      <div class="friend-info">
+        <h4>${friend.username}</h4>
+        <div class="friend-status">
+          <span class="status-dot" style="background: ${statusColor};"></span>
+          <span>${statusText}</span>
+          <span style="margin-left: auto; font-family: monospace; font-size: 0.9em;">ID: ${friend.telegramId}</span>
+        </div>
+      </div>
+      <div class="friend-level" style="background: rgba(139, 69, 19, 0.3); padding: 5px 10px; border-radius: 10px;">
+        Ур. ${friend.level}
+      </div>
+    </div>
+
+    <div class="friend-stats">
+      <div class="stat-item-small">🍯 ${formatNumber(friend.honey || 0)}</div>
+      <div class="stat-item-small">⭐ ${formatNumber(friend.xp || 0)} XP</div>
+      <div class="stat-item-small">🕐 ${friend.lastOnline ? formatLastSeen(friend.lastOnline) : 'Неизвестно'}</div>
+      <div class="stat-item-small">📅 ${friend.lastOnline ? formatDate(friend.lastOnline) : 'Нет данных'}</div>
+    </div>
+
+    <div class="friend-actions">
+      <button class="remove-friend-btn" data-friend-id="${friend.id}">
+        🗑️ Удалить из друзей
+      </button>
+    </div>
+  `;
+
+  // Обработчик удаления друга
+  card.querySelector('.remove-friend-btn').addEventListener('click', async (e) => {
+    const friendId = e.target.dataset.friendId;
+    if (confirm('Вы уверены, что хотите удалить этого друга?')) {
+      const success = await window.firebaseManager.removeFriend(friendId);
+      if (success) {
+        showMessage('✅ Друг удален');
+        loadFriendsList();
+      } else {
+        showMessage('❌ Ошибка удаления друга');
+      }
+    }
+  });
+
+  return card;
+}
+
+// Фильтрация списка друзей по Telegram ID
+function filterFriendsList() {
+  const searchText = document.getElementById('searchFriend').value.trim();
+  const friends = gameState.friends;
+
+  if (!searchText) {
+    // Показываем всех друзей
+    displayFriendsList(friends);
+    return;
+  }
+
+  // Ищем только по Telegram ID
+  const filteredFriends = friends.filter(friend =>
+    friend.telegramId && friend.telegramId.toString().includes(searchText)
+  );
+
+  displayFriendsList(filteredFriends, searchText);
+}
+
+// Отправка заявки в друзья
+async function sendFriendRequest() {
+  try {
+    const telegramIdInput = document.getElementById('friendTelegramId');
+    const messageInput = document.getElementById('friendMessage');
+
+    const telegramId = telegramIdInput.value.trim();
+    const message = messageInput.value.trim();
+
+    if (!telegramId) {
+      showMessage('❌ Введите Telegram ID');
+      telegramIdInput.focus();
+      return;
+    }
+
+    // Проверяем, что введен только цифры
+    if (!/^\d+$/.test(telegramId)) {
+      showMessage('❌ Telegram ID должен содержать только цифры');
+      telegramIdInput.focus();
+      return;
+    }
+
+    if (!window.firebaseManager) {
+      showMessage('❌ Ошибка соединения');
+      return;
+    }
+
+    // Показываем индикатор загрузки
+    const sendBtn = document.getElementById('sendFriendRequestBtn');
+    const originalText = sendBtn.textContent;
+    sendBtn.textContent = 'Отправка...';
+    sendBtn.disabled = true;
+
+    const result = await window.firebaseManager.sendFriendRequest(telegramId, message);
+
+    sendBtn.textContent = originalText;
+    sendBtn.disabled = false;
+
+    if (result.success) {
+      showMessage('✅ Заявка отправлена!');
+      telegramIdInput.value = '';
+      messageInput.value = '';
+
+      // Переключаемся на вкладку заявок
+      document.querySelectorAll('.friends-tabs .tab-btn, .friends-tab').forEach(el => {
+        el.classList.remove('active');
+      });
+      document.querySelector('.friends-tabs .tab-btn[data-tab="friendRequests"]').classList.add('active');
+      document.getElementById('friendRequests').classList.add('active');
+
+      // Загружаем заявки
+      loadFriendRequests();
+    } else {
+      showMessage('❌ ' + result.error);
+    }
+  } catch (error) {
+    console.error('Ошибка отправки заявки:', error);
+    showMessage('❌ Ошибка отправки заявки');
+
+    const sendBtn = document.getElementById('sendFriendRequestBtn');
+    sendBtn.textContent = 'Отправить заявку';
+    sendBtn.disabled = false;
+  }
+}
+
+// Загрузка заявок в друзья
+async function loadFriendRequests() {
+  try {
+    if (!window.firebaseManager) return;
+
+    const requestsContainer = document.getElementById('requestsContainer');
+    requestsContainer.innerHTML = '<div class="loading">Загрузка...</div>';
+
+    const requests = await window.firebaseManager.getFriendRequests();
+    gameState.friendRequests = requests;
+
+    // Обновляем счетчик заявок
+    const badge = document.getElementById('requestsCount');
+    if (badge) {
+      badge.textContent = requests.incoming.length;
+      badge.style.display = requests.incoming.length > 0 ? 'inline-flex' : 'none';
+    }
+
+    if (requests.incoming.length === 0 && requests.outgoing.length === 0) {
+      requestsContainer.innerHTML = '<div class="empty-state">📭 У вас нет заявок в друзья</div>';
+      return;
+    }
+
+    requestsContainer.innerHTML = '';
+
+    // Входящие заявки
+    if (requests.incoming.length > 0) {
+      const incomingHeader = document.createElement('h4');
+      incomingHeader.textContent = `Входящие заявки (${requests.incoming.length}):`;
+      incomingHeader.style.marginBottom = '10px';
+      incomingHeader.style.color = 'var(--accent)';
+      requestsContainer.appendChild(incomingHeader);
+
+      requests.incoming.forEach(request => {
+        const requestCard = createRequestCard(request, 'incoming');
+        requestsContainer.appendChild(requestCard);
+      });
+    }
+
+    // Исходящие заявки
+    if (requests.outgoing.length > 0) {
+      const outgoingHeader = document.createElement('h4');
+      outgoingHeader.textContent = `Исходящие заявки (${requests.outgoing.length}):`;
+      outgoingHeader.style.marginTop = '20px';
+      outgoingHeader.style.marginBottom = '10px';
+      outgoingHeader.style.color = 'var(--accent)';
+      requestsContainer.appendChild(outgoingHeader);
+
+      requests.outgoing.forEach(request => {
+        const requestCard = createRequestCard(request, 'outgoing');
+        requestsContainer.appendChild(requestCard);
+      });
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки заявок:', error);
+    document.getElementById('requestsContainer').innerHTML =
+      '<div class="empty-state">❌ Ошибка загрузки заявок</div>';
+  }
+}
+
+// Создание карточки заявки
+function createRequestCard(request, type) {
+  const card = document.createElement('div');
+  card.className = 'request-card';
+
+  if (type === 'incoming') {
+    card.innerHTML = `
+      <div class="request-info">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>${request.fromName}</strong>
+          <span style="font-family: monospace; font-size: 0.9em; color: rgba(255,255,255,0.7);">ID: ${request.fromTelegramId}</span>
+        </div>
+        ${request.message ? `<div style="margin-top: 5px; font-size: 0.9em; color: rgba(255,255,255,0.8);">💬 "${request.message}"</div>` : ''}
+        <div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">
+          📅 ${formatDate(request.createdAt)}
+        </div>
+      </div>
+      <div class="request-actions">
+        <button class="accept-btn" data-request-id="${request.id}">✓ Принять</button>
+        <button class="reject-btn" data-request-id="${request.id}">✗ Отклонить</button>
+      </div>
+    `;
+
+    // Обработчики для кнопок принятия/отклонения
+    card.querySelector('.accept-btn').addEventListener('click', async (e) => {
+      const requestId = e.target.dataset.requestId;
+      const result = await window.firebaseManager.respondToFriendRequest(requestId, true);
+      if (result.success) {
+        showMessage('✅ Заявка принята!');
+        loadFriendRequests();
+        loadFriendsList();
+      } else {
+        showMessage('❌ ' + result.error);
+      }
+    });
+
+    card.querySelector('.reject-btn').addEventListener('click', async (e) => {
+      const requestId = e.target.dataset.requestId;
+      const result = await window.firebaseManager.respondToFriendRequest(requestId, false);
+      if (result.success) {
+        showMessage('Заявка отклонена');
+        loadFriendRequests();
+      } else {
+        showMessage('❌ ' + result.error);
+      }
+    });
+  } else {
+    card.innerHTML = `
+      <div class="request-info">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <strong>${request.toName}</strong>
+          <span style="font-family: monospace; font-size: 0.9em; color: rgba(255,255,255,0.7);">ID: ${request.toTelegramId}</span>
+        </div>
+        ${request.message ? `<div style="margin-top: 5px; font-size: 0.9em; color: rgba(255,255,255,0.8);">💬 "${request.message}"</div>` : ''}
+        <div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">
+          📅 ${formatDate(request.createdAt)}
+        </div>
+        <div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">
+          Ожидание ответа...
+        </div>
+      </div>
+    `;
+  }
+
+  return card;
+}
+
+// Форматирование чисел
+function formatNumber(num) {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return Math.floor(num).toLocaleString('ru-RU');
+}
+
+// Форматирование времени последнего визита
+function formatLastSeen(timestamp) {
+  if (!timestamp) return 'давно';
+
+  const now = Date.now();
+  const time = timestamp.toDate ? timestamp.toDate().getTime() : timestamp;
+  const diff = now - time;
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (minutes < 60) return `${minutes} мин. назад`;
+  if (hours < 24) return `${hours} ч. назад`;
+  return `${days} дн. назад`;
+}
+
+// Форматирование даты
+function formatDate(timestamp) {
+  if (!timestamp) return '';
+
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return date.toLocaleDateString('ru-RU');
 }
 
 // =================== ОСНОВНЫЕ ФУНКЦИИ ИГРЫ ===================
@@ -481,6 +928,9 @@ async function initGame() {
         initAudio();
         audioElements.musicToggle.addEventListener('click', toggleMusic);
         initCrafting();
+
+        // Инициализация системы друзей
+        initFriendsSystem();
 
         // Автозапуск музыки при первом клике на улей
         document.getElementById('hive').addEventListener('click', function firstPlay() {
@@ -1351,6 +1801,7 @@ function updateResultPopup() {
     resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
 }
 
+// Обработчик получения награды
 document.getElementById('claimRewardButton').addEventListener('click', () => {
     const reward = gameState.battleResult?.reward;
     const bossType = gameState.battleResult?.boss?.type;
@@ -1421,6 +1872,7 @@ document.getElementById('claimRewardButton').addEventListener('click', () => {
     }
 });
 
+// Обработчик закрытия результатов
 document.getElementById('closeResultButton').addEventListener('click', () => {
     gameState.battleResult = null;
     gameState.inBattle = false;
@@ -1645,11 +2097,11 @@ function showPopup(popupType) {
     if (popup) {
         popup.classList.add('active');
         document.body.style.overflow = 'hidden';
-        if (popupType === 'shop') {
-            document.querySelector('#shopPopup .tab-btn[data-tab="boosts"]').click();
-        }
-        if (popupType === 'talents') {
-            document.querySelector('#talentsPopup .tab-btn[data-tab="buyCharges"]').click();
+
+        // Особые действия при открытии определенных попапов
+        if (popupType === 'friends') {
+            // При открытии попапа друзей загружаем данные
+            loadFriendsList();
         }
         if (popupType === 'battleResult') updateResultPopup();
     }
@@ -2146,66 +2598,26 @@ document.getElementById('backToBossSelection').addEventListener('click', () => {
     document.getElementById('combatScreen').style.display = 'none';
 });
 
-window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('gameScreen').style.display = 'block';
+// Обработчик видимости страницы
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && gameState.battleResult && !document.querySelector('#battleResultPopup.active')) {
+        updateResultPopup();
+        showPopup('battleResult');
+    }
 });
 
-const shopTabs = document.querySelector('#shopPopup .shop-tabs');
-if (shopTabs) {
-    shopTabs.addEventListener('click', e => {
-        const tabBtn = e.target.closest('.tab-btn');
-        if (!tabBtn) return;
+// Обработчик закрытия всех попапов при клике вне их
+document.addEventListener('click', (e) => {
+    const bgSelector = document.getElementById('backgroundSelector');
+    const bgMenuBtn = document.getElementById('bgMenuBtn');
 
-        document.querySelectorAll('#shopPopup .tab-btn, #shopPopup .shop-tab').forEach(el => {
-            el.classList.remove('active');
-        });
-
-        tabBtn.classList.add('active');
-        const tabId = `shop${tabBtn.dataset.tab.charAt(0).toUpperCase() + tabBtn.dataset.tab.slice(1)}`;
-        document.getElementById(tabId).classList.add('active');
-    });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    initGame();
-    document.getElementById('gameScreen').style.display = 'block';
-    const elementsToCheck = [
-        'battleResultPopup',
-        'resultTitle',
-        'resultBossImage',
-        'claimRewardButton'
-    ];
-
-    elementsToCheck.forEach(id => {
-        if (!document.getElementById(id)) {
-            console.error(`Элемент с ID "${id}" не найден! Проверьте HTML.`);
+    if (bgSelector && bgMenuBtn) {
+        if (!bgSelector.contains(e.target) &&
+            e.target !== bgMenuBtn &&
+            bgSelector.classList.contains('active')) {
+            bgSelector.classList.remove('active');
         }
-    });
-
-    document.getElementById('claimRewardButton')?.addEventListener('click', () => {
-        const reward = gameState.battleResult?.reward;
-
-        if (reward) {
-            gameState.honey += reward.honey;
-            gameState.xp += reward.xp;
-
-            Object.entries(reward.keys).forEach(([type, amount]) => {
-                gameState.keys[type] = (gameState.keys[type] || 0) + amount;
-            });
-
-            checkLevelUp();
-            updateUI();
-            hidePopup('battleResult');
-            document.getElementById('bossSelection').style.display = 'block';
-        }
-    });
-
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && gameState.battleResult && !document.querySelector('#battleResultPopup.active')) {
-            updateResultPopup();
-            showPopup('battleResult');
-        }
-    });
+    }
 });
 
 // =================== ФУНКЦИИ ТАЙМЕРОВ ЯДА ===================
@@ -2396,16 +2808,26 @@ document.getElementById('bgActionBtn').addEventListener('click', () => {
     setTimeout(() => gameState.save(), 100);
 });
 
-// Закрытие меню фона при клике вне его
-document.addEventListener('click', (e) => {
-  const bgSelector = document.getElementById('backgroundSelector');
-  const bgMenuBtn = document.getElementById('bgMenuBtn');
+// =================== ЗАПУСК ИГРЫ ===================
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('gameScreen').style.display = 'block';
+});
 
-  if (bgSelector && bgMenuBtn) {
-    if (!bgSelector.contains(e.target) &&
-        e.target !== bgMenuBtn &&
-        bgSelector.classList.contains('active')) {
-      bgSelector.classList.remove('active');
-    }
-  }
+document.addEventListener('DOMContentLoaded', () => {
+    initGame();
+    document.getElementById('gameScreen').style.display = 'block';
+
+    // Проверка необходимых элементов
+    const elementsToCheck = [
+        'battleResultPopup',
+        'resultTitle',
+        'resultBossImage',
+        'claimRewardButton'
+    ];
+
+    elementsToCheck.forEach(id => {
+        if (!document.getElementById(id)) {
+            console.error(`Элемент с ID "${id}" не найден! Проверьте HTML.`);
+        }
+    });
 });

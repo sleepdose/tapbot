@@ -45,18 +45,17 @@
     <img id="pet-img" src="img/pet1.png" class="pet" alt="Питомец">
   </div>
 
+  <!-- Попап битвы -->
   <div id="battlePopup" class="popup">
     <div class="popup-scroll-wrapper">
       <div class="popup-content">
         <div class="popup-header">
           <button class="close">×</button>
         </div>
-        <!-- Кнопки для фильтрации боссов по сложности -->
         <div class="battle-container">
           <div id="bossSelection">
             <div class="boss-container">
               <div id="allBosses" class="boss-selection active">
-                <!-- Легкие боссы: Оса, Медведь, Дракон -->
                 <div class="boss-card" data-boss="wasp">
                   <div class="boss-image-container">
                     <img src="img/wasp.jpg" class="boss-img" alt="Оса">
@@ -162,7 +161,6 @@
             <div class="boss-health">
               <div class="health-bar" id="bossHealth"></div>
               <div class="health-text">
-
                 <span id="currentHealth">500</span> /
                 <span id="maxHealth">500</span> HP
               </div>
@@ -199,7 +197,6 @@
 
         <!-- Контейнеры контента -->
         <div id="buyCharges" class="shop-tab active">
-          <!-- Покупка зарядов (существующий контент) -->
           <div class="attack-charge-item">
             <div>
               <h3>Базовый удар</h3>
@@ -224,7 +221,6 @@
         </div>
 
         <div id="upgradeTalents" class="shop-tab">
-          <!-- Улучшение талантов -->
           <div class="talent" data-talent="basic">
             <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">0</span>)</h3>
             <div class="talent-info">
@@ -256,7 +252,7 @@
           </div>
         </div>
 
-        <!-- Новая вкладка крафтинга -->
+        <!-- Вкладка крафтинга -->
         <div id="crafting" class="shop-tab">
           <div class="talents-grid">
             <div class="talent-card" data-talent="basic">
@@ -286,7 +282,6 @@
           </div>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -296,6 +291,7 @@
     <button class="nav-btn" data-popup="talents">💫</button>
     <button class="nav-btn" data-popup="customization">👤</button>
     <button class="nav-btn" data-popup="achievements">🏆</button>
+    <button class="nav-btn" data-popup="friends">👥</button>
   </nav>
 
   <!-- Попап кастомизации -->
@@ -338,7 +334,8 @@
       </div>
     </div>
   </div>
-  <!-- ▼▼▼ Код попапа результатов ▼▼▼ -->
+
+  <!-- Попап результатов битвы -->
   <div id="battleResultPopup" class="popup">
     <div class="popup-scroll-wrapper">
       <div class="popup-content">
@@ -383,7 +380,8 @@
       </div>
     </div>
   </div>
-  <!-- Добавить в index.html перед закрывающим тегом body -->
+
+  <!-- Селектор фона -->
   <div id="backgroundSelector" class="background-selector">
     <div class="bg-controls">
       <button id="bgPrevBtn" class="bg-arrow">←</button>
@@ -397,7 +395,139 @@
     Ваш браузер не поддерживает аудио элемент.
   </audio>
 
+  <!-- Кнопка музыки -->
   <button id="musicToggle" class="music-btn">♪</button>
+
+  <!-- Попап достижений -->
+  <div id="achievementsPopup" class="popup">
+    <div class="popup-scroll-wrapper">
+      <div class="popup-content">
+        <div class="popup-header">
+          <button class="close">×</button>
+        </div>
+        <div id="achievementsList">
+          <div class="achievement-card">
+            <div class="achievement-info">
+              <h3>Король ОС</h3>
+            </div>
+            <div class="achievement-progress">
+              <div class="progress-bar">
+                <div class="progress" id="waspKillProgress"></div>
+              </div>
+              <span class="progress-text" id="waspKillCount">0/10</span>
+            </div>
+            <div class="achievement-rewards">
+              <span id="honeyReward">🍯 1000</span>
+              <span id="xpReward">⭐ 500</span>
+            </div>
+          </div>
+
+          <div class="achievement-card">
+            <div class="achievement-info">
+              <h3>Король Медведей</h3>
+            </div>
+            <div class="achievement-progress">
+              <div class="progress-bar">
+                <div class="progress" id="bearKillProgress"></div>
+              </div>
+              <span class="progress-text" id="bearKillCount">0/10</span>
+            </div>
+            <div class="achievement-rewards">
+              <span id="bearHoneyReward">🍯 2000</span>
+              <span id="bearXpReward">⭐ 1000</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Попап друзей -->
+  <div id="friendsPopup" class="popup">
+    <div class="popup-scroll-wrapper">
+      <div class="popup-content">
+        <div class="popup-header">
+          <button class="close">×</button>
+        </div>
+
+        <div class="friends-tabs">
+          <button class="tab-btn active" data-tab="friendsList">Друзья</button>
+          <button class="tab-btn" data-tab="addFriend">Добавить друга</button>
+          <button class="tab-btn" data-tab="friendRequests">Заявки <span id="requestsCount" class="badge">0</span></button>
+        </div>
+
+        <!-- Список друзей -->
+        <div id="friendsList" class="friends-tab active">
+          <div class="friend-limit-info" style="
+            background: rgba(139, 69, 19, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 0.9em;
+          ">
+            🔍 Поиск работает только по Telegram ID<br>
+            👥 Максимальное количество друзей: <strong>20</strong>
+          </div>
+
+          <div class="friends-search">
+            <input type="text" id="searchFriend" placeholder="Поиск по Telegram ID..." class="search-input">
+          </div>
+
+          <div id="friendsContainer" class="friends-container">
+            <!-- Друзья будут здесь -->
+            <div class="empty-state">
+              👥 У вас пока нет друзей
+            </div>
+          </div>
+        </div>
+
+        <!-- Добавление друга -->
+        <div id="addFriend" class="friends-tab">
+          <div class="add-friend-form">
+            <h3>Добавить друга</h3>
+            <p class="form-description">Введите Telegram ID игрока, которого хотите добавить в друзья</p>
+
+            <div class="form-group">
+              <label for="friendTelegramId">Telegram ID:</label>
+              <input type="number" id="friendTelegramId" placeholder="123456789" class="form-input">
+              <div class="form-hint">ID должен содержать только цифры</div>
+            </div>
+
+            <div class="form-group">
+              <label for="friendMessage">Сообщение (необязательно):</label>
+              <textarea id="friendMessage" placeholder="Привет! Давай дружить и играть вместе!" class="form-textarea" rows="3"></textarea>
+            </div>
+
+            <button id="sendFriendRequestBtn" class="btn" style="width: 100%;">Отправить заявку</button>
+
+            <div class="my-id-section">
+              <h4>Ваш ID для добавления:</h4>
+              <div class="my-id-display">
+                <span id="myTelegramId">Загрузка...</span>
+                <button id="copyMyIdBtn" class="copy-btn">📋</button>
+              </div>
+              <div class="id-hint">
+                • Максимальное количество друзей: <strong>20</strong><br>
+                • Дайте этот ID другим игрокам для добавления в друзья<br>
+                • Можно найти друзей в Telegram-группах игры
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Заявки в друзья -->
+        <div id="friendRequests" class="friends-tab">
+          <div id="requestsContainer" class="requests-container">
+            <!-- Заявки будут здесь -->
+            <div class="empty-state">
+              📭 У вас нет заявок в друзья
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Подключаем наши скрипты -->
   <script src="firebase.js"></script>
@@ -405,46 +535,3 @@
 </body>
 
 </html>
-
-<div id="achievementsPopup" class="popup">
-  <div class="popup-scroll-wrapper">
-    <div class="popup-content">
-      <div class="popup-header">
-        <button class="close">×</button>
-      </div>
-      <div id="achievementsList">
-        <div class="achievement-card">
-          <div class="achievement-info">
-            <h3>Король ОС</h3>
-          </div>
-          <div class="achievement-progress">
-            <div class="progress-bar">
-              <div class="progress" id="waspKillProgress"></div>
-            </div>
-            <span class="progress-text" id="waspKillCount">0/10</span>
-          </div>
-          <div class="achievement-rewards">
-            <span id="honeyReward">🍯 1000</span>
-            <span id="xpReward">⭐ 500</span>
-          </div>
-        </div>
-
-        <div class="achievement-card">
-          <div class="achievement-info">
-            <h3>Король Медведей</h3>
-          </div>
-          <div class="achievement-progress">
-            <div class="progress-bar">
-              <div class="progress" id="bearKillProgress"></div>
-            </div>
-            <span class="progress-text" id="bearKillCount">0/10</span>
-          </div>
-          <div class="achievement-rewards">
-            <span id="bearHoneyReward">🍯 2000</span>
-            <span id="bearXpReward">⭐ 1000</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>

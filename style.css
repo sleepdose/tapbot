@@ -42,7 +42,6 @@ body {
 
 .boss-card[data-boss="wasp"] .boss-requirements {
   display: none;
-  /* Скрываем для первого босса */
 }
 
 /* Основной контейнер */
@@ -107,7 +106,6 @@ body {
 .boss-flex-container {
   display: flex;
   align-items: center;
-  /* Вертикальное выравнивание */
   gap: 2rem;
   margin-bottom: 1.5rem;
 }
@@ -115,7 +113,6 @@ body {
 /* Изображение */
 .boss-image-container {
   flex: 0 0 150px;
-  /* Фиксированная ширина */
 }
 
 .boss-img {
@@ -214,7 +211,6 @@ body {
 /* Награда */
 .boss-reward {
   flex: 0 0 200px;
-  /* Фиксированная ширина */
   padding: 1rem;
   text-align: center;
 }
@@ -325,28 +321,20 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  /* Занимает всю высоту */
   transition: opacity 0.3s ease, transform 0.3s ease;
   transform: translateY(100%);
-  /* Начальное положение за пределами экрана */
   background: rgba(0, 0, 0, 0.8);
-  /* Полупрозрачный фон */
   border-radius: 0;
-  /* Убираем скругление для полноэкранного режима */
   max-height: 100vh;
-  /* Максимальная высота равна высоте экрана */
   z-index: 3000;
   box-shadow: none;
-  /* Убираем тень */
   overflow: auto;
-  /* Добавляем прокрутку, если контент не помещается */
   display: flex;
   flex-direction: column;
 }
 
 .popup.active {
   transform: translateY(0);
-  /* Активное состояние - по центру экрана */
   opacity: 1;
 }
 
@@ -370,7 +358,6 @@ body {
 .popup-content {
   padding: 25px;
   max-height: calc(100vh - 50px);
-  /* Оставляем место для заголовка */
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -427,7 +414,6 @@ body {
 #gameScreen {
   overflow: hidden !important;
   height: 100vh;
-  /* Занимает всю высоту экрана */
   display: flex;
   flex-direction: column;
   max-width: 800px;
@@ -449,7 +435,6 @@ body {
 .stats,
 .level-progress {
   flex-shrink: 0;
-  /* Запрещаем сжатие */
 }
 
 .level-container {
@@ -509,7 +494,6 @@ body {
   height: 100%;
   background: linear-gradient(90deg, #D565E6, #D58CDB);
   transition: width 0.5s ease-in-out;
-  /* Плавная анимация */
   border-radius: 5px;
   transition: width 0.5s ease-in-out;
 }
@@ -517,9 +501,7 @@ body {
 .click-area {
   width: min(420px, 95vw);
   flex-grow: 1;
-  /* Занимает всё доступное пространство */
   margin-bottom: 0;
-  /* Убираем нижний отступ */
   height: min(420px, 95vw);
   margin: 1rem auto 30px;
   cursor: pointer;
@@ -572,29 +554,6 @@ body {
   animation: hivePulse 0.5s ease-out;
 }
 
-.damage-effect {
-  position: absolute;
-  color: #ff4444;
-  font-weight: bold;
-  font-size: 1.2em;
-  animation: floatAndFade 0.8s ease-out forwards;
-  pointer-events: none;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-}
-
-@keyframes floatAndFade {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(-50%, -100%) scale(1.2);
-    opacity: 0;
-  }
-}
-
 @keyframes hivePulse {
   0% {
     transform: scale(1);
@@ -626,7 +585,6 @@ body {
 
 .boss-card img {
   border-radius: 100px;
-  /* Скругление только сверху */
   box-sizing: border-box;
 }
 
@@ -1061,7 +1019,6 @@ body {
 }
 
 @keyframes defeatShake {
-
   0%,
   100% {
     transform: translate(-50%, -50%);
@@ -1116,7 +1073,6 @@ body {
 }
 
 @keyframes shake {
-
   10%,
   90% {
     transform: translateX(-1px);
@@ -1183,12 +1139,10 @@ body {
   #gameScreen {
     padding: 0.5rem;
     padding-bottom: 60px;
-    /* Высота навигации */
   }
 
   .stats {
     flex-wrap: nowrap;
-
     padding-bottom: 2px;
   }
 
@@ -1243,7 +1197,6 @@ body {
   }
 
   @keyframes timerPulse {
-
     0%,
     100% {
       transform: scale(1);
@@ -1333,7 +1286,6 @@ body {
     }
 
     .charge-counter {
-
       margin: 10px 0;
       cursor: pointer;
       transition: transform 0.3s;
@@ -1348,7 +1300,6 @@ body {
       margin-bottom: 15px;
       justify-content: center;
     }
-
 
     .achievement-card {
       background: rgba(0, 0, 0, 0.5);
@@ -1562,7 +1513,6 @@ body {
     }
 
     .poison-timer {
-      /* Существующие стили остаются */
       background: rgba(0, 0, 0, 0.7);
       padding: 8px 15px;
       border-radius: 15px;
@@ -1774,7 +1724,6 @@ body {
       cursor: pointer;
       transition: transform 0.2s;
       z-index: 1001;
-      /* Чтобы стрелки были поверх */
     }
 
     /* Левый стрелка */
@@ -1839,7 +1788,6 @@ body {
       padding: 5px;
     }
 
-
     #select-skin:disabled,
     #select-pet:disabled {
       background: #666;
@@ -1847,9 +1795,6 @@ body {
       opacity: 0.7;
       transform: none;
     }
-
-    /* Контейнер для питомца */
-
   }
 }
 
@@ -2072,6 +2017,7 @@ body {
     opacity: 0;
   }
 }
+
 /* =================== СТИЛИ ДЛЯ FIREBASE =================== */
 
 .firebase-status {
@@ -2112,7 +2058,347 @@ body {
   100% { opacity: 1; }
 }
 
-/* =================== АДАПТИВНОСТЬ =================== */
+/* =================== СТИЛИ ДЛЯ СИСТЕМЫ ДРУЗЕЙ =================== */
+
+.friends-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid rgba(139, 69, 19, 0.3);
+  padding-bottom: 10px;
+}
+
+.friends-tab {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.friends-tab.active {
+  display: block;
+}
+
+.friends-container, .requests-container {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 15px;
+}
+
+.friend-card, .request-card {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(139, 69, 19, 0.3);
+  transition: all 0.3s ease;
+}
+
+.friend-card:hover, .request-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.friend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.friend-info h4 {
+  color: var(--accent);
+  margin-bottom: 5px;
+}
+
+.friend-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.9em;
+}
+
+.friend-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 0.9em;
+}
+
+.stat-item-small {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.1em;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 15px;
+  border-radius: 10px;
+  border: 2px solid var(--secondary);
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 1em;
+  margin-bottom: 15px;
+  font-family: monospace;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1);
+}
+
+.add-friend-form {
+  padding: 10px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.form-input, .form-textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px solid var(--secondary);
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 1em;
+  font-family: 'Arial', sans-serif;
+}
+
+.form-input:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-hint, .id-hint {
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+.form-description {
+  margin-bottom: 20px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.my-id-section {
+  margin-top: 25px;
+  padding: 15px;
+  background: rgba(139, 69, 19, 0.1);
+  border-radius: 10px;
+}
+
+.my-id-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  letter-spacing: 1px;
+  font-size: 1.1em;
+}
+
+.copy-btn {
+  background: var(--primary);
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.copy-btn:hover {
+  background: var(--secondary);
+}
+
+.request-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.request-info {
+  flex: 1;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.accept-btn, .reject-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 15px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+  font-size: 0.9em;
+}
+
+.accept-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.accept-btn:hover {
+  background: #45a049;
+  transform: translateY(-2px);
+}
+
+.reject-btn {
+  background: #f44336;
+  color: white;
+}
+
+.reject-btn:hover {
+  background: #d32f2f;
+  transform: translateY(-2px);
+}
+
+.badge {
+  background: #f44336;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  margin-left: 5px;
+}
+
+.friend-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.remove-friend-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  width: 100%;
+}
+
+.remove-friend-btn:hover {
+  background: #d32f2f;
+  transform: translateY(-2px);
+}
+
+/* Стили для счетчика друзей */
+.friends-counter {
+  background: rgba(139, 69, 19, 0.2);
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  text-align: center;
+  font-weight: bold;
+  border: 2px solid rgba(139, 69, 19, 0.5);
+}
+
+/* Анимации */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.game-message {
+  animation: slideInDown 0.3s ease-out;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .request-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .accept-btn, .reject-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .friend-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Цвета для статусов */
+.status-online {
+  color: #4CAF50;
+}
+
+.status-away {
+  color: #ff9800;
+}
+
+.status-offline {
+  color: #f44336;
+}
+
+/* Лимит друзей предупреждение */
+.friend-limit-warning {
+  background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+  padding: 10px;
+  border-radius: 10px;
+  margin: 10px 0;
+  text-align: center;
+  font-weight: bold;
+  animation: pulse 2s infinite;
+}
+
+/* Адаптивность для Firebase статуса */
 @media (max-width: 768px) {
   .firebase-status {
     top: 5px;
