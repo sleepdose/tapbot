@@ -1,5 +1,3 @@
-// firebase.js - Firebase инициализация и управление данными (версия 8)
-
 class FirebaseManager {
   constructor() {
     this.db = null;
@@ -186,39 +184,63 @@ class FirebaseManager {
 
       const dataToSave = {
         // ========= ОСНОВНЫЕ ДАННЫЕ =========
-        honey: gameState.honey,
-        xp: gameState.xp,
-        level: gameState.level,
-        energy: gameState.energy,
-        maxEnergy: gameState.maxEnergy,
-        xpToNextLevel: gameState.xpToNextLevel,
+        honey: gameState.honey || 0,
+        xp: gameState.xp || 0,
+        level: gameState.level || 1,
+        energy: gameState.energy || 100,
+        maxEnergy: gameState.maxEnergy || 100,
+        xpToNextLevel: gameState.xpToNextLevel || 100,
 
         // ========= ТАЛАНТЫ =========
-        talents: gameState.talents,
-        attackCharges: gameState.attackCharges,
-        craftedTalents: gameState.craftedTalents,
+        talents: gameState.talents || {
+          basic: { level: 1, damage: 10 },
+          critical: { level: 1, chance: 0.2 },
+          poison: { level: 1, damage: 3 }
+        },
+        attackCharges: gameState.attackCharges || {
+          basic: { charges: 15, basePrice: 50 },
+          critical: { charges: 15, basePrice: 75 },
+          poison: { charges: 15, basePrice: 100 }
+        },
+        craftedTalents: gameState.craftedTalents || {
+          sonic: { level: 0, damage: 50, charges: 0 },
+          fire: { level: 0, damage: 75, charges: 0 },
+          ice: { level: 0, damage: 60, charges: 0 }
+        },
 
         // ========= ПРОГРЕСС =========
-        keys: gameState.keys,
-        achievements: gameState.achievements,
+        keys: gameState.keys || { bear: 0, dragon: 0, hydra: 0, kraken: 0 },
+        achievements: gameState.achievements || {
+          waspKills: 0,
+          bearKills: 0,
+          currentLevel: 0,
+          rewards: { level1: false, level2: false, level3: false },
+          bearRewards: { level1: false, level2: false, level3: false }
+        },
 
         // ========= КАСТОМИЗАЦИЯ =========
-        purchasedBackgrounds: gameState.purchasedBackgrounds,
-        currentBackground: gameState.currentBackground,
-        currentSkin: gameState.currentSkin,
-        currentPet: gameState.currentPet,
-        hasPet: gameState.hasPet,
+        purchasedBackgrounds: gameState.purchasedBackgrounds || ['default'],
+        currentBackground: gameState.currentBackground || 'default',
+        currentSkin: gameState.currentSkin || 'img/skin1.png',
+        currentPet: gameState.currentPet || 'img/pet1.png',
+        hasPet: gameState.hasPet || false,
+        isUsingSkin: gameState.isUsingSkin || false,
 
         // ========= УЛЬИ =========
-        activeHive: gameState.activeHive,
-        purchasedHives: gameState.purchasedHives,
+        activeHive: gameState.activeHive || 'basic',
+        purchasedHives: gameState.purchasedHives || ['basic'],
 
         // ========= БУСТЫ =========
-        boosts: gameState.boosts,
+        boosts: gameState.boosts || {
+          battleBonus: 1.0,
+          attackSpeed: 1.0,
+          shield: false,
+          multiclick: false
+        },
 
         // ========= ДРУГИЕ ДАННЫЕ =========
-        isUsingSkin: gameState.isUsingSkin || false,
-        selectedTalent: gameState.selectedTalent,
+        selectedTalent: gameState.selectedTalent || null,
+        selectedForCraft: gameState.selectedForCraft || [],
 
         // ========= МЕТА-ДАННЫЕ =========
         lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
@@ -237,7 +259,7 @@ class FirebaseManager {
       // Сохраняем в Firebase с обработкой ошибок записи
       await this.db.collection('users').doc(this.currentUser.uid).set(dataToSave, { merge: true });
 
-      console.log('✅ Все данные сохранены в Firebase:', Object.keys(dataToSave));
+      console.log('✅ Все данные сохранены в Firebase');
       return true;
     } catch (error) {
       console.error('❌ Ошибка сохранения в Firebase:', error);
@@ -320,7 +342,7 @@ class FirebaseManager {
 
   // =================== МЕТОДЫ ДЛЯ СИСТЕМЫ ДРУЗЕЙ ===================
 
-  // Отправка заявки в друзья - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  // Отправка заявки в друзья - ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
   async sendFriendRequest(targetTelegramId, message = '') {
     try {
       if (!this.currentUser || !this.isOnline) {
@@ -389,41 +411,29 @@ class FirebaseManager {
         return { success: false, error: 'У этого пользователя максимальное количество друзей' };
       }
 
-      // ИСПРАВЛЕННЫЙ КОД: Разделяем на два отдельных запроса
-
-      // Запрос 1: Проверяем, отправил ли текущий пользователь заявку целевому
-      const outgoingRequest = await this.db.collection('friendRequests')
-        .where('fromUser', '==', this.currentUser.uid)
-        .where('toUser', '==', targetUserId)
+      // Проверяем существующие заявки и дружбу
+      const existingRequestsQuery = this.db.collection('friendRequests')
+        .where('fromUser', 'in', [this.currentUser.uid, targetUserId])
+        .where('toUser', 'in', [this.currentUser.uid, targetUserId])
         .where('status', 'in', ['pending', 'accepted'])
-        .limit(1)
         .get();
 
-      // Запрос 2: Проверяем, отправил ли целевой пользователь заявку текущему
-      const incomingRequest = await this.db.collection('friendRequests')
-        .where('fromUser', '==', targetUserId)
-        .where('toUser', '==', this.currentUser.uid)
-        .where('status', 'in', ['pending', 'accepted'])
-        .limit(1)
-        .get();
+      const existingRequests = await existingRequestsQuery;
 
-      // Объединяем результаты
-      let existingRequest = null;
-      if (!outgoingRequest.empty) {
-        existingRequest = outgoingRequest.docs[0];
-      } else if (!incomingRequest.empty) {
-        existingRequest = incomingRequest.docs[0];
-      }
+      if (!existingRequests.empty) {
+        for (const doc of existingRequests.docs) {
+          const data = doc.data();
 
-      if (existingRequest) {
-        const existingData = existingRequest.data();
-        if (existingData.status === 'accepted') {
-          return { success: false, error: 'Вы уже друзья с этим пользователем' };
-        } else if (existingData.status === 'pending') {
-          if (existingData.fromUser === this.currentUser.uid) {
-            return { success: false, error: 'Вы уже отправили заявку этому пользователю' };
-          } else {
-            return { success: false, error: 'Этот пользователь уже отправил вам заявку' };
+          if (data.status === 'accepted') {
+            return { success: false, error: 'Вы уже друзья с этим пользователем' };
+          }
+
+          if (data.status === 'pending') {
+            if (data.fromUser === this.currentUser.uid && data.toUser === targetUserId) {
+              return { success: false, error: 'Вы уже отправили заявку этому пользователю' };
+            } else if (data.fromUser === targetUserId && data.toUser === this.currentUser.uid) {
+              return { success: false, error: 'Этот пользователь уже отправил вам заявку' };
+            }
           }
         }
       }
@@ -431,12 +441,12 @@ class FirebaseManager {
       // Создаем заявку
       await this.db.collection('friendRequests').add({
         fromUser: this.currentUser.uid,
-        fromTelegramId: currentTelegramId,
-        fromName: currentUserData.username || `Игрок ${currentTelegramId}`,
+        fromTelegramId: currentId,
+        fromName: currentUserData.username || `Игрок ${currentId}`,
         fromLevel: currentUserData.level || 1,
         toUser: targetUserId,
-        toTelegramId: targetUserData.telegramId,
-        toName: targetUserData.username || `Игрок ${targetUserData.telegramId}`,
+        toTelegramId: targetId,
+        toName: targetUserData.username || `Игрок ${targetId}`,
         message: message,
         status: 'pending',
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -459,16 +469,14 @@ class FirebaseManager {
       // Входящие заявки
       const incomingRequestsQuery = this.db.collection('friendRequests')
         .where('toUser', '==', this.currentUser.uid)
-        .where('status', '==', 'pending')
-        .orderBy('createdAt', 'desc');
+        .where('status', '==', 'pending');
 
       const incomingRequests = await incomingRequestsQuery.get();
 
       // Исходящие заявки
       const outgoingRequestsQuery = this.db.collection('friendRequests')
         .where('fromUser', '==', this.currentUser.uid)
-        .where('status', '==', 'pending')
-        .orderBy('createdAt', 'desc');
+        .where('status', '==', 'pending');
 
       const outgoingRequests = await outgoingRequestsQuery.get();
 
@@ -478,27 +486,7 @@ class FirebaseManager {
       };
     } catch (error) {
       console.error('Ошибка получения заявок:', error);
-
-      // Если ошибка из-за порядка сортировки, пробуем без сортировки
-      try {
-        const incomingRequests = await this.db.collection('friendRequests')
-          .where('toUser', '==', this.currentUser.uid)
-          .where('status', '==', 'pending')
-          .get();
-
-        const outgoingRequests = await this.db.collection('friendRequests')
-          .where('fromUser', '==', this.currentUser.uid)
-          .where('status', '==', 'pending')
-          .get();
-
-        return {
-          incoming: incomingRequests.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-          outgoing: outgoingRequests.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-        };
-      } catch (retryError) {
-        console.error('Ошибка при повторной попытке:', retryError);
-        return { incoming: [], outgoing: [] };
-      }
+      return { incoming: [], outgoing: [] };
     }
   }
 
@@ -563,24 +551,15 @@ class FirebaseManager {
   // Добавление друзей в коллекцию дружбы
   async addFriend(userId1, userId2) {
     try {
-      // ИСПРАВЛЕННЫЙ КОД: Разделяем на два отдельных запроса
-
-      // Запрос 1: Проверяем, где userId1 - user1, userId2 - user2
-      const friendshipQuery1 = await this.db.collection('friendships')
-        .where('user1', '==', userId1)
-        .where('user2', '==', userId2)
-        .limit(1)
+      // Проверяем, не существует ли уже дружба
+      const friendshipQuery1 = this.db.collection('friendships')
+        .where('user1', 'in', [userId1, userId2])
+        .where('user2', 'in', [userId1, userId2])
         .get();
 
-      // Запрос 2: Проверяем, где userId1 - user2, userId2 - user1
-      const friendshipQuery2 = await this.db.collection('friendships')
-        .where('user1', '==', userId2)
-        .where('user2', '==', userId1)
-        .limit(1)
-        .get();
+      const friendships = await friendshipQuery1;
 
-      // Объединяем результаты
-      if (!friendshipQuery1.empty || !friendshipQuery2.empty) {
+      if (!friendships.empty) {
         console.log('Дружба уже существует');
         return true;
       }
@@ -682,32 +661,22 @@ class FirebaseManager {
     try {
       if (!this.currentUser || !this.isOnline) return false;
 
-      // ИСПРАВЛЕННЫЙ КОД: Разделяем на два отдельных запроса
-
-      // Запрос 1: Проверяем, где currentUser - user1
-      const friendshipQuery1 = await this.db.collection('friendships')
-        .where('user1', '==', this.currentUser.uid)
-        .where('user2', '==', friendId)
-        .limit(1)
+      // Ищем дружбу в обоих направлениях
+      const friendshipQuery = this.db.collection('friendships')
+        .where('user1', 'in', [this.currentUser.uid, friendId])
+        .where('user2', 'in', [this.currentUser.uid, friendId])
         .get();
 
-      // Запрос 2: Проверяем, где currentUser - user2
-      const friendshipQuery2 = await this.db.collection('friendships')
-        .where('user1', '==', friendId)
-        .where('user2', '==', this.currentUser.uid)
-        .limit(1)
-        .get();
+      const friendships = await friendshipQuery;
 
-      // Объединяем результаты
-      let friendshipDoc = null;
-      if (!friendshipQuery1.empty) {
-        friendshipDoc = friendshipQuery1.docs[0];
-      } else if (!friendshipQuery2.empty) {
-        friendshipDoc = friendshipQuery2.docs[0];
-      }
+      if (!friendships.empty) {
+        // Удаляем все найденные связи (должна быть только одна)
+        const batch = this.db.batch();
+        friendships.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
 
-      if (friendshipDoc) {
-        await friendshipDoc.ref.delete();
         console.log('Друг удален');
         return true;
       }

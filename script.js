@@ -475,7 +475,7 @@ function updateFirebaseStatusUI(isOnline) {
     }
 }
 
-// =================== ФУНКЦИЯ ОБНОВЛЕНИЯ ЦЕН ТАЛАНТОВ ===================
+// =================== ФУНКЦИЯ ОБНОВЛЕНИЯ ЦЕН ТАЛЕНТОВ ===================
 function updateTalentPrices() {
     Object.keys(talentsConfig).forEach(talentType => {
         const talent = talentsConfig[talentType];
@@ -501,6 +501,7 @@ function showPreloader(text = 'Загрузка AIKO TAPBOT...') {
     const statusText = document.getElementById('preloaderStatus');
 
     if (preloader) {
+        preloader.style.display = 'flex';
         preloader.classList.remove('hidden');
         if (statusText) statusText.textContent = text;
     }
@@ -566,21 +567,6 @@ function initFriendsSystem() {
 
   // Поиск по друзьям - теперь только по ID
   document.getElementById('searchFriend').addEventListener('input', filterFriendsList);
-
-  // Показываем подсказку под полем поиска
-  const searchInput = document.getElementById('searchFriend');
-  searchInput.placeholder = 'Поиск по Telegram ID...';
-
-  // Добавляем подсказку
-  const searchContainer = document.querySelector('.friends-search');
-  const hint = document.createElement('div');
-  hint.className = 'search-hint';
-  hint.innerHTML = '🔍 Введите Telegram ID для поиска друзей';
-  hint.style.fontSize = '0.8em';
-  hint.style.color = 'rgba(255,255,255,0.6)';
-  hint.style.marginTop = '5px';
-  hint.style.textAlign = 'center';
-  searchContainer.appendChild(hint);
 
   // Показываем свой Telegram ID
   updateMyTelegramId();
@@ -1049,7 +1035,6 @@ async function initGame() {
 
     console.log('=== ЗАГРУЗКА ИГРЫ AIKO TAPBOT ===');
     console.log('Telegram WebApp доступен:', !!window.Telegram?.WebApp);
-    console.log('Telegram данные:', window.Telegram?.WebApp?.initDataUnsafe);
 
     // Убедитесь, что игровой экран скрыт в начале
     const gameScreen = document.getElementById('gameScreen');
@@ -1086,147 +1071,77 @@ async function initGame() {
         updatePreloaderProgress(60);
 
         // Настраиваем UI
-        const requiredElements = Object.keys(elements)
-            .filter(key => key !== 'levelProgress')
-            .map(key => elements[key]?.id || key);
-
-        const missingElements = requiredElements
-            .filter(id => !document.getElementById(id));
+        const requiredElements = ['honey', 'energy', 'maxEnergy', 'level', 'xp', 'xpToNextLevel'];
+        const missingElements = requiredElements.filter(id => !document.getElementById(id));
 
         if (missingElements.length > 0) {
             console.error('Отсутствуют элементы:', missingElements);
-            alert(`Ошибка загрузки! Отсутствуют: ${missingElements.join(', ')}`);
+            showMessage(`Ошибка загрузки! Отсутствуют: ${missingElements.join(', ')}`);
             throw new Error('Critical UI elements missing');
         }
 
-        const hiveElement = document.getElementById('hive');
-        if (hiveElement) {
-            hiveElement.addEventListener('click', handleHiveClick);
-        }
+        // Инициализация обработчиков событий
+        initEventHandlers();
 
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', () => showPopup(btn.dataset.popup));
-        });
+        updatePreloaderProgress(80);
 
-        document.querySelectorAll('.close').forEach(btn => {
-            btn.addEventListener('click', hideAllPopups);
-        });
-
-        const bossCombatImage = document.getElementById('bossCombatImage');
-        if (bossCombatImage) {
-            bossCombatImage.addEventListener('click', handleBossClick);
-        }
-        const shopTabs = document.querySelector('.shop-tabs');
-        if (shopTabs) {
-            shopTabs.addEventListener('click', handleShopTabs);
-        }
-
-        document.getElementById('battlePopup').addEventListener('click', handleBossSelect);
-
-        document.addEventListener('click', e => {
-            const isCombatElement = e.target.closest('#combatScreen') ||
-                e.target.closest('.attack-btn') ||
-                e.target.closest('.battle-reward');
-            const isPopup = e.target.closest('.popup');
-            const isNavButton = e.target.closest('.nav-btn');
-
-            if (!isPopup && !isNavButton && !isCombatElement) {
-                hideAllPopups();
-            }
-
-            if (gameState.inBattle && !document.getElementById('combatScreen').style.display) {
-                createTalentButtons();
-            }
-
-            if (e.target.closest('.shop-item button')) {
-                handleShopButton(e.target);
-            }
-
-            if (e.target.closest('.talent button')) {
-                handleTalentButton(e.target);
-            }
-        });
-
-        window.addEventListener('resize', () => {
-            updateHiveDisplay();
-            updateCombatUI(true);
-        });
-
+        // Инициализация систем
         updateShopItems();
         updateUI();
         startEnergyRecovery();
-        gameState.updateKeysDisplay();
+        if (gameState.updateKeysDisplay) gameState.updateKeysDisplay();
         initTalentBuyTab();
         initAudio();
-        audioElements.musicToggle.addEventListener('click', toggleMusic);
         initCrafting();
-
-        // Инициализация системы друзей
-        updatePreloaderProgress(80);
         initFriendsSystem();
-
-        // Инициализация системы фонов
         initBackgroundSystem();
 
-        // Обработчики для окна результатов битвы
-        document.getElementById('claimRewardButton').addEventListener('click', claimBattleReward);
-        document.getElementById('closeResultButton').addEventListener('click', closeBattleResult);
+        // Инициализация обработчиков для окна результатов битвы
+        document.getElementById('claimRewardButton')?.addEventListener('click', claimBattleReward);
+        document.getElementById('closeResultButton')?.addEventListener('click', closeBattleResult);
+
+        updatePreloaderProgress(90);
 
         // Обновляем цены талантов
         setTimeout(() => {
             updateUI(['talents']);
         }, 100);
 
-        // Автозапуск музыки при первом клике на улей
-        document.getElementById('hive').addEventListener('click', function firstPlay() {
-            if (audioElements.bgMusic.paused) {
-                audioElements.bgMusic.play();
-            }
-            document.removeEventListener('click', firstPlay);
-        }, { once: true });
-
-        // Автосохранение каждые 30 секунд (ТОЛЬКО ПРИ НАЛИЧИИ ИНТЕРНЕТА)
+        // Автосохранение каждые 30 секунд
         setInterval(() => {
             if (gameState && typeof gameState.save === 'function') {
                 gameState.save();
             }
         }, 30000);
 
-        // Устанавливаем фон после загрузки игры
-        if (gameState && gameState.currentBackground) {
-            const currentBg = backgrounds.find(bg => bg.name === gameState.currentBackground);
-            if (currentBg) {
-                document.body.style.backgroundImage = currentBg.image;
-            }
-        }
-
-        // Сохраняем при первой загрузке (если есть интернет)
+        // Сохраняем при первой загрузке
         setTimeout(() => gameState.save(true), 2000);
 
         updatePreloaderProgress(100);
 
-        // Показываем игровой экран ПЕРЕД скрытием прелоадера
+        // Показываем игровой экран
         if (gameScreen) {
             gameScreen.style.display = 'block';
         }
 
-        // Скрываем прелоадер с задержкой
+        // Скрываем прелоадер
         setTimeout(() => {
             hidePreloader();
             isGameInitialized = true;
             console.log('=== ИГРА УСПЕШНО ЗАГРУЖЕНА ===');
-        }, 300);
+
+            // Показываем приветственное сообщение
+            showMessage('🎮 Добро пожаловать в AIKO TAPBOT!');
+        }, 500);
 
     } catch (error) {
         console.error('Ошибка инициализации:', error);
-        // Показываем ошибку пользователю
         const statusText = document.getElementById('preloaderStatus');
         if (statusText) {
             statusText.textContent = 'Ошибка загрузки. Пожалуйста, перезагрузите игру.';
             statusText.style.color = '#ff6b6b';
         }
 
-        // Все равно показываем игру
         setTimeout(() => {
             hidePreloader();
             if (gameScreen) {
@@ -1234,25 +1149,65 @@ async function initGame() {
             }
             isGameInitialized = true;
         }, 3000);
-
-        // Создаем новое состояние при ошибке
-        gameState = new GameState();
-        gameState.reset();
-        updateFirebaseStatusUI(false);
-    }
-
-    // Добавляем кнопки отладки (можно убрать после тестирования)
-    if (window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1')) {
-        addTelegramIdDebugButton();
-        addTestButton();
     }
 }
 
-function initAudio() {
-    audioElements.bgMusic.muted = gameState.isMusicMuted;
-    audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
+// Новая функция для инициализации обработчиков событий
+function initEventHandlers() {
+    const hiveElement = document.getElementById('hive');
+    if (hiveElement) {
+        hiveElement.addEventListener('click', handleHiveClick);
+    }
 
-    // Попытка автовоспроизведения при первом взаимодействии
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => showPopup(btn.dataset.popup));
+    });
+
+    document.querySelectorAll('.close').forEach(btn => {
+        btn.addEventListener('click', hideAllPopups);
+    });
+
+    const bossCombatImage = document.getElementById('bossCombatImage');
+    if (bossCombatImage) {
+        bossCombatImage.addEventListener('click', handleBossClick);
+    }
+
+    document.getElementById('battlePopup')?.addEventListener('click', handleBossSelect);
+
+    document.addEventListener('click', e => {
+        const isCombatElement = e.target.closest('#combatScreen') ||
+            e.target.closest('.attack-btn') ||
+            e.target.closest('.battle-reward');
+        const isPopup = e.target.closest('.popup');
+        const isNavButton = e.target.closest('.nav-btn');
+
+        if (!isPopup && !isNavButton && !isCombatElement) {
+            hideAllPopups();
+        }
+
+        if (gameState.inBattle && !document.getElementById('combatScreen').style.display) {
+            createTalentButtons();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        updateHiveDisplay();
+        updateCombatUI(true);
+    });
+}
+
+function initAudio() {
+    if (!audioElements.bgMusic) return;
+
+    audioElements.bgMusic.muted = gameState.isMusicMuted;
+    audioElements.bgMusic.volume = 0.5;
+
+    const musicToggle = document.getElementById('musicToggle');
+    if (musicToggle) {
+        musicToggle.classList.toggle('muted', gameState.isMusicMuted);
+    }
+
+    // Попытка автовоспроизведения
     document.addEventListener('click', function initialPlay() {
         if (audioElements.bgMusic.paused) {
             audioElements.bgMusic.play().catch(error => {
@@ -1264,9 +1219,16 @@ function initAudio() {
 }
 
 function toggleMusic() {
+    if (!audioElements.bgMusic) return;
+
     gameState.isMusicMuted = !gameState.isMusicMuted;
     audioElements.bgMusic.muted = gameState.isMusicMuted;
-    audioElements.musicToggle.classList.toggle('muted', gameState.isMusicMuted);
+
+    const musicToggle = document.getElementById('musicToggle');
+    if (musicToggle) {
+        musicToggle.classList.toggle('muted', gameState.isMusicMuted);
+    }
+
     localStorage.setItem('musicMuted', gameState.isMusicMuted);
 }
 
@@ -1699,6 +1661,8 @@ function startBattle(bossType) {
 }
 
 function createTalentButtons() {
+    if (!elements.combatTalents) return;
+
     elements.combatTalents.innerHTML = '';
 
     // Добавляем обычные таланты
@@ -1766,28 +1730,22 @@ function createTalentButtons() {
 function startBattleTimer(seconds) {
     if (gameState.battleTimer) clearInterval(gameState.battleTimer);
     let timeLeft = seconds;
-    elements.combatTimer.textContent = timeLeft;
-    elements.combatTimer.style.color = 'white';
+    if (elements.combatTimer) elements.combatTimer.textContent = timeLeft;
+    if (elements.combatTimer) elements.combatTimer.style.color = 'white';
 
     gameState.battleTimer = setInterval(() => {
-        if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
+        if (!gameState.inBattle || !gameState.currentBoss || gameState.currentBoss.currentHealth <= 0) {
             clearInterval(gameState.battleTimer);
             return;
         }
-        if (!gameState.inBattle) {
-            clearInterval(gameState.battleTimer);
-            return;
-        }
+
         timeLeft--;
-        elements.combatTimer.textContent = timeLeft;
-        elements.combatTimer.style.color = timeLeft <= 10 ? 'red' : 'white';
-        if (gameState.currentBoss.currentHealth <= 0) {
-            clearInterval(gameState.battleTimer);
-            return;
-        }
+        if (elements.combatTimer) elements.combatTimer.textContent = timeLeft;
+        if (elements.combatTimer) elements.combatTimer.style.color = timeLeft <= 10 ? 'red' : 'white';
+
         if (timeLeft <= 0) {
             endBattle(false);
-            elements.bossCombatImage.classList.add('grayscale');
+            if (elements.bossCombatImage) elements.bossCombatImage.classList.add('grayscale');
         }
     }, 1000);
 }
@@ -1883,7 +1841,7 @@ function attack(type) {
                 remaining: duration
             };
             poisonEffect.timer = setInterval(() => {
-                if (!gameState.inBattle || gameState.currentBoss.currentHealth <= 0) {
+                if (!gameState.inBattle || !gameState.currentBoss || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
                     return;
                 }
@@ -1915,12 +1873,6 @@ function attack(type) {
         }
     }
 
-    // Обновляем интерфейс зарядов
-    const chargeCounter = document.querySelector(`[data-attack="${type}"] .charge-counter`);
-    if (chargeCounter) {
-        chargeCounter.textContent = `Зарядов: ${gameState.attackCharges[type].charges}`;
-    }
-
     // Обновляем интерфейс
     createTalentButtons();
 }
@@ -1938,7 +1890,7 @@ function endBattle(victory) {
     const poisonContainer = document.getElementById('poisonTimersContainer');
     if (poisonContainer) poisonContainer.innerHTML = '';
 
-    elements.bossCombatImage?.classList.remove('grayscale');
+    if (elements.bossCombatImage) elements.bossCombatImage.classList.remove('grayscale');
 
     let reward = null;
     if (victory) {
@@ -1966,7 +1918,7 @@ function endBattle(victory) {
     }
 
     const stats = document.querySelector('.stats-grid');
-    stats.innerHTML = '';
+    if (stats) stats.innerHTML = '';
 
     const addStatIfUsed = (type, icon, name) => {
         const damage = gameState.battleStats[`${type}Damage`];
@@ -1974,7 +1926,7 @@ function endBattle(victory) {
             const div = document.createElement('div');
             div.className = 'stat-item';
             div.innerHTML = `${icon} ${name}: <span>${Math.floor(damage)}</span>`;
-            stats.appendChild(div);
+            if (stats) stats.appendChild(div);
         }
     };
 
@@ -1989,9 +1941,10 @@ function endBattle(victory) {
         updateResultPopup();
         showPopup('battleResult');
         document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
-        elements.combatScreen.style.display = 'none';
-        elements.combatTalents.innerHTML = '';
-        document.getElementById('bossSelection').style.display = 'block';
+        if (elements.combatScreen) elements.combatScreen.style.display = 'none';
+        if (elements.combatTalents) elements.combatTalents.innerHTML = '';
+        const bossSelection = document.getElementById('bossSelection');
+        if (bossSelection) bossSelection.style.display = 'block';
     } catch (e) {
         console.error('Ошибка обновления интерфейса:', e);
     }
@@ -2039,39 +1992,43 @@ function updateResultPopup() {
     const bossConfig = gameConfig.bosses[gameState.battleResult.boss.type];
     const reward = gameState.battleResult.reward;
 
-    resultBossImage.src = gameState.battleResult.victory
-        ? bossConfig.defeatImage
-        : bossConfig.image;
+    if (resultBossImage) {
+        resultBossImage.src = gameState.battleResult.victory
+            ? bossConfig.defeatImage
+            : bossConfig.image;
+    }
 
     if (gameState.battleResult.victory) {
-        resultTitle.textContent = "ПОБЕДА!";
-        resultTitle.style.color = "#4CAF50";
-        claimBtn.style.display = 'block';
-        closeBtn.style.display = 'none';
+        if (resultTitle) resultTitle.textContent = "ПОБЕДА!";
+        if (resultTitle) resultTitle.style.color = "#4CAF50";
+        if (claimBtn) claimBtn.style.display = 'block';
+        if (closeBtn) closeBtn.style.display = 'none';
 
         if (reward) {
-            rewardHoney.textContent = reward.honey;
-            rewardXP.textContent = reward.xp;
+            if (rewardHoney) rewardHoney.textContent = reward.honey;
+            if (rewardXP) rewardXP.textContent = reward.xp;
 
             const keys = Object.entries(reward.keys || {})
                 .map(([type, amount]) => amount)
                 .reduce((a, b) => a + b, 0);
 
-            rewardKeys.textContent = keys > 0 ? keys : '0';
+            if (rewardKeys) rewardKeys.textContent = keys > 0 ? keys : '0';
         }
     } else {
-        resultTitle.textContent = "ПОРАЖЕНИЕ";
-        resultTitle.style.color = "#f44336";
-        claimBtn.style.display = 'none';
-        closeBtn.style.display = 'block';
+        if (resultTitle) resultTitle.textContent = "ПОРАЖЕНИЕ";
+        if (resultTitle) resultTitle.style.color = "#f44336";
+        if (claimBtn) claimBtn.style.display = 'none';
+        if (closeBtn) closeBtn.style.display = 'block';
 
-        rewardHoney.textContent = '0';
-        rewardXP.textContent = '0';
-        rewardKeys.textContent = '0';
+        if (rewardHoney) rewardHoney.textContent = '0';
+        if (rewardXP) rewardXP.textContent = '0';
+        if (rewardKeys) rewardKeys.textContent = '0';
     }
 
-    resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
-    resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
+    if (resultBossImage) {
+        resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
+        resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
+    }
 }
 
 // Обработчик получения награды
@@ -2138,8 +2095,9 @@ function claimBattleReward() {
         gameState.battleResult = null;
         gameState.inBattle = false;
         hidePopup('battleResult');
-        document.getElementById('bossSelection').style.display = 'block';
-        document.getElementById('combatScreen').style.display = 'none';
+        const bossSelection = document.getElementById('bossSelection');
+        if (bossSelection) bossSelection.style.display = 'block';
+        if (elements.combatScreen) elements.combatScreen.style.display = 'none';
 
         // Сохраняем после получения награды
         setTimeout(() => gameState.save(), 100);
@@ -2151,11 +2109,14 @@ function closeBattleResult() {
     gameState.battleResult = null;
     gameState.inBattle = false;
     hidePopup('battleResult');
-    document.getElementById('bossSelection').style.display = 'block';
-    document.getElementById('combatScreen').style.display = 'none';
+    const bossSelection = document.getElementById('bossSelection');
+    if (bossSelection) bossSelection.style.display = 'block';
+    if (elements.combatScreen) elements.combatScreen.style.display = 'none';
 }
 
 function showFireEffect(damage) {
+    if (!elements.combatScreen) return;
+
     const effect = document.createElement('div');
     effect.className = 'sonic-effect';
     effect.textContent = `🔥 ${damage}`;
@@ -2205,9 +2166,6 @@ function checkLevelUp() {
 }
 
 function applyLevelBonuses(levels) {
-    // УБИРАЕМ увеличение максимальной энергии
-    // gameState.maxEnergy += 5 * levels;
-
     // Увеличиваем базовый урон
     gameState.talents.basic.damage += 2 * levels;
 
@@ -2219,7 +2177,9 @@ function applyLevelBonuses(levels) {
 
 function updateLevelProgress() {
     const progress = (gameState.xp / gameState.xpToNextLevel) * 100;
-    elements.levelProgress.style.width = `${Math.min(progress, 100)}%`;
+    if (elements.levelProgress) {
+        elements.levelProgress.style.width = `${Math.min(progress, 100)}%`;
+    }
 }
 
 // =================== ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ===================
@@ -2284,7 +2244,7 @@ function updateUI(changedKeys = ['all']) {
     if (changedKeys.includes('all')) {
         Object.values(updates).forEach(update => update());
         updateLevelProgress();
-        gameState.updateKeysDisplay();
+        if (gameState.updateKeysDisplay) gameState.updateKeysDisplay();
     } else {
         changedKeys.forEach(key => {
             if (updates[key]) updates[key]();
@@ -2305,6 +2265,8 @@ function showLevelUpEffect(levels) {
 }
 
 function showCriticalEffect(damage) {
+    if (!elements.combatScreen) return;
+
     const div = document.createElement('div');
     div.className = 'critical-effect';
     div.textContent = `CRIT! ${damage}`;
@@ -2313,6 +2275,8 @@ function showCriticalEffect(damage) {
 }
 
 function showHealEffect(amount) {
+    if (!elements.combatScreen) return;
+
     const healIndicator = document.createElement('div');
     healIndicator.className = 'heal-effect';
     healIndicator.textContent = `+${amount} ⚡`;
@@ -2329,14 +2293,26 @@ function showEnergyWarning() {
 }
 
 function showMessage(text) {
+    // Проверяем, есть ли уже сообщение
+    const existingMessage = document.querySelector('.game-message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+
     const msg = document.createElement('div');
     msg.className = 'game-message';
     msg.textContent = text;
     document.body.appendChild(msg);
-    setTimeout(() => msg.remove(), 2000);
+    setTimeout(() => {
+        if (msg.parentNode) {
+            msg.remove();
+        }
+    }, 2000);
 }
 
 function showSonicEffect(damage) {
+    if (!elements.combatScreen) return;
+
     const effect = document.createElement('div');
     effect.className = 'sonic-effect';
     effect.textContent = `🔊 ${damage}`;
@@ -2345,6 +2321,8 @@ function showSonicEffect(damage) {
 }
 
 function showIceEffect(damage) {
+    if (!elements.combatScreen) return;
+
     const effect = document.createElement('div');
     effect.className = 'sonic-effect';
     effect.textContent = `❄️ ${damage}`;
@@ -2354,6 +2332,8 @@ function showIceEffect(damage) {
 }
 
 function showBasicEffect(damage) {
+    if (!elements.combatScreen) return;
+
     const effect = document.createElement('div');
     effect.className = 'basic-effect';
     effect.textContent = `🗡️ ${damage}`;
@@ -2363,6 +2343,8 @@ function showBasicEffect(damage) {
 }
 
 function showPoisonAttackEffect(damage) {
+    if (!elements.combatScreen) return;
+
     const effect = document.createElement('div');
     effect.className = 'poison-attack-effect';
     effect.textContent = `☠️ ${damage}`;
@@ -2398,7 +2380,8 @@ function hidePopup(type) {
         if (type === 'battle') {
             gameState.selectedTalent = null;
             if (!gameState.inBattle) {
-                document.getElementById('combatScreen').style.display = 'none';
+                const combatScreen = document.getElementById('combatScreen');
+                if (combatScreen) combatScreen.style.display = 'none';
             }
             createTalentButtons();
         }
@@ -2406,7 +2389,8 @@ function hidePopup(type) {
         if (type === 'battleResult') {
             gameState.battleResult = null;
             gameState.inBattle = false;
-            document.getElementById('combatScreen').style.display = 'none';
+            const combatScreen = document.getElementById('combatScreen');
+            if (combatScreen) combatScreen.style.display = 'none';
         }
     }
 }
@@ -2581,8 +2565,8 @@ function updateCombatUI() {
         gameState.currentBoss.currentHealth = 0;
     }
     const healthPercent = (gameState.currentBoss.currentHealth / gameState.currentBoss.maxHealth) * 100;
-    elements.bossHealth.style.width = `${healthPercent}%`;
-    elements.currentHealth.textContent = gameState.currentBoss.currentHealth;
+    if (elements.bossHealth) elements.bossHealth.style.width = `${healthPercent}%`;
+    if (elements.currentHealth) elements.currentHealth.textContent = gameState.currentBoss.currentHealth;
 
     const bossCombatImage = document.getElementById('bossCombatImage');
     if (bossCombatImage) {
@@ -2618,8 +2602,11 @@ function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
 
-    document.getElementById(tabName).classList.add('active');
-    document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+    const tabElement = document.getElementById(tabName);
+    const button = document.querySelector(`button[onclick="showTab('${tabName}')"]`);
+
+    if (tabElement) tabElement.classList.add('active');
+    if (button) button.classList.add('active');
 }
 
 async function selectSkin() {
@@ -2646,8 +2633,12 @@ async function selectSkin() {
 }
 
 function previewSkin(skin, name) {
-    document.getElementById('selected-skin').src = skin;
-    document.getElementById('skin-name').textContent = name;
+    const selectedSkin = document.getElementById('selected-skin');
+    const skinName = document.getElementById('skin-name');
+
+    if (selectedSkin) selectedSkin.src = skin;
+    if (skinName) skinName.textContent = name;
+
     updateSkinButton();
 }
 
@@ -2690,8 +2681,12 @@ async function selectPet() {
 }
 
 function previewPet(pet, name) {
-    document.getElementById('selected-pet').src = pet;
-    document.getElementById('pet-name').textContent = name;
+    const selectedPet = document.getElementById('selected-pet');
+    const petName = document.getElementById('pet-name');
+
+    if (selectedPet) selectedPet.src = pet;
+    if (petName) petName.textContent = name;
+
     updatePetButton();
 }
 
@@ -2713,7 +2708,6 @@ function updatePetButton() {
 function initCrafting() {
     const talentCards = document.querySelectorAll('.talent-card');
     const craftSlots = document.querySelectorAll('.craft-slot');
-    const craftButton = document.getElementById('craftButton');
 
     talentCards.forEach(card => {
         card.addEventListener('click', () => {
@@ -2742,87 +2736,97 @@ function initCrafting() {
     const fireButton = document.getElementById('fireButton');
     const iceButton = document.getElementById('iceButton');
 
-    sonicButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (gameState.attackCharges.basic.charges >= 1 && gameState.attackCharges.critical.charges >= 1) {
-            gameState.attackCharges.basic.charges -= 1;
-            gameState.attackCharges.critical.charges -= 1;
+    if (sonicButton) {
+        sonicButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (gameState.attackCharges.basic.charges >= 1 && gameState.attackCharges.critical.charges >= 1) {
+                gameState.attackCharges.basic.charges -= 1;
+                gameState.attackCharges.critical.charges -= 1;
 
-            gameState.craftedTalents.sonic.charges += 1;
-            gameState.craftedTalents.sonic.level = Math.max(
-                gameState.talents.basic.level,
-                gameState.talents.critical.level
-            );
+                gameState.craftedTalents.sonic.charges += 1;
+                gameState.craftedTalents.sonic.level = Math.max(
+                    gameState.talents.basic.level,
+                    gameState.talents.critical.level
+                );
 
-            showMessage('✨ Создан новый талант: Звуковой удар!');
-            resetCrafting();
-            updateTalentBuyTab();
-            if (gameState.inBattle) {
-                setTimeout(() => createTalentButtons(), 100);
+                showMessage('✨ Создан новый талант: Звуковой удар!');
+                resetCrafting();
+                updateTalentBuyTab();
+                if (gameState.inBattle) {
+                    setTimeout(() => createTalentButtons(), 100);
+                }
+
+                // Сохраняем после крафта
+                setTimeout(() => gameState.save(), 100);
+            } else {
+                showMessage('Недостаточно зарядов!');
             }
+        });
+    }
 
-            // Сохраняем после крафта
-            setTimeout(() => gameState.save(), 100);
-        } else {
-            showMessage('Недостаточно зарядов!');
-        }
-    });
+    if (fireButton) {
+        fireButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (gameState.attackCharges.critical.charges >= 1 && gameState.attackCharges.poison.charges >= 1) {
+                gameState.attackCharges.critical.charges -= 1;
+                gameState.attackCharges.poison.charges -= 1;
 
-    fireButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (gameState.attackCharges.critical.charges >= 1 && gameState.attackCharges.poison.charges >= 1) {
-            gameState.attackCharges.critical.charges -= 1;
-            gameState.attackCharges.poison.charges -= 1;
+                gameState.craftedTalents.fire.charges += 1;
+                gameState.craftedTalents.fire.level = Math.max(
+                    gameState.talents.critical.level,
+                    gameState.talents.poison.level
+                );
 
-            gameState.craftedTalents.fire.charges += 1;
-            gameState.craftedTalents.fire.level = Math.max(
-                gameState.talents.critical.level,
-                gameState.talents.poison.level
-            );
+                showMessage('🔥 Создан новый талант: Огненный удар!');
+                resetCrafting();
+                updateTalentBuyTab();
+                if (gameState.inBattle) {
+                    setTimeout(() => createTalentButtons(), 100);
+                }
 
-            showMessage('🔥 Создан новый талант: Огненный удар!');
-            resetCrafting();
-            updateTalentBuyTab();
-            if (gameState.inBattle) {
-                setTimeout(() => createTalentButtons(), 100);
+                // Сохраняем после крафта
+                setTimeout(() => gameState.save(), 100);
+            } else {
+                showMessage('Недостаточно зарядов!');
             }
+        });
+    }
 
-            // Сохраняем после крафта
-            setTimeout(() => gameState.save(), 100);
-        } else {
-            showMessage('Недостаточно зарядов!');
-        }
-    });
+    if (iceButton) {
+        iceButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (gameState.attackCharges.poison.charges >= 1 && gameState.attackCharges.basic.charges >= 1) {
+                gameState.attackCharges.poison.charges -= 1;
+                gameState.attackCharges.basic.charges -= 1;
 
-    iceButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (gameState.attackCharges.poison.charges >= 1 && gameState.attackCharges.basic.charges >= 1) {
-            gameState.attackCharges.poison.charges -= 1;
-            gameState.attackCharges.basic.charges -= 1;
+                gameState.craftedTalents.ice.charges += 1;
+                gameState.craftedTalents.ice.level = Math.max(
+                    gameState.talents.poison.level,
+                    gameState.talents.basic.level
+                );
 
-            gameState.craftedTalents.ice.charges += 1;
-            gameState.craftedTalents.ice.level = Math.max(
-                gameState.talents.poison.level,
-                gameState.talents.basic.level
-            );
+                showMessage('❄️ Создан новый талант: Ледяной удар!');
+                resetCrafting();
+                updateTalentBuyTab();
+                if (gameState.inBattle) {
+                    setTimeout(() => createTalentButtons(), 100);
+                }
 
-            showMessage('❄️ Создан новый талант: Ледяной удар!');
-            resetCrafting();
-            updateTalentBuyTab();
-            if (gameState.inBattle) {
-                setTimeout(() => createTalentButtons(), 100);
+                // Сохраняем после крафта
+                setTimeout(() => gameState.save(), 100);
+            } else {
+                showMessage('Недостаточно зарядов!');
             }
+        });
+    }
 
-            // Сохраняем после крафта
-            setTimeout(() => gameState.save(), 100);
-        } else {
-            showMessage('Недостаточно зарядов!');
-        }
-    });
+    const sonicBtn = document.getElementById('sonicButton');
+    const fireBtn = document.getElementById('fireButton');
+    const iceBtn = document.getElementById('iceButton');
 
-    if (sonicButton) sonicButton.style.display = 'none';
-    if (fireButton) fireButton.style.display = 'none';
-    if (iceButton) iceButton.style.display = 'none';
+    if (sonicBtn) sonicBtn.style.display = 'none';
+    if (fireBtn) fireBtn.style.display = 'none';
+    if (iceBtn) iceBtn.style.display = 'none';
 }
 
 function checkRecipe() {
@@ -2930,63 +2934,84 @@ function updateBackgroundUI() {
     const isPurchased = gameState.purchasedBackgrounds.includes(currentBg.name);
     const isSelected = gameState.currentBackground === currentBg.name;
 
-    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
-
-    actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
+    if (actionBtn) {
+        actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
+        actionBtn.disabled = isSelected || (!isPurchased && gameState.honey < currentBg.cost);
+    }
 }
 
 // Инициализация обработчиков фона
 function initBackgroundSystem() {
-    document.getElementById('bgMenuBtn').addEventListener('click', () => {
-        previousBg = gameState.currentBackground;
-        document.getElementById('backgroundSelector').classList.add('active');
-        currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
-        updateBackgroundUI();
-    });
+    const bgMenuBtn = document.getElementById('bgMenuBtn');
+    if (bgMenuBtn) {
+        bgMenuBtn.addEventListener('click', () => {
+            previousBg = gameState.currentBackground;
+            const selector = document.getElementById('backgroundSelector');
+            if (selector) selector.classList.add('active');
+            currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.currentBackground);
+            updateBackgroundUI();
+        });
+    }
 
-    document.getElementById('bgPrevBtn').addEventListener('click', () => {
-        currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
-        updateBackgroundUI();
-    });
+    const bgPrevBtn = document.getElementById('bgPrevBtn');
+    if (bgPrevBtn) {
+        bgPrevBtn.addEventListener('click', () => {
+            currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
+            updateBackgroundUI();
+        });
+    }
 
-    document.getElementById('bgNextBtn').addEventListener('click', () => {
-        currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
-        updateBackgroundUI();
-    });
+    const bgNextBtn = document.getElementById('bgNextBtn');
+    if (bgNextBtn) {
+        bgNextBtn.addEventListener('click', () => {
+            currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
+            updateBackgroundUI();
+        });
+    }
 
-    document.getElementById('bgActionBtn').addEventListener('click', () => {
-        const currentBg = backgrounds[currentBgIndex];
+    const bgActionBtn = document.getElementById('bgActionBtn');
+    if (bgActionBtn) {
+        bgActionBtn.addEventListener('click', () => {
+            const currentBg = backgrounds[currentBgIndex];
 
-        if (!gameState.purchasedBackgrounds.includes(currentBg.name)) {
-            if (gameState.honey >= currentBg.cost) {
-                gameState.honey -= currentBg.cost;
-                gameState.purchasedBackgrounds.push(currentBg.name);
-                updateUI(['honey']);
-            } else {
-                showMessage('Недостаточно мёда!');
-                return;
+            if (!gameState.purchasedBackgrounds.includes(currentBg.name)) {
+                if (gameState.honey >= currentBg.cost) {
+                    gameState.honey -= currentBg.cost;
+                    gameState.purchasedBackgrounds.push(currentBg.name);
+                    updateUI(['honey']);
+                } else {
+                    showMessage('Недостаточно мёда!');
+                    return;
+                }
             }
-        }
 
-        gameState.currentBackground = currentBg.name;
-        showMessage(`Фон "${currentBg.name}" выбран!`);
-        updateBackgroundUI();
+            gameState.currentBackground = currentBg.name;
+            showMessage(`Фон "${currentBg.name}" выбран!`);
+            updateBackgroundUI();
 
-        // Сохраняем после выбора фона
-        setTimeout(() => gameState.save(), 100);
-    });
+            // Сохраняем после выбора фона
+            setTimeout(() => gameState.save(), 100);
+        });
+    }
 
     // Кнопка закрытия меню фона
-    document.getElementById('bgCloseBtn').addEventListener('click', () => {
-        document.getElementById('backgroundSelector').classList.remove('active');
-    });
+    const bgCloseBtn = document.getElementById('bgCloseBtn');
+    if (bgCloseBtn) {
+        bgCloseBtn.addEventListener('click', () => {
+            const selector = document.getElementById('backgroundSelector');
+            if (selector) selector.classList.remove('active');
+        });
+    }
 
     // Закрытие при клике вне меню
-    document.getElementById('backgroundSelector').addEventListener('click', (e) => {
-        if (e.target.id === 'backgroundSelector') {
-            document.getElementById('backgroundSelector').classList.remove('active');
-        }
-    });
+    const selector = document.getElementById('backgroundSelector');
+    if (selector) {
+        selector.addEventListener('click', (e) => {
+            if (e.target.id === 'backgroundSelector') {
+                selector.classList.remove('active');
+            }
+        });
+    }
 }
 
 // =================== ЗАПУСК ИГРЫ ===================
