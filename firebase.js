@@ -215,6 +215,7 @@ class FirebaseManager {
 
         // Мета-данные
         lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
+        lastSavedTimestamp: Date.now(), // ДОБАВЛЕНО для восстановления энергии
         lastActive: firebase.firestore.FieldValue.serverTimestamp(),
         version: '1.0.0',
       };
