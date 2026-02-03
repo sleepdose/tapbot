@@ -155,6 +155,8 @@ class GameState {
         };
         this.friends = [];
         this.friendRequests = { incoming: [], outgoing: [] };
+        this.isUsingSkin = false;
+        this.saveCount = 0;
 
         // Для автосохранения
         this.lastSaveTime = 0;
@@ -219,7 +221,7 @@ class GameState {
             if (window.firebaseManager) {
                 const success = await window.firebaseManager.saveGameData(this);
                 if (success) {
-                    console.log('Игра сохранена в Firebase');
+                    console.log('💾 Игра сохранена в Firebase');
                     this.lastSaveTime = now;
 
                     // Обновляем статус UI
@@ -243,7 +245,7 @@ class GameState {
 
                 if (result.success && result.data) {
                     this.applyLoadedData(result.data);
-                    console.log('Данные загружены из:', result.source);
+                    console.log('✅ Данные загружены из:', result.source);
                     updateFirebaseStatusUI(result.source === 'firebase');
                     return true;
                 }
@@ -258,6 +260,8 @@ class GameState {
 
     // Применение загруженных данных
     applyLoadedData(data) {
+        console.log('🔄 Загрузка сохраненных данных...');
+
         // Основные данные
         this.honey = data.honey || 0;
         this.xp = data.xp || 0;
@@ -268,16 +272,35 @@ class GameState {
 
         // Восстановление энергии в оффлайне
         if (data.lastSavedTimestamp) {
-            const timePassed = Date.now() - data.lastSavedTimestamp;
+            const now = Date.now();
+            const lastSaveTime = data.lastSavedTimestamp;
+            const timePassed = now - lastSaveTime;
             const minutesPassed = Math.floor(timePassed / (1000 * 60));
-            const energyToRestore = Math.floor(minutesPassed * 20); // 20 энергии в минуту
 
-            this.energy = Math.min(this.maxEnergy, (this.energy || 0) + energyToRestore);
+            // Восстанавливаем энергию: 20 энергии в минуту
+            const energyToRestore = Math.floor(minutesPassed * 20);
 
-            // Ограничиваем восстановление максимум 8 часами
-            const maxRestoreTime = 8 * 60; // 8 часов в минутах
-            if (minutesPassed > maxRestoreTime) {
-                this.energy = this.maxEnergy;
+            console.log(`⏰ Прошло времени: ${minutesPassed} мин`);
+            console.log(`⚡ Восстановление энергии: ${energyToRestore}`);
+
+            if (energyToRestore > 0) {
+                this.energy = Math.min(this.maxEnergy, (this.energy || 0) + energyToRestore);
+
+                // Ограничиваем восстановление максимум 8 часами
+                const maxRestoreTime = 8 * 60; // 8 часов в минутах
+                if (minutesPassed > maxRestoreTime) {
+                    this.energy = this.maxEnergy;
+                    console.log('⚡ Восстановлена полная энергия (прошло более 8 часов)');
+                }
+
+                console.log(`⚡ Энергия после восстановления: ${this.energy}/${this.maxEnergy}`);
+
+                // Показываем уведомление
+                setTimeout(() => {
+                    if (energyToRestore > 0) {
+                        showMessage(`⚡ Восстановлено ${energyToRestore} энергии в оффлайне!`);
+                    }
+                }, 1000);
             }
         }
 
@@ -322,10 +345,82 @@ class GameState {
         this.currentSkin = data.currentSkin || 'img/skin1.png';
         this.currentPet = data.currentPet || 'img/pet1.png';
         this.hasPet = data.hasPet || false;
+        this.isUsingSkin = data.isUsingSkin || false;
 
         // Ульи
         this.activeHive = data.activeHive || 'basic';
         this.purchasedHives = data.purchasedHives || ['basic'];
+
+        // Бусты
+        this.boosts = data.boosts || {
+            battleBonus: 1.0,
+            attackSpeed: 1.0,
+            shield: false,
+            multiclick: false
+        };
+
+        // Другие данные
+        this.selectedTalent = data.selectedTalent || null;
+        this.saveCount = data.saveCount || 0;
+
+        console.log('✅ Данные загружены:', {
+            level: this.level,
+            honey: this.honey,
+            energy: this.energy,
+            maxEnergy: this.maxEnergy,
+            skin: this.currentSkin,
+            pet: this.hasPet,
+            achievements: this.achievements
+        });
+
+        return true;
+    }
+
+    // Загрузка и применение данных
+    async loadAndApply() {
+        const loaded = await this.load();
+        if (loaded) {
+            // Применяем визуальные эффекты после загрузки
+            this.applyVisualEffects();
+            return true;
+        }
+        return false;
+    }
+
+    // Применение визуальных эффектов после загрузки
+    applyVisualEffects() {
+        // Применяем скин
+        const hiveImg = document.querySelector('.hive-img');
+        if (hiveImg && this.currentSkin) {
+            hiveImg.style.backgroundImage = `url('${this.currentSkin}')`;
+            console.log('🎨 Применен сохраненный скин:', this.currentSkin);
+        }
+
+        // Применяем питомца
+        const petImg = document.querySelector('#pet-img');
+        if (petImg) {
+            if (this.hasPet && this.currentPet) {
+                petImg.src = this.currentPet;
+                petImg.style.display = 'block';
+                console.log('🐾 Применен сохраненный питомец:', this.currentPet);
+            } else {
+                petImg.style.display = 'none';
+            }
+        }
+
+        // Применяем фон
+        if (this.currentBackground) {
+            const currentBg = backgrounds.find(bg => bg.name === this.currentBackground);
+            if (currentBg) {
+                document.body.style.backgroundImage = currentBg.image;
+                console.log('🌄 Применен сохраненный фон:', this.currentBackground);
+            }
+        }
+
+        // Обновляем отображение ключей
+        if (this.updateKeysDisplay) {
+            this.updateKeysDisplay();
+        }
     }
 }
 
@@ -378,6 +473,26 @@ function updateFirebaseStatusUI(isOnline) {
             statusText.textContent = 'Нет интернета - данные не сохраняются';
         }
     }
+}
+
+// =================== ФУНКЦИЯ ОБНОВЛЕНИЯ ЦЕН ТАЛАНТОВ ===================
+function updateTalentPrices() {
+    Object.keys(talentsConfig).forEach(talentType => {
+        const talent = talentsConfig[talentType];
+        const currentLevel = gameState.talents[talentType].level;
+        const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
+
+        if (button) {
+            if (currentLevel >= talent.maxLevel) {
+                button.textContent = 'MAX';
+                button.disabled = true;
+            } else {
+                const cost = Math.floor(talent.getCost(currentLevel));
+                button.textContent = `${cost}`;
+                button.disabled = gameState.honey < cost;
+            }
+        }
+    });
 }
 
 // =================== ПРЕЛОАДЕР ===================
@@ -549,42 +664,6 @@ function copyMyTelegramId() {
     });
   } else {
     showMessage('❌ Нет Telegram ID для копирования');
-  }
-}
-
-// Принудительное сохранение Telegram ID
-async function forceSaveTelegramId() {
-  try {
-    if (window.firebaseManager && gameState) {
-      console.log('Принудительное сохранение Telegram ID...');
-
-      // Получаем Telegram ID из WebApp
-      const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-      const telegramUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username ||
-                              window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name ||
-                              `Игрок ${telegramId || 'Аноним'}`;
-
-      if (telegramId) {
-        console.log('Сохраняем Telegram ID:', telegramId);
-
-        // Сохраняем данные пользователя напрямую
-        await window.firebaseManager.db.collection('users').doc(window.firebaseManager.currentUser.uid).set({
-          telegramId: Number(telegramId),
-          username: telegramUsername,
-          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        showMessage('✅ Telegram ID сохранен!');
-
-        // Обновляем отображение
-        updateMyTelegramId();
-      } else {
-        showMessage('❌ Telegram ID не найден');
-      }
-    }
-  } catch (error) {
-    console.error('Ошибка сохранения Telegram ID:', error);
-    showMessage('❌ Ошибка сохранения Telegram ID');
   }
 }
 
@@ -998,31 +1077,15 @@ async function initGame() {
         // Создаем состояние игры
         gameState = new GameState();
 
-        // Пробуем загрузить сохраненные данные из Firebase
+        // Загружаем данные и применяем визуальные эффекты
         updatePreloaderProgress(40);
-        const loaded = await gameState.load();
-
-        if (!loaded) {
-            console.log('Создаем новый профиль');
-            gameState.reset();
-            updateFirebaseStatusUI(false);
+        if (gameState) {
+            await gameState.loadAndApply();
         }
 
         updatePreloaderProgress(60);
 
         // Настраиваем UI
-        const petImg = document.querySelector('#pet-img');
-        if (petImg) {
-            petImg.style.display = gameState.hasPet ? 'block' : 'none';
-            petImg.src = gameState.currentPet;
-        }
-
-        // Применяем сохраненный скин
-        const hiveImg = document.querySelector('.hive-img');
-        if (hiveImg && gameState.currentSkin) {
-            hiveImg.style.backgroundImage = `url('${gameState.currentSkin}')`;
-        }
-
         const requiredElements = Object.keys(elements)
             .filter(key => key !== 'levelProgress')
             .map(key => elements[key]?.id || key);
@@ -1034,10 +1097,6 @@ async function initGame() {
             console.error('Отсутствуют элементы:', missingElements);
             alert(`Ошибка загрузки! Отсутствуют: ${missingElements.join(', ')}`);
             throw new Error('Critical UI elements missing');
-        }
-
-        if (hiveImg) {
-            hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
         }
 
         const hiveElement = document.getElementById('hive');
@@ -1115,8 +1174,8 @@ async function initGame() {
 
         // Обновляем цены талантов
         setTimeout(() => {
-    updateUI(['talents']); // Это обновит цены талантов через updateUI
-}, 100);
+            updateUI(['talents']);
+        }, 100);
 
         // Автозапуск музыки при первом клике на улей
         document.getElementById('hive').addEventListener('click', function firstPlay() {
@@ -1568,7 +1627,6 @@ function upgradeTalent(talentType) {
             break;
     }
 
-    updateTalentPrices();
     updateUI(['honey', 'talents']);
     showMessage('Талант улучшен!');
 
@@ -2147,9 +2205,16 @@ function checkLevelUp() {
 }
 
 function applyLevelBonuses(levels) {
-    gameState.maxEnergy += 5 * levels;
+    // УБИРАЕМ увеличение максимальной энергии
+    // gameState.maxEnergy += 5 * levels;
+
+    // Увеличиваем базовый урон
     gameState.talents.basic.damage += 2 * levels;
+
+    // Увеличиваем скорость атаки
     gameState.boosts.attackSpeed += 0.03 * levels;
+
+    console.log(`Получено ${levels} уровень(ей). Базовый урон: ${gameState.talents.basic.damage}`);
 }
 
 function updateLevelProgress() {
@@ -2214,24 +2279,6 @@ function updateUI(changedKeys = ['all']) {
             const value = gameState.talents[talentType][talentType === 'critical' ? 'chance' : 'damage'];
             statElem.textContent = talentType === 'critical' ? value.toFixed(2) : value;
         }
-    }
-
-    function updateTalentPrices() {
-        Object.keys(talentsConfig).forEach(talentType => {
-            const talent = talentsConfig[talentType];
-            const currentLevel = gameState.talents[talentType].level;
-            const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
-            if (button) {
-                if (currentLevel >= talent.maxLevel) {
-                    button.textContent = 'MAX';
-                    button.disabled = true;
-                } else {
-                    const cost = Math.floor(talent.getCost(currentLevel));
-                    button.textContent = `${cost}`;
-                    button.disabled = gameState.honey < cost;
-                }
-            }
-        });
     }
 
     if (changedKeys.includes('all')) {
@@ -2395,7 +2442,7 @@ function getAttackName(type) {
 function calculateBasicDamage() {
     let damage = talentsConfig.basic.getDamage(gameState.talents.basic.level);
     damage *= gameState.boosts.attackSpeed;
-    if (gameState.activeHive === 'inferno') damage += gameState.hiveBonuses.inferno.fireDamage;
+    if (gameState.activeHive === 'inferno') damage += gameState.hiveBonuses?.inferno?.fireDamage || 0;
     if (gameState.boosts.shield) damage *= 0.7;
     return Math.round(damage);
 }
@@ -2575,18 +2622,25 @@ function showTab(tabName) {
     document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
 }
 
-function selectSkin() {
-    const selectedSkin = document.getElementById('selected-skin').src;
-    const hiveImg = document.querySelector('.hive-img');
-    if (hiveImg) {
-        hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
-        gameState.currentSkin = selectedSkin;
-        updateSkinButton();
+async function selectSkin() {
+    try {
+        const selectedSkin = document.getElementById('selected-skin').src;
+        const hiveImg = document.querySelector('.hive-img');
+        if (hiveImg) {
+            hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
+            gameState.currentSkin = selectedSkin;
+            gameState.isUsingSkin = true;
+            updateSkinButton();
 
-        // СОХРАНЯЕМ СРАЗУ
-        gameState.save(true).then(() => {
-            console.log('Скин сохранен');
-        });
+            // СОХРАНЯЕМ ВСЕ ДАННЫЕ СРАЗУ
+            await gameState.save(true);
+            console.log('✅ Скин сохранен в Firebase:', selectedSkin);
+
+            showMessage('✅ Скин сохранен и применен!');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка сохранения скина:', error);
+        showMessage('❌ Ошибка сохранения скина');
     }
     hidePopup('customization');
 }
@@ -2611,20 +2665,26 @@ function updateSkinButton() {
     }
 }
 
-function selectPet() {
-    const selectedPet = document.getElementById('selected-pet').src;
-    const petImg = document.querySelector('#pet-img');
-    if (petImg) {
-        petImg.src = selectedPet;
-        gameState.currentPet = selectedPet;
-        gameState.hasPet = true;
-        petImg.style.display = 'block';
-        updatePetButton();
+async function selectPet() {
+    try {
+        const selectedPet = document.getElementById('selected-pet').src;
+        const petImg = document.querySelector('#pet-img');
+        if (petImg) {
+            petImg.src = selectedPet;
+            gameState.currentPet = selectedPet;
+            gameState.hasPet = true;
+            petImg.style.display = 'block';
+            updatePetButton();
 
-        // СОХРАНЯЕМ СРАЗУ
-        gameState.save(true).then(() => {
-            console.log('Питомец сохранен');
-        });
+            // СОХРАНЯЕМ ВСЕ ДАННЫЕ СРАЗУ
+            await gameState.save(true);
+            console.log('✅ Питомец сохранен в Firebase:', selectedPet);
+
+            showMessage('✅ Питомец сохранен!');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка сохранения питомца:', error);
+        showMessage('❌ Ошибка сохранения питомца');
     }
     hidePopup('customization');
 }
@@ -2830,133 +2890,6 @@ function resetCrafting() {
     if (iceButton) iceButton.style.display = 'none';
 }
 
-// =================== ДЕБАГ И ТЕСТ ФУНКЦИИ ===================
-
-// Функция отладки Telegram данных
-async function debugTelegramData() {
-    try {
-        console.log('=== ДЕБАГ ТЕЛЕГРАМ ДАННЫХ ===');
-
-        // 1. Проверяем данные из Telegram WebApp
-        const webAppData = window.Telegram?.WebApp?.initDataUnsafe;
-        console.log('Telegram WebApp данные:', webAppData);
-        console.log('Telegram ID из WebApp:', webAppData?.user?.id);
-        console.log('Telegram username:', webAppData?.user?.username);
-
-        // 2. Проверяем данные в Firebase
-        if (window.firebaseManager && window.firebaseManager.currentUser) {
-            const doc = await window.firebaseManager.db
-                .collection('users')
-                .doc(window.firebaseManager.currentUser.uid)
-                .get();
-
-            if (doc.exists) {
-                console.log('Данные из Firebase:', doc.data());
-                console.log('Telegram ID в Firebase:', doc.data().telegramId);
-            } else {
-                console.log('Пользователь не найден в Firebase');
-            }
-        } else {
-            console.log('Firebase не инициализирован');
-        }
-
-        showMessage('✅ Данные проверены (см. консоль)');
-    } catch (error) {
-        console.error('Ошибка дебага:', error);
-        showMessage('❌ Ошибка дебага');
-    }
-}
-
-// Функция тестирования системы друзей
-async function testFriendSystem() {
-    try {
-        console.log('=== ТЕСТ СИСТЕМЫ ДРУЗЕЙ ===');
-
-        // 1. Проверяем Firebase
-        if (!window.firebaseManager || !window.firebaseManager.currentUser) {
-            console.error('Firebase не инициализирован');
-            showMessage('❌ Firebase не инициализирован');
-            return;
-        }
-
-        // 2. Проверяем Telegram ID
-        const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-        console.log('Telegram ID из WebApp:', telegramId);
-
-        // 3. Проверяем данные в Firebase
-        const userDoc = await window.firebaseManager.db
-            .collection('users')
-            .doc(window.firebaseManager.currentUser.uid)
-            .get();
-
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            console.log('Данные пользователя:', userData);
-            console.log('Telegram ID в Firebase:', userData.telegramId);
-
-            if (!userData.telegramId) {
-                showMessage('❌ Telegram ID не сохранен в Firebase');
-            } else {
-                showMessage('✅ Telegram ID сохранен: ' + userData.telegramId);
-            }
-        }
-
-        // 4. Загружаем друзей для проверки
-        const friends = await window.firebaseManager.getFriends();
-        console.log('Количество друзей:', friends.length);
-
-        // 5. Загружаем заявки для проверки
-        const requests = await window.firebaseManager.getFriendRequests();
-        console.log('Заявки:', requests);
-
-    } catch (error) {
-        console.error('Ошибка теста:', error);
-        showMessage('❌ Ошибка теста: ' + error.message);
-    }
-}
-
-// Добавление кнопки для отладки Telegram
-function addTelegramIdDebugButton() {
-    const debugBtn = document.createElement('button');
-    debugBtn.textContent = '🔧 Debug';
-    debugBtn.style.cssText = `
-        position: fixed;
-        top: 120px;
-        right: 15px;
-        padding: 8px 12px;
-        background: rgba(139, 69, 19, 0.9);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        font-size: 0.8em;
-        z-index: 1000;
-        cursor: pointer;
-    `;
-    debugBtn.onclick = debugTelegramData;
-    document.body.appendChild(debugBtn);
-}
-
-// Добавление кнопки для тестирования системы друзей
-function addTestButton() {
-    const testBtn = document.createElement('button');
-    testBtn.textContent = '🧪 Test';
-    testBtn.style.cssText = `
-        position: fixed;
-        top: 160px;
-        right: 15px;
-        padding: 8px 12px;
-        background: rgba(0, 100, 255, 0.9);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        font-size: 0.8em;
-        z-index: 1000;
-        cursor: pointer;
-    `;
-    testBtn.onclick = testFriendSystem;
-    document.body.appendChild(testBtn);
-}
-
 // =================== СИСТЕМА ФОНОВ ===================
 const backgrounds = [
     {
@@ -3064,6 +2997,25 @@ window.addEventListener('error', function(e) {
     // Показываем пользователю сообщение об ошибке
     if (gameState && isGameInitialized) {
         showMessage('⚠️ Произошла ошибка. Попробуйте перезагрузить игру.');
+    }
+});
+
+// Автоматическое сохранение при выходе
+window.addEventListener('beforeunload', async function() {
+    if (gameState && typeof gameState.save === 'function') {
+        try {
+            await gameState.save(true);
+            console.log('💾 Игра сохранена перед закрытием');
+        } catch (error) {
+            console.error('Ошибка сохранения при выходе:', error);
+        }
+    }
+});
+
+// Также сохраняем при скрытии вкладки
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden && gameState) {
+        gameState.save(true);
     }
 });
 
