@@ -1115,8 +1115,8 @@ async function initGame() {
 
         // Обновляем цены талантов
         setTimeout(() => {
-            updateTalentPrices();
-        }, 100);
+    updateUI(['talents']); // Это обновит цены талантов через updateUI
+}, 100);
 
         // Автозапуск музыки при первом клике на улей
         document.getElementById('hive').addEventListener('click', function firstPlay() {
