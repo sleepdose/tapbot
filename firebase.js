@@ -185,7 +185,7 @@ class FirebaseManager {
       const telegramUsername = this.getTelegramUsername();
 
       const dataToSave = {
-        // Основные данные
+        // ========= ОСНОВНЫЕ ДАННЫЕ =========
         honey: gameState.honey,
         xp: gameState.xp,
         level: gameState.level,
@@ -193,31 +193,39 @@ class FirebaseManager {
         maxEnergy: gameState.maxEnergy,
         xpToNextLevel: gameState.xpToNextLevel,
 
-        // Таланты
+        // ========= ТАЛАНТЫ =========
         talents: gameState.talents,
         attackCharges: gameState.attackCharges,
         craftedTalents: gameState.craftedTalents,
 
-        // Прогресс
+        // ========= ПРОГРЕСС =========
         keys: gameState.keys,
         achievements: gameState.achievements,
 
-        // Кастомизация
+        // ========= КАСТОМИЗАЦИЯ =========
         purchasedBackgrounds: gameState.purchasedBackgrounds,
         currentBackground: gameState.currentBackground,
         currentSkin: gameState.currentSkin,
         currentPet: gameState.currentPet,
         hasPet: gameState.hasPet,
 
-        // Боевые данные
+        // ========= УЛЬИ =========
         activeHive: gameState.activeHive,
         purchasedHives: gameState.purchasedHives,
 
-        // Мета-данные
+        // ========= БУСТЫ =========
+        boosts: gameState.boosts,
+
+        // ========= ДРУГИЕ ДАННЫЕ =========
+        isUsingSkin: gameState.isUsingSkin || false,
+        selectedTalent: gameState.selectedTalent,
+
+        // ========= МЕТА-ДАННЫЕ =========
         lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
-        lastSavedTimestamp: Date.now(), // ДОБАВЛЕНО для восстановления энергии
+        lastSavedTimestamp: Date.now(),
         lastActive: firebase.firestore.FieldValue.serverTimestamp(),
         version: '1.0.0',
+        saveCount: (gameState.saveCount || 0) + 1
       };
 
       // Добавляем Telegram данные только если они есть
@@ -229,10 +237,10 @@ class FirebaseManager {
       // Сохраняем в Firebase с обработкой ошибок записи
       await this.db.collection('users').doc(this.currentUser.uid).set(dataToSave, { merge: true });
 
-      console.log('Данные сохранены в Firebase');
+      console.log('✅ Все данные сохранены в Firebase:', Object.keys(dataToSave));
       return true;
     } catch (error) {
-      console.error('Ошибка сохранения в Firebase:', error);
+      console.error('❌ Ошибка сохранения в Firebase:', error);
       return false;
     }
   }
@@ -246,7 +254,7 @@ class FirebaseManager {
 
         if (doc.exists) {
           const data = doc.data();
-          console.log('Данные загружены из Firebase');
+          console.log('✅ Данные загружены из Firebase');
           console.log('Telegram ID в загруженных данных:', data.telegramId);
 
           return {
