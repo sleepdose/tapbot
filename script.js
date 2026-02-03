@@ -266,6 +266,21 @@ class GameState {
         this.maxEnergy = data.maxEnergy || 100;
         this.xpToNextLevel = data.xpToNextLevel || this.calculateXPRequired(1);
 
+        // Восстановление энергии в оффлайне
+        if (data.lastSavedTimestamp) {
+            const timePassed = Date.now() - data.lastSavedTimestamp;
+            const minutesPassed = Math.floor(timePassed / (1000 * 60));
+            const energyToRestore = Math.floor(minutesPassed * 20); // 20 энергии в минуту
+
+            this.energy = Math.min(this.maxEnergy, (this.energy || 0) + energyToRestore);
+
+            // Ограничиваем восстановление максимум 8 часами
+            const maxRestoreTime = 8 * 60; // 8 часов в минутах
+            if (minutesPassed > maxRestoreTime) {
+                this.energy = this.maxEnergy;
+            }
+        }
+
         // Таланты
         this.talents = data.talents || {
             basic: { level: 1, damage: 10 },
@@ -957,6 +972,12 @@ async function initGame() {
     console.log('Telegram WebApp доступен:', !!window.Telegram?.WebApp);
     console.log('Telegram данные:', window.Telegram?.WebApp?.initDataUnsafe);
 
+    // Убедитесь, что игровой экран скрыт в начале
+    const gameScreen = document.getElementById('gameScreen');
+    if (gameScreen) {
+        gameScreen.style.display = 'none';
+    }
+
     // Показываем прелоадер
     showPreloader('Инициализация игры...');
     updatePreloaderProgress(10);
@@ -996,6 +1017,12 @@ async function initGame() {
             petImg.src = gameState.currentPet;
         }
 
+        // Применяем сохраненный скин
+        const hiveImg = document.querySelector('.hive-img');
+        if (hiveImg && gameState.currentSkin) {
+            hiveImg.style.backgroundImage = `url('${gameState.currentSkin}')`;
+        }
+
         const requiredElements = Object.keys(elements)
             .filter(key => key !== 'levelProgress')
             .map(key => elements[key]?.id || key);
@@ -1009,12 +1036,9 @@ async function initGame() {
             throw new Error('Critical UI elements missing');
         }
 
-        const hiveImg = document.querySelector('.hive-img');
-        if (!hiveImg) {
-            console.error('Элемент .hive-img не найден!');
-            return;
+        if (hiveImg) {
+            hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
         }
-        hiveImg.style.backgroundImage = `url('${gameState.hiveImages[gameState.activeHive]}')`;
 
         const hiveElement = document.getElementById('hive');
         if (hiveElement) {
@@ -1082,6 +1106,18 @@ async function initGame() {
         updatePreloaderProgress(80);
         initFriendsSystem();
 
+        // Инициализация системы фонов
+        initBackgroundSystem();
+
+        // Обработчики для окна результатов битвы
+        document.getElementById('claimRewardButton').addEventListener('click', claimBattleReward);
+        document.getElementById('closeResultButton').addEventListener('click', closeBattleResult);
+
+        // Обновляем цены талантов
+        setTimeout(() => {
+            updateTalentPrices();
+        }, 100);
+
         // Автозапуск музыки при первом клике на улей
         document.getElementById('hive').addEventListener('click', function firstPlay() {
             if (audioElements.bgMusic.paused) {
@@ -1110,12 +1146,17 @@ async function initGame() {
 
         updatePreloaderProgress(100);
 
+        // Показываем игровой экран ПЕРЕД скрытием прелоадера
+        if (gameScreen) {
+            gameScreen.style.display = 'block';
+        }
+
         // Скрываем прелоадер с задержкой
         setTimeout(() => {
             hidePreloader();
             isGameInitialized = true;
             console.log('=== ИГРА УСПЕШНО ЗАГРУЖЕНА ===');
-        }, 1000);
+        }, 300);
 
     } catch (error) {
         console.error('Ошибка инициализации:', error);
@@ -1126,14 +1167,19 @@ async function initGame() {
             statusText.style.color = '#ff6b6b';
         }
 
-        // Скрываем прелоадер через 3 секунды
-        setTimeout(hidePreloader, 3000);
+        // Все равно показываем игру
+        setTimeout(() => {
+            hidePreloader();
+            if (gameScreen) {
+                gameScreen.style.display = 'block';
+            }
+            isGameInitialized = true;
+        }, 3000);
 
         // Создаем новое состояние при ошибке
         gameState = new GameState();
         gameState.reset();
         updateFirebaseStatusUI(false);
-        isGameInitialized = true;
     }
 
     // Добавляем кнопки отладки (можно убрать после тестирования)
@@ -1522,18 +1568,7 @@ function upgradeTalent(talentType) {
             break;
     }
 
-    const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
-    if (button) {
-        const newLevel = gameState.talents[talentType].level;
-        if (newLevel >= talent.maxLevel) {
-            button.textContent = 'MAX';
-            button.disabled = true;
-        } else {
-            button.textContent = `${Math.floor(talent.getCost(newLevel))}`;
-            button.disabled = false;
-        }
-    }
-
+    updateTalentPrices();
     updateUI(['honey', 'talents']);
     showMessage('Талант улучшен!');
 
@@ -2036,7 +2071,7 @@ function claimBattleReward() {
         gameState.honey += reward.honey;
         gameState.xp += reward.xp;
 
-        Object.entries(reward.keys).forEach(([type, amount]) => {
+        Object.entries(reward.keys || {}).forEach(([type, amount]) => {
             gameState.keys[type] = (gameState.keys[type] || 0) + amount;
         });
 
@@ -2046,6 +2081,7 @@ function claimBattleReward() {
         gameState.inBattle = false;
         hidePopup('battleResult');
         document.getElementById('bossSelection').style.display = 'block';
+        document.getElementById('combatScreen').style.display = 'none';
 
         // Сохраняем после получения награды
         setTimeout(() => gameState.save(), 100);
@@ -2166,6 +2202,7 @@ function updateUI(changedKeys = ['all']) {
             updateTalentUI('basic', 'basicLevel', 'basicDmg');
             updateTalentUI('critical', 'critLevel', 'critChanceUpgrade');
             updateTalentUI('poison', 'poisonLevel', 'poisonDmgUpgrade');
+            updateTalentPrices();
         }
     };
 
@@ -2177,6 +2214,24 @@ function updateUI(changedKeys = ['all']) {
             const value = gameState.talents[talentType][talentType === 'critical' ? 'chance' : 'damage'];
             statElem.textContent = talentType === 'critical' ? value.toFixed(2) : value;
         }
+    }
+
+    function updateTalentPrices() {
+        Object.keys(talentsConfig).forEach(talentType => {
+            const talent = talentsConfig[talentType];
+            const currentLevel = gameState.talents[talentType].level;
+            const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
+            if (button) {
+                if (currentLevel >= talent.maxLevel) {
+                    button.textContent = 'MAX';
+                    button.disabled = true;
+                } else {
+                    const cost = Math.floor(talent.getCost(currentLevel));
+                    button.textContent = `${cost}`;
+                    button.disabled = gameState.honey < cost;
+                }
+            }
+        });
     }
 
     if (changedKeys.includes('all')) {
@@ -2527,11 +2582,13 @@ function selectSkin() {
         hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
         gameState.currentSkin = selectedSkin;
         updateSkinButton();
+
+        // СОХРАНЯЕМ СРАЗУ
+        gameState.save(true).then(() => {
+            console.log('Скин сохранен');
+        });
     }
     hidePopup('customization');
-
-    // Сохраняем после выбора скина
-    gameState.save(true);
 }
 
 function previewSkin(skin, name) {
@@ -2563,11 +2620,13 @@ function selectPet() {
         gameState.hasPet = true;
         petImg.style.display = 'block';
         updatePetButton();
+
+        // СОХРАНЯЕМ СРАЗУ
+        gameState.save(true).then(() => {
+            console.log('Питомец сохранен');
+        });
     }
     hidePopup('customization');
-
-    // Сохраняем после выбора питомца
-    gameState.save(true);
 }
 
 function previewPet(pet, name) {
@@ -2983,6 +3042,18 @@ function initBackgroundSystem() {
         // Сохраняем после выбора фона
         setTimeout(() => gameState.save(), 100);
     });
+
+    // Кнопка закрытия меню фона
+    document.getElementById('bgCloseBtn').addEventListener('click', () => {
+        document.getElementById('backgroundSelector').classList.remove('active');
+    });
+
+    // Закрытие при клике вне меню
+    document.getElementById('backgroundSelector').addEventListener('click', (e) => {
+        if (e.target.id === 'backgroundSelector') {
+            document.getElementById('backgroundSelector').classList.remove('active');
+        }
+    });
 }
 
 // =================== ЗАПУСК ИГРЫ ===================
@@ -3014,7 +3085,4 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(`Элемент с ID "${id}" не найден! Проверьте HTML.`);
         }
     });
-
-    // Инициализация системы фонов
-    initBackgroundSystem();
 });
