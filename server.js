@@ -1,34 +1,36 @@
 const express = require('express');
-const admin = require('firebase-admin');
-const cors = require('cors');
-require('dotenv').config();
-
+const path = require('path');
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
-// Инициализация Firebase Admin
-admin.initializeApp({
-    credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    })
+// Middleware для логирования запросов
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
 });
 
-// Получение кастомного токена
-app.post('/get-token', async (req, res) => {
-    try {
-        const { telegramId } = req.body;
+// Раздача статических файлов
+app.use(express.static(path.join(__dirname, './')));
 
-        // Создаем кастомный токен
-        const token = await admin.auth().createCustomToken(`telegram_${telegramId}`);
-
-        res.json({ token });
-    } catch (error) {
-        console.error('Token error:', error);
-        res.status(500).json({ error: 'Token generation failed' });
-    }
+// Все остальные запросы отправляют index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(3000, () => console.log('Server running on port 3000'));
+// Обработка ошибок
+app.use((err, req, res, next) => {
+  console.error('Ошибка сервера:', err.stack);
+  res.status(500).send('Что-то пошло не так!');
+});
+
+// Запуск сервера
+app.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log(`http://localhost:${PORT}`);
+});
+
+// Обработка завершения работы
+process.on('SIGINT', () => {
+  console.log('Сервер завершает работу...');
+  process.exit(0);
+});
