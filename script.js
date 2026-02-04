@@ -1239,13 +1239,7 @@ async function initGame() {
         if (gameState) {
             await gameState.loadAndApply();
 
-            // ПОПЫТКА ВОССТАНОВИТЬ БОЙ ПОСЛЕ ЗАГРУЗКИ
-            setTimeout(async () => {
-                const battleRestored = await gameState.restoreBattleIfNeeded();
-                if (battleRestored) {
-                    console.log('✅ Бой успешно восстановлен');
-                }
-            }, 1000);
+            // Восстановление активного боя делаем только когда игрок откроет раздел боёв
         }
 
         updatePreloaderProgress(60);
@@ -1353,6 +1347,15 @@ function initEventHandlers() {
     }
 
     document.getElementById('battlePopup')?.addEventListener('click', handleBossSelect);
+
+    // Улучшение талантов (вкладка "Улучшить")
+    document.querySelectorAll('#upgradeTalents .talent .btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleTalentButton(btn);
+        });
+    });
 
     document.addEventListener('click', e => {
         const isCombatElement = e.target.closest('#combatScreen') ||
@@ -2648,6 +2651,23 @@ function showPopup(popupType) {
             loadFriendsList();
         }
         if (popupType === 'battleResult') updateResultPopup();
+
+        // Результат офлайн боя показываем только при входе в раздел боёв
+        if (popupType === 'battle' && gameState?.battleResult) {
+            // Если это поражение (оффлайн), просто переключаемся на попап результатов
+            showPopup('battleResult');
+        }
+
+        // Восстановление активного боя делаем только когда пользователь открыл раздел боёв
+        if (popupType === 'battle' && gameState?.inBattle && typeof gameState.restoreBattleIfNeeded === 'function') {
+            setTimeout(() => {
+                try {
+                    gameState.restoreBattleIfNeeded();
+                } catch (e) {
+                    console.error('Ошибка восстановления боя при открытии боёв:', e);
+                }
+            }, 50);
+        }
     }
 }
 
