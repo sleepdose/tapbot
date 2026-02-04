@@ -387,46 +387,61 @@ class GameState {
         this.saveCount = data.saveCount || 0;
 
         // Обработка офлайн боев
-        if (data.activeBattle && data.battleStartTime && data.battleTimeLimit) {
-            const now = Date.now();
-            const battleStart = data.battleStartTime;
-            const timeLimit = data.battleTimeLimit * 1000; // преобразуем секунды в миллисекунды
-            const timePassed = now - battleStart;
+    if (data.activeBattle && data.battleStartTime && data.battleTimeLimit) {
+        const now = Date.now();
+        const battleStart = data.battleStartTime;
+        const timeLimit = data.battleTimeLimit * 1000;
+        const timePassed = now - battleStart;
 
-            console.log(`⚔️ Проверка офлайн боя:`, {
-                timePassedMs: timePassed,
-                timeLimitMs: timeLimit,
-                remainingMs: timeLimit - timePassed
-            });
+        // Reset battle stats to ensure they are clean for offline results
+        this.battleStats = data.battleStats || {
+            basicDamage: 0,
+            criticalDamage: 0,
+            poisonDamage: 0,
+            sonicDamage: 0,
+            fireDamage: 0,
+            iceDamage: 0,
+            totalDamage: 0
+        };
 
-            if (timePassed >= timeLimit) {
-                // Бой завершен в офлайне - поражение
-                this.offlineBattleResult = {
+        if (timePassed >= timeLimit) {
+            // Бой завершен в офлайне - поражение
+            this.offlineBattleResult = {
+                victory: false,
+                boss: data.activeBattle,
+                timePassed: timePassed / 1000,
+                stats: { ...this.battleStats }
+            };
+            this.activeBattle = null;
+            this.battleStartTime = null;
+            this.battleTimeLimit = null;
+            this.inBattle = false;
+            this.currentBoss = null;
+
+            console.log(`⚔️ Офлайн бой завершен: поражение за ${Math.floor(timePassed/1000)}сек`);
+
+            // Показываем уведомление при загрузке
+            setTimeout(() => {
+                showMessage(`⚔️ Бой с ${data.activeBattle.type} завершен: ПОРАЖЕНИЕ`);
+                // Показываем попап поражения
+                this.battleResult = {
                     victory: false,
                     boss: data.activeBattle,
-                    timePassed: timePassed / 1000
+                    reward: null,
+                    stats: { ...this.battleStats }
                 };
-                this.activeBattle = null;
-                this.battleStartTime = null;
-                this.battleTimeLimit = null;
-                this.inBattle = false;
-                this.currentBoss = null;
-
-                console.log(`⚔️ Офлайн бой завершен: поражение за ${Math.floor(timePassed/1000)}сек`);
-
-                // Показываем уведомление при загрузке
-                setTimeout(() => {
-                    showMessage(`⚔️ Бой с ${data.activeBattle.type} завершен: ПОРАЖЕНИЕ`);
-                    // Показываем попап поражения
-                    this.battleResult = {
-                        victory: false,
-                        boss: data.activeBattle,
-                        reward: null
-                    };
-                    updateResultPopup();
-                    showPopup('battleResult');
-                }, 1500);
-            } else {
+                updateResultPopup();
+                // Show in context of battle popup
+                const battlePopup = document.getElementById('battlePopup');
+                const battleResultPopup = document.getElementById('battleResultPopup');
+                if (battlePopup && battleResultPopup) {
+                    battlePopup.style.display = 'block';
+                    battlePopup.classList.add('active');
+                    battleResultPopup.style.display = 'block';
+                    battleResultPopup.classList.add('active');
+                }
+            }, 1500);
+        } else {
                 // Бой еще идет - восстанавливаем полностью
                 this.activeBattle = data.activeBattle;
                 this.battleStartTime = battleStart;
@@ -2112,12 +2127,13 @@ function attack(type) {
         gameState.currentBoss.currentHealth = Math.max(gameState.currentBoss.currentHealth - damage, 0);
         updateCombatUI();
 
-        // Save current battle state to persistence
+        // Save current battle state to persistence with stats
         if (gameState.currentBoss) {
             gameState.activeBattle = {
                 type: gameState.currentBoss.type,
                 health: gameState.currentBoss.currentHealth,
-                timeLimit: gameState.battleTimeLimit
+                timeLimit: gameState.battleTimeLimit,
+                stats: { ...gameState.battleStats }
             };
         }
 
@@ -2175,34 +2191,37 @@ function endBattle(victory) {
         gameState.battleTimer = null;
     }
 
-    const stats = document.querySelector('.stats-grid');
-    if (stats) stats.innerHTML = '';
+    const basicStats = document.getElementById('basicDamageStats');
+    const critStats = document.getElementById('criticalDamageStats');
+    const poisonStats = document.getElementById('poisonDamageStats');
+    const sonicStats = document.getElementById('sonicDamageStats');
+    const fireStats = document.getElementById('fireDamageStats');
+    const iceStats = document.getElementById('iceDamageStats');
+    const totalStats = document.getElementById('totalDamageStats');
 
-    const addStatIfUsed = (type, icon, name) => {
-        const damage = gameState.battleStats[`${type}Damage`];
-        if (damage > 0) {
-            const div = document.createElement('div');
-            div.className = 'stat-item';
-            div.innerHTML = `${icon} ${name}: <span>${Math.floor(damage)}</span>`;
-            if (stats) stats.appendChild(div);
-        }
-    };
-
-    addStatIfUsed('basic', '🗡️', 'Базовый урон');
-    addStatIfUsed('critical', '💥', 'Критический урон');
-    addStatIfUsed('poison', '☠️', 'Ядовитый урон');
-    addStatIfUsed('sonic', '🔊', 'Звуковой урон');
-    addStatIfUsed('fire', '🔥', 'Огненный урон');
-    addStatIfUsed('ice', '❄️', 'Ледяной урон');
+    if (basicStats) basicStats.textContent = Math.floor(gameState.battleStats.basicDamage);
+    if (critStats) critStats.textContent = Math.floor(gameState.battleStats.criticalDamage);
+    if (poisonStats) poisonStats.textContent = Math.floor(gameState.battleStats.poisonDamage);
+    if (sonicStats) sonicStats.textContent = Math.floor(gameState.battleStats.sonicDamage);
+    if (fireStats) fireStats.textContent = Math.floor(gameState.battleStats.fireDamage);
+    if (iceStats) iceStats.textContent = Math.floor(gameState.battleStats.iceDamage);
+    if (totalStats) totalStats.textContent = Math.floor(gameState.battleStats.totalDamage);
 
     try {
         updateResultPopup();
-        showPopup('battleResult');
+        // showPopup('battleResult'); // Removed: we want to show it within battlePopup context
         document.querySelectorAll('.attack-btn').forEach(btn => btn.disabled = true);
         if (elements.combatScreen) elements.combatScreen.style.display = 'none';
         if (elements.combatTalents) elements.combatTalents.innerHTML = '';
         const bossSelection = document.getElementById('bossSelection');
         if (bossSelection) bossSelection.style.display = 'block';
+
+        // Show the result inside the battle popup
+        const battleResultPopup = document.getElementById('battleResultPopup');
+        if (battleResultPopup) {
+            battleResultPopup.style.display = 'block';
+            battleResultPopup.classList.add('active');
+        }
     } catch (e) {
         console.error('Ошибка обновления интерфейса:', e);
     }
@@ -2699,6 +2718,12 @@ function hidePopup(type) {
                 const combatScreen = document.getElementById('combatScreen');
                 if (combatScreen) combatScreen.style.display = 'none';
             }
+            // Hide result if it was inside
+            const battleResultPopup = document.getElementById('battleResultPopup');
+            if (battleResultPopup) {
+                battleResultPopup.style.display = 'none';
+                battleResultPopup.classList.remove('active');
+            }
             createTalentButtons();
         }
 
@@ -2707,6 +2732,8 @@ function hidePopup(type) {
             gameState.inBattle = false;
             const combatScreen = document.getElementById('combatScreen');
             if (combatScreen) combatScreen.style.display = 'none';
+            // Also hide the result element
+            popup.style.display = 'none';
         }
     }
 }
@@ -2788,10 +2815,23 @@ function calculateReward(boss) {
 }
 
 function updateAchievementsUI() {
+    console.log('🏆 Обновление UI достижений...');
     const waspKillCount = document.getElementById('waspKillCount');
     const waspProgress = document.getElementById('waspKillProgress');
     const waspCard = document.getElementById('waspAchievement');
-    const claimWaspBtn = document.getElementById('claimWaspReward');
+    let claimWaspBtn = document.getElementById('claimWaspReward');
+
+    // Если кнопки нет в HTML, попробуем найти ее или создать
+    if (!claimWaspBtn) {
+        const rewardContainer = document.querySelector('#waspAchievement .achievement-rewards');
+        if (rewardContainer) {
+            claimWaspBtn = document.createElement('button');
+            claimWaspBtn.id = 'claimWaspReward';
+            claimWaspBtn.className = 'btn achievement-claim-btn';
+            claimWaspBtn.textContent = 'Получить';
+            rewardContainer.appendChild(claimWaspBtn);
+        }
+    }
 
     if (waspKillCount && waspProgress) {
         const waspKills = gameState.achievements.waspKills;
@@ -2812,12 +2852,17 @@ function updateAchievementsUI() {
         waspProgress.style.width = `${currentProgress}%`;
 
         if (waspCard) {
-            document.getElementById('waspAchievementTitle').textContent = isMaxLevel ? 'Король ОС (Макс.)' : levelData.title;
+            const titleElem = document.getElementById('waspAchievementTitle');
+            if (titleElem) titleElem.textContent = isMaxLevel ? 'Король ОС (Макс.)' : levelData.title;
+            
             if (!isMaxLevel) {
-                document.getElementById('honeyReward').textContent = `🍯 ${levelData.rewardHoney}`;
-                document.getElementById('xpReward').textContent = `⭐ ${levelData.rewardXP}`;
+                const hReward = document.getElementById('honeyReward');
+                const xReward = document.getElementById('xpReward');
+                if (hReward) hReward.textContent = `🍯 ${levelData.rewardHoney}`;
+                if (xReward) xReward.textContent = `⭐ ${levelData.rewardXP}`;
             } else {
-                document.querySelector('#waspAchievement .achievement-rewards').innerHTML = 'Максимум';
+                const rewContainer = document.querySelector('#waspAchievement .achievement-rewards');
+                if (rewContainer) rewContainer.innerHTML = 'Максимум';
             }
         }
 
@@ -2841,7 +2886,18 @@ function updateAchievementsUI() {
     const bearKillCount = document.getElementById('bearKillCount');
     const bearProgress = document.getElementById('bearKillProgress');
     const bearCard = document.getElementById('bearAchievement');
-    const claimBearBtn = document.getElementById('claimBearReward');
+    let claimBearBtn = document.getElementById('claimBearReward');
+
+    if (!claimBearBtn) {
+        const rewardContainer = document.querySelector('#bearAchievement .achievement-rewards');
+        if (rewardContainer) {
+            claimBearBtn = document.createElement('button');
+            claimBearBtn.id = 'claimBearReward';
+            claimBearBtn.className = 'btn achievement-claim-btn';
+            claimBearBtn.textContent = 'Получить';
+            rewardContainer.appendChild(claimBearBtn);
+        }
+    }
 
     if (bearKillCount && bearProgress) {
         const bearKills = gameState.achievements.bearKills;
@@ -2862,12 +2918,17 @@ function updateAchievementsUI() {
         bearProgress.style.width = `${currentProgress}%`;
 
         if (bearCard) {
-            document.getElementById('bearAchievementTitle').textContent = isMaxLevel ? 'Король Медведей (Макс.)' : levelData.title;
+            const titleElem = document.getElementById('bearAchievementTitle');
+            if (titleElem) titleElem.textContent = isMaxLevel ? 'Король Медведей (Макс.)' : levelData.title;
+            
             if (!isMaxLevel) {
-                document.getElementById('bearHoneyReward').textContent = `🍯 ${levelData.rewardHoney}`;
-                document.getElementById('bearXpReward').textContent = `⭐ ${levelData.rewardXP}`;
+                const hReward = document.getElementById('bearHoneyReward');
+                const xReward = document.getElementById('bearXpReward');
+                if (hReward) hReward.textContent = `🍯 ${levelData.rewardHoney}`;
+                if (xReward) xReward.textContent = `⭐ ${levelData.rewardXP}`;
             } else {
-                document.querySelector('#bearAchievement .achievement-rewards').innerHTML = 'Максимум';
+                const rewContainer = document.querySelector('#bearAchievement .achievement-rewards');
+                if (rewContainer) rewContainer.innerHTML = 'Максимум';
             }
         }
 
