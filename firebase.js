@@ -242,6 +242,11 @@ class FirebaseManager {
         selectedTalent: gameState.selectedTalent || null,
         selectedForCraft: gameState.selectedForCraft || [],
 
+        // ========= ОФЛАЙН БОИ =========
+        activeBattle: gameState.activeBattle || null,
+        battleStartTime: gameState.battleStartTime || null,
+        battleTimeLimit: gameState.battleTimeLimit || null,
+
         // ========= МЕТА-ДАННЫЕ =========
         lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
         lastSavedTimestamp: Date.now(),

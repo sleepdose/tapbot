@@ -162,6 +162,12 @@ class GameState {
         this.lastSaveTime = 0;
         this.saveCooldown = 10000; // 10 секунд между автосохранениями
 
+        // Для офлайн боев
+        this.activeBattle = null;
+        this.battleStartTime = null;
+        this.battleTimeLimit = null;
+        this.offlineBattleResult = null;
+
         this.reset();
     }
 
@@ -328,7 +334,7 @@ class GameState {
         // Ключи
         this.keys = data.keys || { bear: 0, dragon: 0, hydra: 0, kraken: 0 };
 
-        // Достижения
+        // Достижения - исправленная загрузка
         this.achievements = data.achievements || {
             waspKills: 0,
             bearKills: 0,
@@ -336,6 +342,13 @@ class GameState {
             rewards: { level1: false, level2: false, level3: false },
             bearRewards: { level1: false, level2: false, level3: false }
         };
+
+        // Обновляем UI достижений сразу после загрузки
+        setTimeout(() => {
+            if (typeof updateAchievementsUI === 'function') {
+                updateAchievementsUI();
+            }
+        }, 500);
 
         // Фоны
         this.purchasedBackgrounds = data.purchasedBackgrounds || ['default'];
@@ -362,6 +375,57 @@ class GameState {
         // Другие данные
         this.selectedTalent = data.selectedTalent || null;
         this.saveCount = data.saveCount || 0;
+
+        // Обработка офлайн боев
+        if (data.activeBattle && data.battleStartTime && data.battleTimeLimit) {
+            const now = Date.now();
+            const battleStart = data.battleStartTime;
+            const timeLimit = data.battleTimeLimit * 1000; // преобразуем секунды в миллисекунды
+            const timePassed = now - battleStart;
+
+            if (timePassed >= timeLimit) {
+                // Бой завершен в офлайне - поражение
+                this.offlineBattleResult = {
+                    victory: false,
+                    boss: data.activeBattle,
+                    timePassed: timePassed / 1000
+                };
+                this.activeBattle = null;
+                this.battleStartTime = null;
+
+                console.log(`⚔️ Офлайн бой завершен: поражение за ${Math.floor(timePassed/1000)}сек`);
+
+                // Показываем уведомление при загрузке
+                setTimeout(() => {
+                    showMessage(`⚔️ Бой с ${data.activeBattle.type} завершен: ПОРАЖЕНИЕ`);
+                }, 2000);
+            } else {
+                // Бой еще идет - продолжаем
+                this.activeBattle = data.activeBattle;
+                this.battleStartTime = battleStart;
+                this.battleTimeLimit = data.battleTimeLimit;
+                this.inBattle = true;
+
+                console.log(`⚔️ Продолжаем офлайн бой с ${data.activeBattle.type}`);
+
+                // Запускаем таймер для автоматического завершения
+                const timeLeft = timeLimit - timePassed;
+                setTimeout(() => {
+                    if (this.activeBattle && this.inBattle) {
+                        this.offlineBattleResult = {
+                            victory: false,
+                            boss: this.activeBattle,
+                            timePassed: timeLimit / 1000
+                        };
+                        this.activeBattle = null;
+                        this.battleStartTime = null;
+                        this.inBattle = false;
+
+                        showMessage(`⚔️ Бой с ${data.activeBattle.type} завершен: ПОРАЖЕНИЕ`);
+                    }
+                }, timeLeft);
+            }
+        }
 
         console.log('✅ Данные загружены:', {
             level: this.level,
@@ -427,19 +491,19 @@ class GameState {
 const talentsConfig = {
     basic: {
         maxLevel: 10,
-        getDamage: level => 10 * level,
-        getCost: level => 75 * Math.pow(1.5, level - 1)
+        getDamage: level => 10 + (level * 2),
+        getCost: level => Math.floor(75 * Math.pow(1.3, level - 1))
     },
     critical: {
         maxLevel: 10,
-        getChance: level => 0.15 + 0.05 * level,
-        getCost: level => 150 * Math.pow(1.4, level)
+        getChance: level => 0.15 + (level * 0.05),
+        getCost: level => Math.floor(150 * Math.pow(1.3, level - 1))
     },
     poison: {
         maxLevel: 10,
         getDamage: level => 2 + level,
         getDuration: level => 5 + level,
-        getCost: level => 200 * Math.pow(1.6, level)
+        getCost: level => Math.floor(200 * Math.pow(1.3, level - 1))
     }
 };
 
@@ -1543,11 +1607,20 @@ function buyBoost(type) {
 }
 
 function upgradeTalent(talentType) {
+    console.log(`Попытка улучшения таланта: ${talentType}`);
+
     const talent = talentsConfig[talentType];
     const currentLevel = gameState.talents[talentType].level;
 
-    if (currentLevel >= talent.maxLevel) return;
-    const cost = talent.getCost(currentLevel);
+    if (currentLevel >= talent.maxLevel) {
+        console.log(`Талант ${talentType} уже максимального уровня`);
+        showMessage('Талант максимального уровня!');
+        return;
+    }
+
+    const cost = Math.floor(talent.getCost(currentLevel));
+    console.log(`Стоимость улучшения: ${cost}, текущий мед: ${gameState.honey}`);
+
     if (gameState.honey < cost) {
         showMessage('Недостаточно меда!');
         return;
@@ -1559,41 +1632,27 @@ function upgradeTalent(talentType) {
     switch (talentType) {
         case 'basic':
             gameState.talents.basic.damage = talent.getDamage(gameState.talents.basic.level);
-            // Обновляем урон звукового и ледяного ударов
-            if (gameState.craftedTalents.sonic.level > 0) {
-                gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
-            }
-            if (gameState.craftedTalents.ice.level > 0) {
-                gameState.craftedTalents.ice.damage = 60 * gameState.talents.basic.level;
-            }
+            console.log(`Базовый урон увеличен до: ${gameState.talents.basic.damage}`);
             break;
         case 'critical':
             gameState.talents.critical.chance = talent.getChance(gameState.talents.critical.level);
-            // Обновляем урон крафтовых талантов
-            if (gameState.craftedTalents.sonic.level > 0) {
-                gameState.craftedTalents.sonic.damage = 50 * gameState.talents.basic.level;
-            }
-            if (gameState.craftedTalents.fire.level > 0) {
-                gameState.craftedTalents.fire.damage = 75 * gameState.talents.critical.level;
-            }
+            console.log(`Шанс крита увеличен до: ${gameState.talents.critical.chance}`);
             break;
         case 'poison':
             gameState.talents.poison.damage = talent.getDamage(gameState.talents.poison.level);
-            // Обновляем урон огненного и ледяного ударов
-            if (gameState.craftedTalents.fire.level > 0) {
-                gameState.craftedTalents.fire.damage = 75 * gameState.talents.critical.level;
-            }
-            if (gameState.craftedTalents.ice.level > 0) {
-                gameState.craftedTalents.ice.damage = 60 * gameState.talents.poison.level;
-            }
+            console.log(`Урон яда увеличен до: ${gameState.talents.poison.damage}`);
             break;
     }
 
     updateUI(['honey', 'talents']);
+    updateTalentPrices(); // Обновляем цены
     showMessage('Талант улучшен!');
 
     // Сохраняем после улучшения
-    setTimeout(() => gameState.save(), 100);
+    setTimeout(() => {
+        gameState.save();
+        console.log(`Талант ${talentType} улучшен до уровня ${gameState.talents[talentType].level}`);
+    }, 100);
 }
 
 // =================== БОЕВАЯ СИСТЕМА ===================
@@ -1612,6 +1671,15 @@ function startBattle(bossType) {
     }
 
     if (gameState.inBattle) return;
+
+    // Сохраняем данные боя для офлайн режима
+    gameState.activeBattle = {
+        type: bossType,
+        health: bossConfig.health,
+        timeLimit: bossConfig.time
+    };
+    gameState.battleStartTime = Date.now();
+    gameState.battleTimeLimit = bossConfig.time;
 
     gameState.inBattle = true;
     gameState.currentBoss = {
@@ -1658,6 +1726,9 @@ function startBattle(bossType) {
 
     createTalentButtons();
     startBattleTimer(bossConfig.time);
+
+    // Сохраняем сразу после начала боя
+    setTimeout(() => gameState.save(true), 500);
 }
 
 function createTalentButtons() {
@@ -1831,8 +1902,14 @@ function attack(type) {
             gameState.battleStats.totalDamage += actualCritDamage;
             break;
         case 'poison':
+            // Исправленная логика ядовитого удара
             const poisonDamage = gameState.talents.poison.damage;
             const duration = talentsConfig.poison.getDuration(gameState.talents.poison.level);
+
+            // Показываем начальный эффект яда
+            showPoisonAttackEffect(poisonDamage);
+
+            // Создаем эффект яда
             const poisonEffect = {
                 damage: poisonDamage,
                 startTime: Date.now(),
@@ -1840,27 +1917,41 @@ function attack(type) {
                 timer: null,
                 remaining: duration
             };
+
+            // Запускаем таймер яда
             poisonEffect.timer = setInterval(() => {
                 if (!gameState.inBattle || !gameState.currentBoss || gameState.currentBoss.currentHealth <= 0) {
                     clearInterval(poisonEffect.timer);
                     return;
                 }
-                gameState.currentBoss.currentHealth -= poisonDamage;
-                gameState.battleStats.poisonDamage += poisonDamage;
-                gameState.battleStats.totalDamage += poisonDamage;
+
+                // Наносим урон ядом
+                const tickDamage = poisonDamage;
+                gameState.currentBoss.currentHealth = Math.max(0, gameState.currentBoss.currentHealth - tickDamage);
+                gameState.battleStats.poisonDamage += tickDamage;
+                gameState.battleStats.totalDamage += tickDamage;
+
+                // Показываем эффект урона
+                showPoisonDamageEffect(tickDamage);
+
                 updateCombatUI();
+                updatePoisonTimersDisplay();
+
                 if (gameState.currentBoss.currentHealth <= 0) {
                     endBattle(true);
                 }
             }, 1000);
+
+            // Устанавливаем таймаут для очистки
             setTimeout(() => {
                 clearInterval(poisonEffect.timer);
                 gameState.activeEffects.poison = gameState.activeEffects.poison.filter(e => e !== poisonEffect);
                 updatePoisonTimersDisplay();
             }, poisonEffect.duration);
+
             gameState.activeEffects.poison.push(poisonEffect);
             showPoisonTimer(duration);
-            break;
+            return; // Яд не наносит мгновенного урона
     }
     gameState.battleStats.totalDamage += damage;
 
@@ -1879,6 +1970,11 @@ function attack(type) {
 
 function endBattle(victory) {
     if (!gameState.inBattle || !gameState.currentBoss) return;
+
+    // Очищаем данные офлайн боя
+    gameState.activeBattle = null;
+    gameState.battleStartTime = null;
+    gameState.battleTimeLimit = null;
 
     // Очистка ядовитых эффектов
     gameState.activeEffects.poison.forEach(e => {
@@ -2349,6 +2445,28 @@ function showPoisonAttackEffect(damage) {
     effect.className = 'poison-attack-effect';
     effect.textContent = `☠️ ${damage}`;
     effect.style.color = '#32CD32';
+    elements.combatScreen.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
+// Новая функция для показа урона ядом
+function showPoisonDamageEffect(damage) {
+    if (!elements.combatScreen) return;
+
+    const effect = document.createElement('div');
+    effect.className = 'poison-damage-effect';
+    effect.textContent = `☠️ ${damage}`;
+    effect.style.color = '#32CD32';
+    effect.style.position = 'absolute';
+    effect.style.left = '50%';
+    effect.style.top = '60%';
+    effect.style.transform = 'translate(-50%, -50%)';
+    effect.style.fontSize = '1.5em';
+    effect.style.fontWeight = 'bold';
+    effect.style.textShadow = '0 0 5px #000';
+    effect.style.zIndex = '1002';
+    effect.style.animation = 'damageEffect 1s ease-out forwards';
+
     elements.combatScreen.appendChild(effect);
     setTimeout(() => effect.remove(), 1000);
 }
