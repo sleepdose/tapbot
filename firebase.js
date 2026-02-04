@@ -191,7 +191,7 @@ class FirebaseManager {
         maxEnergy: gameState.maxEnergy || 100,
         xpToNextLevel: gameState.xpToNextLevel || 100,
 
-        // ========= ТАЛАНТЫ =========
+        // ========= ТАЛЕНТЫ =========
         talents: gameState.talents || {
           basic: { level: 1, damage: 10 },
           critical: { level: 1, chance: 0.2 },
@@ -238,21 +238,52 @@ class FirebaseManager {
           multiclick: false
         },
 
-        // ========= ДРУГИЕ ДАННЫЕ =========
+        // ========= СИСТЕМА ДРУЗЕЙ =========
+        friends: gameState.friends || [],
+        friendRequests: gameState.friendRequests || { incoming: [], outgoing: [] },
+
+        // ========= БОЕВАЯ СИСТЕМА =========
         selectedTalent: gameState.selectedTalent || null,
         selectedForCraft: gameState.selectedForCraft || [],
 
         // ========= ОФЛАЙН БОИ =========
-        activeBattle: gameState.activeBattle || null,
+        activeBattle: gameState.activeBattle ? {
+          type: gameState.activeBattle.type,
+          health: gameState.activeBattle.health || gameState.currentBoss?.currentHealth,
+          timeLimit: gameState.activeBattle.timeLimit
+        } : null,
         battleStartTime: gameState.battleStartTime || null,
         battleTimeLimit: gameState.battleTimeLimit || null,
+
+        // Текущее состояние боя:
+        currentBoss: gameState.currentBoss ? {
+          type: gameState.currentBoss.type,
+          currentHealth: gameState.currentBoss.currentHealth,
+          maxHealth: gameState.currentBoss.maxHealth,
+          image: gameState.currentBoss.image
+        } : null,
+
+        inBattle: gameState.inBattle || false,
+        battleStats: gameState.battleStats || {
+          basicDamage: 0,
+          criticalDamage: 0,
+          poisonDamage: 0,
+          sonicDamage: 0,
+          fireDamage: 0,
+          iceDamage: 0,
+          totalDamage: 0
+        },
+
+        // ========= АУДИО И НАСТРОЙКИ =========
+        isMusicMuted: gameState.isMusicMuted || false,
 
         // ========= МЕТА-ДАННЫЕ =========
         lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
         lastSavedTimestamp: Date.now(),
         lastActive: firebase.firestore.FieldValue.serverTimestamp(),
         version: '1.0.0',
-        saveCount: (gameState.saveCount || 0) + 1
+        saveCount: (gameState.saveCount || 0) + 1,
+        totalPlayTime: (gameState.totalPlayTime || 0) + (Date.now() - (gameState.lastSaveTime || Date.now()))
       };
 
       // Добавляем Telegram данные только если они есть
