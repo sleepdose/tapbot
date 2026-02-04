@@ -1,33 +1,34 @@
 const express = require('express');
+const admin = require('firebase-admin');
+const cors = require('cors');
+require('dotenv').config();
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(cors());
+app.use(express.json());
 
-app.use(express.static('./'));
-
-app.get('/api/test', (req, res) => {
-    res.json({ message: 'API is working!' });
+// Инициализация Firebase Admin
+admin.initializeApp({
+    credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    })
 });
 
-app.get('/api/user/:id', (req, res) => {
-    const userId = req.params.id;
-    res.json({ id: userId, name: 'Test User', coins: 1000 });
+// Получение кастомного токена
+app.post('/get-token', async (req, res) => {
+    try {
+        const { telegramId } = req.body;
+
+        // Создаем кастомный токен
+        const token = await admin.auth().createCustomToken(`telegram_${telegramId}`);
+
+        res.json({ token });
+    } catch (error) {
+        console.error('Token error:', error);
+        res.status(500).json({ error: 'Token generation failed' });
+    }
 });
 
-app.post('/api/save', express.json(), (req, res) => {
-    console.log('Data received:', req.body);
-    res.json({ success: true, message: 'Data saved' });
-});
-
-app.use((req, res) => {
-    res.status(404).send('Not Found');
-});
-
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
-});
-
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} in your browser`);
-});
+app.listen(3000, () => console.log('Server running on port 3000'));
