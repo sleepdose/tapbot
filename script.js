@@ -1276,7 +1276,7 @@ async function initGame() {
 
         updatePreloaderProgress(90);
 
-        // Обновляем цены талантов
+        // Обновляем цены т;�лантов
         setTimeout(() => {
             updateUI(['talents']);
         }, 100);
@@ -2112,6 +2112,15 @@ function attack(type) {
         gameState.currentBoss.currentHealth = Math.max(gameState.currentBoss.currentHealth - damage, 0);
         updateCombatUI();
 
+        // Save current battle state to persistence
+        if (gameState.currentBoss) {
+            gameState.activeBattle = {
+                type: gameState.currentBoss.type,
+                health: gameState.currentBoss.currentHealth,
+                timeLimit: gameState.battleTimeLimit
+            };
+        }
+
         if (gameState.currentBoss.currentHealth <= 0) {
             endBattle(true);
         }
@@ -2248,8 +2257,10 @@ function updateResultPopup() {
     }
 
     if (gameState.battleResult.victory) {
-        if (resultTitle) resultTitle.textContent = "ПОБЕДА!";
-        if (resultTitle) resultTitle.style.color = "#4CAF50";
+        if (resultTitle) {
+            resultTitle.textContent = "ПОБЕДА!";
+            resultTitle.style.color = "#4CAF50";
+        }
         if (claimBtn) claimBtn.style.display = 'block';
         if (closeBtn) closeBtn.style.display = 'none';
 
@@ -2264,8 +2275,10 @@ function updateResultPopup() {
             if (rewardKeys) rewardKeys.textContent = keys > 0 ? keys : '0';
         }
     } else {
-        if (resultTitle) resultTitle.textContent = "ПОРАЖЕНИЕ";
-        if (resultTitle) resultTitle.style.color = "#f44336";
+        if (resultTitle) {
+            resultTitle.textContent = "ПОРАЖЕНИЕ";
+            resultTitle.style.color = "#f44336";
+        }
         if (claimBtn) claimBtn.style.display = 'none';
         if (closeBtn) closeBtn.style.display = 'block';
 
@@ -2278,6 +2291,9 @@ function updateResultPopup() {
         resultBossImage.classList.toggle('defeat-image', !gameState.battleResult.victory);
         resultBossImage.classList.toggle('victory-image', gameState.battleResult.victory);
     }
+
+    // Ensure we are in the battle popup
+    // showPopup('battle'); // Removed to avoid potential issues if it hides the current popup
 }
 
 // Обработчик получения награды
@@ -2774,86 +2790,100 @@ function calculateReward(boss) {
 function updateAchievementsUI() {
     const waspKillCount = document.getElementById('waspKillCount');
     const waspProgress = document.getElementById('waspKillProgress');
-    const waspCard = document.querySelector('.achievement-card');
+    const waspCard = document.getElementById('waspAchievement');
+    const claimWaspBtn = document.getElementById('claimWaspReward');
 
     if (waspKillCount && waspProgress) {
         const waspKills = gameState.achievements.waspKills;
-        let waspTarget, waspLevel, waspRewards, waspBackground;
+        const currentLevel = gameState.achievements.currentLevel || 0;
+        const levels = [
+            { target: 10, rewardHoney: 1000, rewardXP: 500, title: 'Король ОС (Уровень 1)' },
+            { target: 20, rewardHoney: 2000, rewardXP: 1000, title: 'Король ОС (Уровень 2)' },
+            { target: 30, rewardHoney: 3000, rewardXP: 1500, title: 'Король ОС (Уровень 3)' }
+        ];
 
-        if (waspKills < 10) {
-            waspTarget = 10;
-            waspLevel = 0;
-            waspRewards = '🍯 1000 ⭐ 500';
-            waspBackground = 'rgba(0, 0, 0, 0.5)';
-        } else if (waspKills < 20) {
-            waspTarget = 20;
-            waspLevel = 1;
-            waspRewards = '🍯 2000 ⭐ 1000';
-            waspBackground = 'rgba(139, 69, 19, 0.5)';
-        } else if (waspKills < 30) {
-            waspTarget = 30;
-            waspLevel = 2;
-            waspRewards = '🍯 3000 ⭐ 1500';
-            waspBackground = 'rgba(218, 165, 32, 0.5)';
-        } else {
-            waspTarget = 30;
-            waspLevel = 3;
-            waspRewards = 'Максимум';
-            waspBackground = 'rgba(218, 165, 32, 0.5)';
-        }
+        const levelData = levels[currentLevel] || levels[levels.length - 1];
+        const isMaxLevel = currentLevel >= levels.length;
 
-        waspKillCount.textContent = `${Math.min(waspKills, waspTarget)}/${waspTarget}`;
-        const waspProgressValue = (waspKills % 10) * 10;
-        waspProgress.style.width = `${waspProgressValue}%`;
+        waspKillCount.textContent = isMaxLevel ? `${waspKills}/${levels[levels.length-1].target}` : `${waspKills}/${levelData.target}`;
+        
+        const prevTarget = currentLevel > 0 ? levels[currentLevel - 1].target : 0;
+        const currentProgress = isMaxLevel ? 100 : Math.min(100, ((waspKills - prevTarget) / (levelData.target - prevTarget)) * 100);
+        waspProgress.style.width = `${currentProgress}%`;
 
         if (waspCard) {
-            waspCard.style.background = waspBackground;
-            waspCard.querySelector('.achievement-info h3').textContent = `Король ОС (Уровень ${waspLevel + 1})`;
-            if (waspKills < 30) {
-                waspCard.querySelector('.achievement-rewards').innerHTML = waspRewards;
+            document.getElementById('waspAchievementTitle').textContent = isMaxLevel ? 'Король ОС (Макс.)' : levelData.title;
+            if (!isMaxLevel) {
+                document.getElementById('honeyReward').textContent = `🍯 ${levelData.rewardHoney}`;
+                document.getElementById('xpReward').textContent = `⭐ ${levelData.rewardXP}`;
+            } else {
+                document.querySelector('#waspAchievement .achievement-rewards').innerHTML = 'Максимум';
+            }
+        }
+
+        if (claimWaspBtn) {
+            const canClaim = !isMaxLevel && waspKills >= levelData.target;
+            claimWaspBtn.style.display = canClaim ? 'block' : 'none';
+            if (canClaim) {
+                claimWaspBtn.onclick = () => {
+                    gameState.honey += levelData.rewardHoney;
+                    gameState.xp += levelData.rewardXP;
+                    gameState.achievements.currentLevel = (gameState.achievements.currentLevel || 0) + 1;
+                    updateUI(['honey', 'xp']);
+                    updateAchievementsUI();
+                    showMessage('Награда получена! Новый уровень достижения открыт!');
+                    gameState.save(true);
+                };
             }
         }
     }
 
     const bearKillCount = document.getElementById('bearKillCount');
     const bearProgress = document.getElementById('bearKillProgress');
-    const bearCard = document.querySelectorAll('.achievement-card')[1];
+    const bearCard = document.getElementById('bearAchievement');
+    const claimBearBtn = document.getElementById('claimBearReward');
 
     if (bearKillCount && bearProgress) {
         const bearKills = gameState.achievements.bearKills;
-        let bearTarget, bearLevel, bearRewards, bearBackground;
+        const bearLevel = gameState.achievements.bearLevel || 0;
+        const levels = [
+            { target: 10, rewardHoney: 2000, rewardXP: 1000, title: 'Король Медведей (Уровень 1)' },
+            { target: 20, rewardHoney: 4000, rewardXP: 2000, title: 'Король Медведей (Уровень 2)' },
+            { target: 30, rewardHoney: 6000, rewardXP: 3000, title: 'Король Медведей (Уровень 3)' }
+        ];
 
-        if (bearKills < 10) {
-            bearTarget = 10;
-            bearLevel = 0;
-            bearRewards = '🍯 2000 ⭐ 1000';
-            bearBackground = 'rgba(0, 0, 0, 0.5)';
-        } else if (bearKills < 20) {
-            bearTarget = 20;
-            bearLevel = 1;
-            bearRewards = '🍯 4000 ⭐ 2000';
-            bearBackground = 'rgba(139, 69, 19, 0.5)';
-        } else if (bearKills < 30) {
-            bearTarget = 30;
-            bearLevel = 2;
-            bearRewards = '🍯 6000 ⭐ 3000';
-            bearBackground = 'rgba(218, 165, 32, 0.5)';
-        } else {
-            bearTarget = 30;
-            bearLevel = 3;
-            bearRewards = 'Максимум';
-            bearBackground = 'rgba(218, 165, 32, 0.5)';
-        }
+        const levelData = levels[bearLevel] || levels[levels.length - 1];
+        const isMaxLevel = bearLevel >= levels.length;
 
-        bearKillCount.textContent = `${Math.min(bearKills, bearTarget)}/${bearTarget}`;
-        const bearProgressValue = (bearKills % 10) * 10;
-        bearProgress.style.width = `${bearProgressValue}%`;
+        bearKillCount.textContent = isMaxLevel ? `${bearKills}/${levels[levels.length-1].target}` : `${bearKills}/${levelData.target}`;
+        
+        const prevTarget = bearLevel > 0 ? levels[bearLevel - 1].target : 0;
+        const currentProgress = isMaxLevel ? 100 : Math.min(100, ((bearKills - prevTarget) / (levelData.target - prevTarget)) * 100);
+        bearProgress.style.width = `${currentProgress}%`;
 
         if (bearCard) {
-            bearCard.style.background = bearBackground;
-            bearCard.querySelector('.achievement-info h3').textContent = `Король Медведей (Уровень ${bearLevel + 1})`;
-            if (bearKills < 30) {
-                bearCard.querySelector('.achievement-rewards').innerHTML = bearRewards;
+            document.getElementById('bearAchievementTitle').textContent = isMaxLevel ? 'Король Медведей (Макс.)' : levelData.title;
+            if (!isMaxLevel) {
+                document.getElementById('bearHoneyReward').textContent = `🍯 ${levelData.rewardHoney}`;
+                document.getElementById('bearXpReward').textContent = `⭐ ${levelData.rewardXP}`;
+            } else {
+                document.querySelector('#bearAchievement .achievement-rewards').innerHTML = 'Максимум';
+            }
+        }
+
+        if (claimBearBtn) {
+            const canClaim = !isMaxLevel && bearKills >= levelData.target;
+            claimBearBtn.style.display = canClaim ? 'block' : 'none';
+            if (canClaim) {
+                claimBearBtn.onclick = () => {
+                    gameState.honey += levelData.rewardHoney;
+                    gameState.xp += levelData.rewardXP;
+                    gameState.achievements.bearLevel = (gameState.achievements.bearLevel || 0) + 1;
+                    updateUI(['honey', 'xp']);
+                    updateAchievementsUI();
+                    showMessage('Награда получена! Новый уровень достижения открыт!');
+                    gameState.save(true);
+                };
             }
         }
     }
