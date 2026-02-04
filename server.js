@@ -1,36 +1,33 @@
 const express = require('express');
-const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware для логирования запросов
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
+app.use(express.static('./'));
+
+app.get('/api/test', (req, res) => {
+    res.json({ message: 'API is working!' });
 });
 
-// Раздача статических файлов
-app.use(express.static(path.join(__dirname, './')));
-
-// Все остальные запросы отправляют index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+app.get('/api/user/:id', (req, res) => {
+    const userId = req.params.id;
+    res.json({ id: userId, name: 'Test User', coins: 1000 });
 });
 
-// Обработка ошибок
+app.post('/api/save', express.json(), (req, res) => {
+    console.log('Data received:', req.body);
+    res.json({ success: true, message: 'Data saved' });
+});
+
+app.use((req, res) => {
+    res.status(404).send('Not Found');
+});
+
 app.use((err, req, res, next) => {
-  console.error('Ошибка сервера:', err.stack);
-  res.status(500).send('Что-то пошло не так!');
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
 });
 
-// Запуск сервера
 app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
-  console.log(`http://localhost:${PORT}`);
-});
-
-// Обработка завершения работы
-process.on('SIGINT', () => {
-  console.log('Сервер завершает работу...');
-  process.exit(0);
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`Open http://localhost:${PORT} in your browser`);
 });
