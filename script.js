@@ -318,17 +318,20 @@ class OptimizedGameState {
     const timeLimit = savedData.battleTimeLimit * 1000;
     const timePassed = now - battleStart;
 
+    // Восстанавливаем здоровье босса из сохраненных данных
+    const bossHealth = savedData.currentBoss?.currentHealth || 
+                      savedData.activeBattle.health;
+
+    if (!bossHealth || bossHealth <= 0) {
+      console.log('Босс уже побежден');
+      this.showOfflineBattleResult(savedData.activeBattle, true);
+      return;
+    }
+
     // Проверяем, не истекло ли время боя
     if (timePassed >= timeLimit) {
       console.log('Время боя истекло - поражение');
       this.showOfflineBattleResult(savedData.activeBattle, false);
-      return;
-    }
-
-    // Проверяем, жив ли еще босс
-    if (savedData.activeBattle.health <= 0) {
-      console.log('Босс уже побежден');
-      this.showOfflineBattleResult(savedData.activeBattle, true);
       return;
     }
 
@@ -338,21 +341,25 @@ class OptimizedGameState {
       return;
     }
 
-    // Восстанавливаем состояние боя
+    // Восстанавливаем состояние боя с актуальным здоровьем
     this.manager.setState({
       inBattle: true,
-      activeBattle: savedData.activeBattle,
+      activeBattle: {
+        type: savedData.activeBattle.type,
+        health: bossHealth,
+        timeLimit: savedData.activeBattle.timeLimit
+      },
       battleStartTime: battleStart,
       battleTimeLimit: savedData.battleTimeLimit,
       currentBoss: {
         type: savedData.activeBattle.type,
-        currentHealth: savedData.activeBattle.health || bossConfig.health,
-        maxHealth: bossConfig.health,
+        currentHealth: bossHealth,
+        maxHealth: savedData.currentBoss?.maxHealth || bossConfig.health,
         image: bossConfig.image
       }
     });
 
-    console.log(`⚔️ Восстановлен бой с ${savedData.activeBattle.type}`);
+    console.log(`⚔️ Восстановлен бой с ${savedData.activeBattle.type}, здоровье: ${bossHealth}`);
 
     // Запускаем таймер с оставшимся временем
     const timeLeft = Math.ceil((timeLimit - timePassed) / 1000);
@@ -386,7 +393,7 @@ class OptimizedGameState {
 
     setTimeout(() => {
       updateResultPopup();
-      showPopup('battleResult');
+      showBattleResultPopup();
       showMessage(`⚔️ Офлайн бой завершен: ${victory ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}`);
     }, 1500);
   }
@@ -398,8 +405,8 @@ class OptimizedGameState {
       // Глубокая функция для слияния объектов
       const deepMerge = (target, source) => {
         for (const key in source) {
-          if (source[key] && typeof source[key] === 'object' && 
-              !Array.isArray(source[key]) && 
+          if (source[key] && typeof source[key] === 'object' &&
+              !Array.isArray(source[key]) &&
               key !== 'lastSaved' && key !== 'lastActive' &&
               key !== 'createdAt' && key !== 'updatedAt') {
             // Если это объект и не массив, и не специальное поле Firebase
@@ -426,9 +433,9 @@ class OptimizedGameState {
         xpToNextLevel: data.xpToNextLevel !== undefined ? data.xpToNextLevel : this.manager.state.xpToNextLevel,
 
         // Коллекции с глубоким слиянием
-        talents: data.talents ? { 
-          ...this.manager.state.talents, 
-          ...data.talents 
+        talents: data.talents ? {
+          ...this.manager.state.talents,
+          ...data.talents
         } : this.manager.state.talents,
 
         attackCharges: data.attackCharges ? {
@@ -657,9 +664,9 @@ class OptimizedGameState {
       this.battleTimer = null;
     }
 
-    // Обновляем UI и показываем попап
+    // Обновляем UI и показываем попап результатов ВНУТРИ боевого попапа
     updateResultPopup();
-    showPopup('battleResult');
+    showBattleResultPopup();
 
     // Обновляем достижения
     updateAchievementsUI();
@@ -845,7 +852,7 @@ async function initGame() {
     updatePreloaderProgress(60);
     let loadAttempts = 0;
     let loadSuccess = false;
-    
+
     while (loadAttempts < 3 && !loadSuccess) {
       try {
         loadSuccess = await gameState.load();
@@ -882,13 +889,13 @@ async function initGame() {
       showMessage('🎮 Добро пожаловать в AIKO TAPBOT!');
 
       logger.info('=== ИГРА УСПЕШНО ЗАГРУЖЕНА ===');
-      
+
       // Проверяем и восстанавливаем активный бой если нужно
       if (gameState.state.inBattle && gameState.state.currentBoss) {
         console.log('Обнаружен активный бой, восстанавливаем...');
         const bossSelection = document.getElementById('bossSelection');
         const combatScreen = document.getElementById('combatScreen');
-        
+
         if (bossSelection && combatScreen) {
           bossSelection.style.display = 'none';
           combatScreen.style.display = 'block';
@@ -900,16 +907,16 @@ async function initGame() {
 
   } catch (error) {
     logger.error('Критическая ошибка инициализации', error);
-    
+
     // Fallback: запускаем игру в офлайн режиме
     gameState = new OptimizedGameState();
     initUI();
     initGameSystems();
-    
+
     hidePreloader();
     document.getElementById('gameScreen').style.display = 'block';
     showMessage('⚠️ Игра запущена в автономном режиме');
-    
+
     isGameInitialized = true;
   }
 }
@@ -1017,7 +1024,7 @@ function initGameSystems() {
   // Обработчики результатов битвы
   document.getElementById('claimRewardButton')?.addEventListener('click', claimBattleReward);
   document.getElementById('closeResultButton')?.addEventListener('click', closeBattleResult);
-  
+
   // Сетевые слушатели
   initNetworkListeners();
 }
@@ -1049,7 +1056,7 @@ function initNetworkListeners() {
   window.addEventListener('online', () => {
     console.log('Сетевое соединение восстановлено');
     showMessage('🌐 Подключение к интернету восстановлено');
-    
+
     // Пытаемся сохранить данные если менеджер доступен
     if (window.firebaseManager) {
       window.firebaseManager.isOnline = true;
@@ -1060,7 +1067,7 @@ function initNetworkListeners() {
   window.addEventListener('offline', () => {
     console.log('Сетевое соединение потеряно');
     showMessage('⚠️ Потеряно соединение с интернетом');
-    
+
     if (window.firebaseManager) {
       window.firebaseManager.isOnline = false;
     }
@@ -2227,8 +2234,9 @@ function startBattle(bossType) {
   const battleReward = document.getElementById('battleReward');
   if (battleReward) battleReward.style.display = 'none';
 
+  // Скрываем кнопку "Назад к выбору боссов"
   const backToBossSelection = document.getElementById('backToBossSelection');
-  if (backToBossSelection) backToBossSelection.style.display = 'block';
+  if (backToBossSelection) backToBossSelection.style.display = 'none';
 
   const bossHealth = document.getElementById('bossHealth');
   if (bossHealth) {
@@ -2333,13 +2341,13 @@ function attack(type) {
   // ВАЖНОЕ ИСПРАВЛЕНИЕ: проверка на активный бой
   if (!state.inBattle) {
     console.warn('Попытка атаки вне боя');
-    
+
     // Если талант выбран, но бой не активен - сбрасываем выбор
     if (state.selectedTalent) {
       gameState.manager.setState({ selectedTalent: null });
       createTalentButtons();
     }
-    
+
     return;
   }
 
@@ -2407,14 +2415,14 @@ function attack(type) {
   // Обновляем UI
   updateCombatUI();
   updateTalentBuyTab();
-  
+
   // Сохраняем состояние после атаки
-  setTimeout(() => gameState.save(), 100);
+  setTimeout(() => gameState.save(true), 100);
 }
 
 function handleCraftedTalentAttack(type) {
   const state = gameState.state;
-  
+
   if (!state.inBattle) {
     console.warn('Попытка использовать крафтовый талант вне боя');
     return;
@@ -2456,9 +2464,9 @@ function handleCraftedTalentAttack(type) {
 
   // Обновляем UI
   updateCombatUI();
-  
+
   // Сохраняем состояние после атаки
-  setTimeout(() => gameState.save(), 100);
+  setTimeout(() => gameState.save(true), 100);
 }
 
 function startPoisonEffect() {
@@ -2514,6 +2522,9 @@ function applyPoisonTick(effect) {
   showPoisonDamageEffect(damage);
   updateCombatUI();
 
+  // Сохраняем после каждого тика яда
+  setTimeout(() => gameState.save(true), 100);
+
   if (newHealth <= 0) {
     gameState.endBattle(true);
     clearInterval(effect.interval);
@@ -2527,7 +2538,20 @@ function applyDamageToBoss(damage) {
   const newHealth = Math.max(0, state.currentBoss.currentHealth - damage);
   const newBoss = { ...state.currentBoss, currentHealth: newHealth };
 
-  gameState.manager.setState({ currentBoss: newBoss });
+  // Обновляем активный бой с текущим здоровьем
+  const newActiveBattle = state.activeBattle ? {
+    ...state.activeBattle,
+    health: newHealth
+  } : {
+    type: state.currentBoss.type,
+    health: newHealth,
+    timeLimit: state.battleTimeLimit
+  };
+
+  gameState.manager.setState({ 
+    currentBoss: newBoss,
+    activeBattle: newActiveBattle
+  });
 
   if (newHealth <= 0) {
     gameState.endBattle(true);
@@ -2703,7 +2727,11 @@ function createClickEffect(e) {
 
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
 function showPopup(popupType) {
-  if (popupType === 'battleResult' && !gameState.battleResult) return;
+  if (popupType === 'battleResult') {
+    // Результаты боя показываются отдельно через showBattleResultPopup
+    return;
+  }
+  
   hideAllPopups();
   const popup = document.getElementById(`${popupType}Popup`);
   if (popup) {
@@ -2714,7 +2742,6 @@ function showPopup(popupType) {
     if (popupType === 'friends') {
       loadFriendsList();
     }
-    if (popupType === 'battleResult') updateResultPopup();
 
     // Восстановление активного боя
     if (popupType === 'battle' && gameState?.state.inBattle) {
@@ -2735,7 +2762,28 @@ function showPopup(popupType) {
   }
 }
 
+function showBattleResultPopup() {
+  const battlePopup = document.getElementById('battlePopup');
+  const resultPopup = document.getElementById('battleResultPopup');
+  
+  if (battlePopup && resultPopup) {
+    // Скрываем боевой экран
+    const combatScreen = document.getElementById('combatScreen');
+    if (combatScreen) combatScreen.style.display = 'none';
+    
+    // Показываем попап результатов ВНУТРИ боевого попапа
+    resultPopup.style.display = 'block';
+    updateResultPopup();
+  }
+}
+
 function hidePopup(type) {
+  if (type === 'battleResult') {
+    const resultPopup = document.getElementById('battleResultPopup');
+    if (resultPopup) resultPopup.style.display = 'none';
+    return;
+  }
+  
   const popup = document.getElementById(`${type}Popup`);
   if (popup) {
     popup.classList.remove('active');
@@ -2748,13 +2796,6 @@ function hidePopup(type) {
         if (combatScreen) combatScreen.style.display = 'none';
       }
       createTalentButtons();
-    }
-
-    if (type === 'battleResult') {
-      gameState.battleResult = null;
-      gameState.manager.setState({ inBattle: false });
-      const combatScreen = document.getElementById('combatScreen');
-      if (combatScreen) combatScreen.style.display = 'none';
     }
 
     // Скрываем кнопку "Назад" в Telegram если нет открытых попапов
@@ -2860,25 +2901,37 @@ function claimBattleReward() {
     updateUI();
     gameState.updateKeysDisplay();
 
-    // Закрываем попап
-    gameState.battleResult = null;
-    hidePopup('battleResult');
+    // Закрываем попап результатов
+    const resultPopup = document.getElementById('battleResultPopup');
+    if (resultPopup) resultPopup.style.display = 'none';
 
+    // Показываем выбор боссов
     const bossSelection = document.getElementById('bossSelection');
     if (bossSelection) bossSelection.style.display = 'block';
-    if (elements.combatScreen) elements.combatScreen.style.display = 'none';
+
+    // Скрываем боевой экран
+    const combatScreen = document.getElementById('combatScreen');
+    if (combatScreen) combatScreen.style.display = 'none';
 
     // Сохраняем после получения награды
-    setTimeout(() => gameState.save(), 100);
+    setTimeout(() => gameState.save(true), 100);
   }
 }
 
 function closeBattleResult() {
-  gameState.battleResult = null;
-  hidePopup('battleResult');
+  // Закрываем попап результатов
+  const resultPopup = document.getElementById('battleResultPopup');
+  if (resultPopup) resultPopup.style.display = 'none';
+
+  // Показываем выбор боссов
   const bossSelection = document.getElementById('bossSelection');
   if (bossSelection) bossSelection.style.display = 'block';
-  if (elements.combatScreen) elements.combatScreen.style.display = 'none';
+
+  // Скрываем боевой экран
+  const combatScreen = document.getElementById('combatScreen');
+  if (combatScreen) combatScreen.style.display = 'none';
+
+  gameState.battleResult = null;
 }
 
 function checkLevelUp() {
@@ -2904,7 +2957,7 @@ function checkLevelUp() {
     updateAchievementsUI();
 
     // Сохраняем при повышении уровня
-    setTimeout(() => gameState.save(), 100);
+    setTimeout(() => gameState.save(true), 100);
   }
 }
 
@@ -3279,16 +3332,16 @@ function initEventHandlers() {
     }
   });
 
-  // Кнопка "Назад к выбору боссов"
-  document.getElementById('backToBossSelection')?.addEventListener('click', () => {
-    const bossSelection = document.getElementById('bossSelection');
-    const combatScreen = document.getElementById('combatScreen');
-
-    if (bossSelection && combatScreen) {
-      bossSelection.style.display = 'block';
-      combatScreen.style.display = 'none';
-    }
-  });
+  // Кнопка "Назад к выбору боссов" - УДАЛЕНО
+  // document.getElementById('backToBossSelection')?.addEventListener('click', () => {
+  //   const bossSelection = document.getElementById('bossSelection');
+  //   const combatScreen = document.getElementById('combatScreen');
+  // 
+  //   if (bossSelection && combatScreen) {
+  //     bossSelection.style.display = 'block';
+  //     combatScreen.style.display = 'none';
+  //   }
+  // });
 
   // Глобальный клик для закрытия попапов
   document.addEventListener('click', (e) => {
