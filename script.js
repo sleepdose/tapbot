@@ -2353,7 +2353,7 @@ function attack(type) {
 
   // Проверяем кулдаун
   const now = Date.now();
-  if (now - state.lastAttackTime < 1000) {
+  if (now - state.lastAttackTime < 100) { // Снижаем кулдаун до 100мс для тапалки
     return;
   }
   gameState.manager.setState({ lastAttackTime: now });
@@ -2369,6 +2369,13 @@ function attack(type) {
 
   // Обработка крафтовых талантов
   if (attackType === 'sonic' || attackType === 'fire' || attackType === 'ice') {
+    const talent = state.craftedTalents[attackType];
+    if (talent.charges <= 0) {
+      showMessage(`Нет зарядов ${getTalentName(attackType)} удара!`);
+      gameState.manager.setState({ selectedTalent: null });
+      createTalentButtons();
+      return;
+    }
     handleCraftedTalentAttack(attackType);
     return;
   }
@@ -2383,8 +2390,15 @@ function attack(type) {
 
   // Уменьшаем заряды
   const newCharges = { ...state.attackCharges };
-  newCharges[attackType].charges--;
-  gameState.manager.setState({ attackCharges: newCharges });
+  if (newCharges[attackType].charges > 0) {
+    newCharges[attackType].charges--;
+    gameState.manager.setState({ attackCharges: newCharges });
+  } else {
+    showMessage('Заряды кончились!');
+    gameState.manager.setState({ selectedTalent: null });
+    createTalentButtons();
+    return;
+  }
 
   // Наносим урон
   let damage = 0;
@@ -2437,8 +2451,15 @@ function handleCraftedTalentAttack(type) {
 
   // Уменьшаем заряды
   const newCraftedTalents = { ...state.craftedTalents };
-  newCraftedTalents[type].charges--;
-  gameState.manager.setState({ craftedTalents: newCraftedTalents });
+  if (newCraftedTalents[type].charges > 0) {
+    newCraftedTalents[type].charges--;
+    gameState.manager.setState({ craftedTalents: newCraftedTalents });
+  } else {
+    showMessage(`Нет зарядов ${getTalentName(type)} удара!`);
+    gameState.manager.setState({ selectedTalent: null });
+    createTalentButtons();
+    return;
+  }
 
   // Наносим урон
   const damage = talent.damage * (talent.level || 1);
@@ -2614,19 +2635,19 @@ function calculateDamage(type) {
 
   switch (type) {
     case 'basic':
-      return state.talents.basic.damage;
+      return calculateBasicDamage(); // Используем унифицированный расчет
     case 'critical':
       return Math.random() < state.talents.critical.chance ?
-        state.talents.basic.damage * 2 :
-        state.talents.basic.damage;
+        calculateBasicDamage() * 2 :
+        calculateBasicDamage();
     case 'poison':
       return state.talents.poison.damage;
     case 'sonic':
-      return state.craftedTalents.sonic.damage * state.craftedTalents.sonic.level;
+      return state.craftedTalents.sonic.damage; // Урон уже учитывает уровень при крафте/улучшении
     case 'fire':
-      return state.craftedTalents.fire.damage * state.craftedTalents.fire.level;
+      return state.craftedTalents.fire.damage;
     case 'ice':
-      return state.craftedTalents.ice.damage * state.craftedTalents.ice.level;
+      return state.craftedTalents.ice.damage;
     default:
       return 0;
   }
