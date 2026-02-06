@@ -5,19 +5,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AIKO TAPBOT</title>
-  
+
   <!-- Мета-теги для PWA и улучшения UX -->
   <meta name="theme-color" content="#8B4513">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="AIKO TAPBOT - увлекательная мобильная игра в Telegram">
-  
+
   <!-- Предзагрузка критичных ресурсов -->
-  <link rel="preload" href="img/skin1.png" as="image">
+  <link rel="preload" href="img/human_male.png" as="image">
   <link rel="preload" href="img/background1.png" as="image">
   <link rel="preload" href="audio/background.mp3" as="audio">
-  
+
   <link rel="stylesheet" href="style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- Подключаем Firebase -->
@@ -197,8 +197,38 @@
           </div>
           <div id="poisonTimersContainer" class="poison-timers"></div>
           <div id="battleReward" class="battle-reward"></div>
-          <div class="combat-footer">
-            <button id="backToBossSelection" class="btn">Назад к выбору боссов</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Попап результатов боя -->
+  <div id="battleResultPopup" class="popup">
+    <div class="popup-scroll-wrapper">
+      <div class="popup-content">
+        <div class="popup-header">
+          <h2 id="resultTitle">Результат боя</h2>
+          <button class="close">×</button>
+        </div>
+        <div class="result-body">
+          <img id="resultBossImage" src="" class="result-boss-img" alt="Босс">
+          <div id="victoryReward" class="reward-section">
+            <div class="reward-item">
+              <span>🍯</span>
+              <span id="rewardHoney">0</span>
+            </div>
+            <div class="reward-item">
+              <span>⭐</span>
+              <span id="rewardXP">0</span>
+            </div>
+            <div class="reward-item">
+              <span>🔑</span>
+              <span id="rewardKeys">0</span>
+            </div>
+          </div>
+          <div class="result-actions">
+            <button id="claimRewardButton" class="btn victory-btn">Получить награду</button>
+            <button id="closeResultButton" class="btn defeat-btn">Выйти</button>
           </div>
         </div>
       </div>
@@ -222,21 +252,21 @@
 
         <!-- Контейнеры контента -->
         <div id="buyCharges" class="shop-tab active">
-          <div class="attack-charge-item">
+          <div class="attack-charge-item" data-type="basic">
             <div>
               <h3>Базовый удар</h3>
               <span class="charge-counter">15 шт</span>
             </div>
             <button class="btn" data-type="basic">50</button>
           </div>
-          <div class="attack-charge-item">
+          <div class="attack-charge-item" data-type="critical">
             <div>
               <h3>Критический удар</h3>
               <span class="charge-counter">15 шт</span>
             </div>
             <button class="btn" data-type="critical">75</button>
           </div>
-          <div class="attack-charge-item">
+          <div class="attack-charge-item" data-type="poison">
             <div>
               <h3>Ядовитый удар</h3>
               <span class="charge-counter">15 шт</span>
@@ -247,9 +277,9 @@
 
         <div id="upgradeTalents" class="shop-tab">
           <div class="talent" data-talent="basic">
-            <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">0</span>)</h3>
+            <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">1</span>)</h3>
             <div class="talent-info">
-              <span class="stat">📈 Урон: <span id="basicDmg">19</span></span>
+              <span class="stat">📈 Урон: <span id="basicDmg">10</span></span>
             </div>
             <div class="button-wrapper">
               <button class="btn">75</button>
@@ -257,9 +287,9 @@
           </div>
 
           <div class="talent" data-talent="critical">
-            <h3>💥 Критический удар (Ур. <span id="critLevel">0</span>)</h3>
+            <h3>💥 Критический удар (Ур. <span id="critLevel">1</span>)</h3>
             <div class="talent-info">
-              <span class="stat">📈 Шанс: <span id="critChanceUpgrade">0</span>%</span>
+              <span class="stat">📈 Шанс: <span id="critChanceUpgrade">20</span>%</span>
             </div>
             <div class="button-wrapper">
               <button class="btn">150</button>
@@ -267,9 +297,9 @@
           </div>
 
           <div class="talent" data-talent="poison">
-            <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">0</span>)</h3>
+            <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">1</span>)</h3>
             <div class="talent-info">
-              <span class="stat">📈 Урон: <span id="poisonDmgUpgrade">0</span>/сек</span>
+              <span class="stat">📈 Урон: <span id="poisonDmgUpgrade">3</span>/сек</span>
             </div>
             <div class="button-wrapper">
               <button class="btn">200</button>
@@ -333,12 +363,12 @@
 
         <div id="character" class="tab-content active">
           <div class="skin-preview">
-            <img id="selected-skin" src="img/skin1.png" alt="Скин">
-            <h3 id="skin-name">Скин 1</h3>
+            <img id="selected-skin" src="img/human_male.png" alt="Скин">
+            <h3 id="skin-name">Базовый скин</h3>
             <button id="select-skin" class="btn" onclick="selectSkin()">Выбрать</button>
           </div>
           <div class="skin-list">
-            <img src="img/skin1.png" onclick="previewSkin('img/skin1.png', 'Скин 1')">
+            <img src="img/human_male.png" onclick="previewSkin('img/human_male.png', 'Базовый скин')">
             <img src="img/skin2.png" onclick="previewSkin('img/skin2.png', 'Скин 2')">
             <img src="img/skin3.png" onclick="previewSkin('img/skin3.png', 'Скин 3')">
           </div>
@@ -354,52 +384,6 @@
             <img src="img/pet1.png" onclick="previewPet('img/pet1.png', 'Питомец 1')">
             <img src="img/pet2.png" onclick="previewPet('img/pet2.png', 'Питомец 2')">
             <img src="img/pet3.png" onclick="previewPet('img/pet3.png', 'Питомец 3')">
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Попап результатов битвы -->
-  <div id="battleResultPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <h2 id="resultTitle">Результат боя</h2>
-        </div>
-
-        <div class="result-body">
-          <img id="resultBossImage" class="result-boss-img" alt="Босс">
-
-          <div class="battle-stats">
-            <div class="stats-grid">
-              <div class="stat-item">🗡️ Базовый урон: <span id="basicDamageStats">0</span></div>
-              <div class="stat-item">💥 Критический урон: <span id="criticalDamageStats">0</span></div>
-              <div class="stat-item">☠️ Ядовитый урон: <span id="poisonDamageStats">0</span></div>
-              <div class="stat-item">🔊 Звуковой урон: <span id="sonicDamageStats">0</span></div>
-              <div class="stat-item">🔥 Огненный урон: <span id="fireDamageStats">0</span></div>
-              <div class="stat-item">❄️ Ледяной урон: <span id="iceDamageStats">0</span></div>
-              <div class="stat-item total">📊 Общий урон: <span id="totalDamageStats">0</span></div>
-            </div>
-          </div>
-          <div id="victoryReward" class="reward-section">
-            <div class="reward-item">
-              <span>🍯</span>
-              <span id="rewardHoney">0</span>
-            </div>
-            <div class="reward-item">
-              <span>⭐</span>
-              <span id="rewardXP">0</span>
-            </div>
-            <div class="reward-item">
-              <span>🔑</span>
-              <span id="rewardKeys">0</span>
-            </div>
-          </div>
-
-          <div class="result-actions">
-            <button id="claimRewardButton" class="btn victory-btn">Получить награду</button>
-            <button id="closeResultButton" class="btn defeat-btn">Выйти</button>
           </div>
         </div>
       </div>
@@ -432,9 +416,9 @@
           <button class="close">×</button>
         </div>
         <div id="achievementsList">
-          <div class="achievement-card">
+          <div class="achievement-card" id="waspAchievement">
             <div class="achievement-info">
-              <h3>Король ОС</h3>
+              <h3>Король ОС <span id="waspLevel">Уровень 1</span></h3>
             </div>
             <div class="achievement-progress">
               <div class="progress-bar">
@@ -443,14 +427,23 @@
               <span class="progress-text" id="waspKillCount">0/10</span>
             </div>
             <div class="achievement-rewards">
-              <span id="honeyReward">🍯 1000</span>
-              <span id="xpReward">⭐ 500</span>
+              <span>🍯 1000</span>
+              <span>⭐ 500</span>
             </div>
+            <button id="claimWasp1" class="claim-btn" style="display: none;" onclick="claimAchievementReward('wasp', 1)">
+              Получить награду
+            </button>
+            <button id="claimWasp2" class="claim-btn" style="display: none;" onclick="claimAchievementReward('wasp', 2)">
+              Получить награду
+            </button>
+            <button id="claimWasp3" class="claim-btn" style="display: none;" onclick="claimAchievementReward('wasp', 3)">
+              Получить награду
+            </button>
           </div>
 
-          <div class="achievement-card">
+          <div class="achievement-card" id="bearAchievement">
             <div class="achievement-info">
-              <h3>Король Медведей</h3>
+              <h3>Король Медведей <span id="bearLevel">Уровень 1</span></h3>
             </div>
             <div class="achievement-progress">
               <div class="progress-bar">
@@ -459,9 +452,18 @@
               <span class="progress-text" id="bearKillCount">0/10</span>
             </div>
             <div class="achievement-rewards">
-              <span id="bearHoneyReward">🍯 2000</span>
-              <span id="bearXpReward">⭐ 1000</span>
+              <span>🍯 2000</span>
+              <span>⭐ 1000</span>
             </div>
+            <button id="claimBear1" class="claim-btn" style="display: none;" onclick="claimAchievementReward('bear', 1)">
+              Получить награду
+            </button>
+            <button id="claimBear2" class="claim-btn" style="display: none;" onclick="claimAchievementReward('bear', 2)">
+              Получить награду
+            </button>
+            <button id="claimBear3" class="claim-btn" style="display: none;" onclick="claimAchievementReward('bear', 3)">
+              Получить награду
+            </button>
           </div>
         </div>
       </div>
@@ -558,7 +560,7 @@
   <!-- Подключаем наши скрипты -->
   <script src="firebase.js"></script>
   <script src="script.js"></script>
-  
+
 </body>
 
 </html>
