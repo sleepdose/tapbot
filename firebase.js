@@ -785,6 +785,26 @@ class FirebaseManager {
     if (minutesAgo < 15) return 'away';
     return 'offline';
   }
+
+  // ДОБАВЛЕНО: Метод для мгновенного обновления отображения ключей
+  updateBossAvailabilityImmediately(keys) {
+    if (!keys) return;
+
+    // Обновляем отображение ключей на всех карточках боссов
+    document.querySelectorAll('.current-keys').forEach(el => {
+      const bossType = el.dataset.boss;
+      if (keys[bossType] !== undefined) {
+        el.textContent = keys[bossType];
+
+        // Обновляем состояние блокировки
+        const bossCard = el.closest('.boss-card');
+        if (bossCard) {
+          const isLocked = keys[bossType] < 3;
+          bossCard.classList.toggle('locked', isLocked);
+        }
+      }
+    });
+  }
 }
 
 // Создаем глобальный экземпляр
