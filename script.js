@@ -36,7 +36,7 @@ const ImagePreloader = {
     const imageUrls = [
       'img/wasp.jpg', 'img/bear.jpg', 'img/dragon.jpg',
       'img/hydra.jpg', 'img/kraken.jpg',
-      'img/skin1.png', 'img/skin2.png', 'img/skin3.png',
+      'img/human_male.png', 'img/skin2.png', 'img/skin3.png',
       'img/pet1.png', 'img/pet2.png', 'img/pet3.png',
       'img/background1.png', 'img/background2.png', 'img/background3.png'
     ];
@@ -117,13 +117,15 @@ class OptimizedGameState {
       achievements: {
         waspKills: 0,
         bearKills: 0,
-        rewards: { level1: false, level2: false, level3: false },
-        bearRewards: { level1: false, level2: false, level3: false }
+        completed: { level1: false, level2: false, level3: false },
+        claimed: { level1: false, level2: false, level3: false },
+        bearCompleted: { level1: false, level2: false, level3: false },
+        bearClaimed: { level1: false, level2: false, level3: false }
       },
 
       purchasedBackgrounds: ['default'],
       currentBackground: 'default',
-      currentSkin: 'img/skin1.png',
+      currentSkin: 'img/human_male.png',
       currentPet: 'img/pet1.png',
       hasPet: false,
       isUsingSkin: false,
@@ -281,27 +283,29 @@ class OptimizedGameState {
   }
 
   restoreOfflineEnergy(savedData) {
-    if (savedData.lastSavedTimestamp) {
+    if (savedData.lastSavedTimestamp && savedData.energy !== undefined) {
       const now = Date.now();
       const timePassed = now - savedData.lastSavedTimestamp;
       const minutesPassed = Math.floor(timePassed / (1000 * 60));
 
-      // Восстанавливаем энергию: 20 в минуту, максимум 8 часов
-      const maxRecoveryMinutes = 8 * 60;
+      // Восстанавливаем энергию: 1 единица в минуту до максимума
+      const maxEnergy = savedData.maxEnergy || 100;
+      const currentEnergy = savedData.energy || 0;
+      const maxRecoveryMinutes = maxEnergy - currentEnergy;
       const effectiveMinutes = Math.min(minutesPassed, maxRecoveryMinutes);
-      const energyToRestore = Math.floor(effectiveMinutes * 20);
+      const energyToRestore = Math.max(0, Math.floor(effectiveMinutes));
 
       if (energyToRestore > 0) {
         const newEnergy = Math.min(
-          this.state.maxEnergy,
-          (this.state.energy || 0) + energyToRestore
+          maxEnergy,
+          currentEnergy + energyToRestore
         );
 
         this.manager.setState({ energy: newEnergy });
 
         // Показываем уведомление
         setTimeout(() => {
-          showMessage(`⚡ Восстановлено ${energyToRestore} энергии`);
+          showMessage(`⚡ Восстановлено ${energyToRestore} энергии за оффлайн время`);
         }, 1000);
       }
     }
@@ -319,7 +323,7 @@ class OptimizedGameState {
     const timePassed = now - battleStart;
 
     // Восстанавливаем здоровье босса из сохраненных данных
-    const bossHealth = savedData.currentBoss?.currentHealth || 
+    const bossHealth = savedData.currentBoss?.currentHealth ||
                       savedData.activeBattle.health;
 
     if (!bossHealth || bossHealth <= 0) {
@@ -529,6 +533,9 @@ class OptimizedGameState {
 
     // Обновляем ключи
     this.updateKeysDisplay();
+
+    // Обновляем отображение талантов
+    updateTalentPrices();
   }
 
   updateKeysDisplay() {
@@ -602,24 +609,18 @@ class OptimizedGameState {
         keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
       };
 
-      // Обновляем достижения
+      // Обновляем достижения (только отметка о выполнении, без выдачи наград)
       if (this.state.currentBoss.type === 'wasp') {
         const newWaspKills = this.state.achievements.waspKills + 1;
         const newAchievements = { ...this.state.achievements, waspKills: newWaspKills };
 
-        // Проверяем награды за убийства ос
-        if (newWaspKills >= 10 && !newAchievements.rewards.level1) {
-          reward.honey += 1000;
-          reward.xp += 500;
-          newAchievements.rewards.level1 = true;
-        } else if (newWaspKills >= 20 && !newAchievements.rewards.level2) {
-          reward.honey += 2000;
-          reward.xp += 1000;
-          newAchievements.rewards.level2 = true;
-        } else if (newWaspKills >= 30 && !newAchievements.rewards.level3) {
-          reward.honey += 3000;
-          reward.xp += 1500;
-          newAchievements.rewards.level3 = true;
+        // Проверяем выполнение достижений
+        if (newWaspKills >= 10 && !newAchievements.completed.level1) {
+          newAchievements.completed.level1 = true;
+        } else if (newWaspKills >= 20 && !newAchievements.completed.level2) {
+          newAchievements.completed.level2 = true;
+        } else if (newWaspKills >= 30 && !newAchievements.completed.level3) {
+          newAchievements.completed.level3 = true;
         }
 
         this.manager.setState({ achievements: newAchievements });
@@ -629,19 +630,13 @@ class OptimizedGameState {
         const newBearKills = this.state.achievements.bearKills + 1;
         const newAchievements = { ...this.state.achievements, bearKills: newBearKills };
 
-        // Проверяем награды за убийства медведей
-        if (newBearKills >= 10 && !newAchievements.bearRewards.level1) {
-          reward.honey += 2000;
-          reward.xp += 1000;
-          newAchievements.bearRewards.level1 = true;
-        } else if (newBearKills >= 20 && !newAchievements.bearRewards.level2) {
-          reward.honey += 4000;
-          reward.xp += 2000;
-          newAchievements.bearRewards.level2 = true;
-        } else if (newBearKills >= 30 && !newAchievements.bearRewards.level3) {
-          reward.honey += 6000;
-          reward.xp += 3000;
-          newAchievements.bearRewards.level3 = true;
+        // Проверяем выполнение достижений
+        if (newBearKills >= 10 && !newAchievements.bearCompleted.level1) {
+          newAchievements.bearCompleted.level1 = true;
+        } else if (newBearKills >= 20 && !newAchievements.bearCompleted.level2) {
+          newAchievements.bearCompleted.level2 = true;
+        } else if (newBearKills >= 30 && !newAchievements.bearCompleted.level3) {
+          newAchievements.bearCompleted.level3 = true;
         }
 
         this.manager.setState({ achievements: newAchievements });
@@ -664,7 +659,7 @@ class OptimizedGameState {
       this.battleTimer = null;
     }
 
-    // Обновляем UI и показываем попап результатов ВНУТРИ боевого попапа
+    // Обновляем UI и показываем попап результатов
     updateResultPopup();
     showBattleResultPopup();
 
@@ -1126,90 +1121,84 @@ function updateBossAvailability() {
 function updateAchievementsUI() {
   const state = gameState.state;
 
-  const waspKillCount = document.getElementById('waspKillCount');
+  // Достижение ос
+  const waspKills = state.achievements.waspKills;
+  const waspCard = document.getElementById('waspAchievement');
+  const waspLevelElement = document.getElementById('waspLevel');
   const waspProgress = document.getElementById('waspKillProgress');
-  const waspCard = document.querySelector('.achievement-card');
+  const waspKillCount = document.getElementById('waspKillCount');
+  const claimWasp1 = document.getElementById('claimWasp1');
+  const claimWasp2 = document.getElementById('claimWasp2');
+  const claimWasp3 = document.getElementById('claimWasp3');
 
-  if (waspKillCount && waspProgress) {
-    const waspKills = state.achievements.waspKills;
-    let waspTarget, waspLevel, waspRewards, waspBackground;
-
-    if (waspKills < 10) {
-      waspTarget = 10;
-      waspLevel = 0;
-      waspRewards = '🍯 1000 ⭐ 500';
-      waspBackground = 'rgba(0, 0, 0, 0.5)';
-    } else if (waspKills < 20) {
-      waspTarget = 20;
-      waspLevel = 1;
-      waspRewards = '🍯 2000 ⭐ 1000';
-      waspBackground = 'rgba(139, 69, 19, 0.5)';
-    } else if (waspKills < 30) {
-      waspTarget = 30;
-      waspLevel = 2;
-      waspRewards = '🍯 3000 ⭐ 1500';
-      waspBackground = 'rgba(218, 165, 32, 0.5)';
-    } else {
-      waspTarget = 30;
-      waspLevel = 3;
-      waspRewards = 'Максимум';
-      waspBackground = 'rgba(218, 165, 32, 0.5)';
-    }
-
-    waspKillCount.textContent = `${Math.min(waspKills, waspTarget)}/${waspTarget}`;
-    const waspProgressValue = (waspKills % 10) * 10;
-    waspProgress.style.width = `${waspProgressValue}%`;
-
-    if (waspCard) {
-      waspCard.style.background = waspBackground;
-      waspCard.querySelector('.achievement-info h3').textContent = `Король ОС (Уровень ${waspLevel + 1})`;
-      if (waspKills < 30) {
-        waspCard.querySelector('.achievement-rewards').innerHTML = waspRewards;
-      }
-    }
+  if (waspKills < 10) {
+    waspLevelElement.textContent = 'Уровень 1';
+    waspKillCount.textContent = `${waspKills}/10`;
+    waspProgress.style.width = `${(waspKills / 10) * 100}%`;
+    claimWasp1.style.display = state.achievements.completed.level1 && !state.achievements.claimed.level1 ? 'block' : 'none';
+    claimWasp2.style.display = 'none';
+    claimWasp3.style.display = 'none';
+  } else if (waspKills < 20) {
+    waspLevelElement.textContent = 'Уровень 2';
+    waspKillCount.textContent = `${waspKills - 10}/10`;
+    waspProgress.style.width = `${((waspKills - 10) / 10) * 100}%`;
+    claimWasp1.style.display = 'none';
+    claimWasp2.style.display = state.achievements.completed.level2 && !state.achievements.claimed.level2 ? 'block' : 'none';
+    claimWasp3.style.display = 'none';
+  } else if (waspKills < 30) {
+    waspLevelElement.textContent = 'Уровень 3';
+    waspKillCount.textContent = `${waspKills - 20}/10`;
+    waspProgress.style.width = `${((waspKills - 20) / 10) * 100}%`;
+    claimWasp1.style.display = 'none';
+    claimWasp2.style.display = 'none';
+    claimWasp3.style.display = state.achievements.completed.level3 && !state.achievements.claimed.level3 ? 'block' : 'none';
+  } else {
+    waspLevelElement.textContent = 'Максимум';
+    waspKillCount.textContent = '30/30';
+    waspProgress.style.width = '100%';
+    claimWasp1.style.display = 'none';
+    claimWasp2.style.display = 'none';
+    claimWasp3.style.display = 'none';
   }
 
-  const bearKillCount = document.getElementById('bearKillCount');
+  // Достижение медведей
+  const bearKills = state.achievements.bearKills;
+  const bearCard = document.getElementById('bearAchievement');
+  const bearLevelElement = document.getElementById('bearLevel');
   const bearProgress = document.getElementById('bearKillProgress');
-  const bearCard = document.querySelectorAll('.achievement-card')[1];
+  const bearKillCount = document.getElementById('bearKillCount');
+  const claimBear1 = document.getElementById('claimBear1');
+  const claimBear2 = document.getElementById('claimBear2');
+  const claimBear3 = document.getElementById('claimBear3');
 
-  if (bearKillCount && bearProgress) {
-    const bearKills = state.achievements.bearKills;
-    let bearTarget, bearLevel, bearRewards, bearBackground;
-
-    if (bearKills < 10) {
-      bearTarget = 10;
-      bearLevel = 0;
-      bearRewards = '🍯 2000 ⭐ 1000';
-      bearBackground = 'rgba(0, 0, 0, 0.5)';
-    } else if (bearKills < 20) {
-      bearTarget = 20;
-      bearLevel = 1;
-      bearRewards = '🍯 4000 ⭐ 2000';
-      bearBackground = 'rgba(139, 69, 19, 0.5)';
-    } else if (bearKills < 30) {
-      bearTarget = 30;
-      bearLevel = 2;
-      bearRewards = '🍯 6000 ⭐ 3000';
-      bearBackground = 'rgba(218, 165, 32, 0.5)';
-    } else {
-      bearTarget = 30;
-      bearLevel = 3;
-      bearRewards = 'Максимум';
-      bearBackground = 'rgba(218, 165, 32, 0.5)';
-    }
-
-    bearKillCount.textContent = `${Math.min(bearKills, bearTarget)}/${bearTarget}`;
-    const bearProgressValue = (bearKills % 10) * 10;
-    bearProgress.style.width = `${bearProgressValue}%`;
-
-    if (bearCard) {
-      bearCard.style.background = bearBackground;
-      bearCard.querySelector('.achievement-info h3').textContent = `Король Медведей (Уровень ${bearLevel + 1})`;
-      if (bearKills < 30) {
-        bearCard.querySelector('.achievement-rewards').innerHTML = bearRewards;
-      }
-    }
+  if (bearKills < 10) {
+    bearLevelElement.textContent = 'Уровень 1';
+    bearKillCount.textContent = `${bearKills}/10`;
+    bearProgress.style.width = `${(bearKills / 10) * 100}%`;
+    claimBear1.style.display = state.achievements.bearCompleted.level1 && !state.achievements.bearClaimed.level1 ? 'block' : 'none';
+    claimBear2.style.display = 'none';
+    claimBear3.style.display = 'none';
+  } else if (bearKills < 20) {
+    bearLevelElement.textContent = 'Уровень 2';
+    bearKillCount.textContent = `${bearKills - 10}/10`;
+    bearProgress.style.width = `${((bearKills - 10) / 10) * 100}%`;
+    claimBear1.style.display = 'none';
+    claimBear2.style.display = state.achievements.bearCompleted.level2 && !state.achievements.bearClaimed.level2 ? 'block' : 'none';
+    claimBear3.style.display = 'none';
+  } else if (bearKills < 30) {
+    bearLevelElement.textContent = 'Уровень 3';
+    bearKillCount.textContent = `${bearKills - 20}/10`;
+    bearProgress.style.width = `${((bearKills - 20) / 10) * 100}%`;
+    claimBear1.style.display = 'none';
+    claimBear2.style.display = 'none';
+    claimBear3.style.display = state.achievements.bearCompleted.level3 && !state.achievements.bearClaimed.level3 ? 'block' : 'none';
+  } else {
+    bearLevelElement.textContent = 'Максимум';
+    bearKillCount.textContent = '30/30';
+    bearProgress.style.width = '100%';
+    claimBear1.style.display = 'none';
+    claimBear2.style.display = 'none';
+    claimBear3.style.display = 'none';
   }
 }
 
@@ -2072,7 +2061,7 @@ function buyCharges(type) {
 
     // Обновляем UI
     updateUI(['honey']);
-    updateTalentBuyTab();
+    updateChargeDisplay(type);
 
     if (state.inBattle) {
       createTalentButtons();
@@ -2138,6 +2127,11 @@ function updateTalentPrices() {
     const talent = talentsConfig[talentType];
     const currentLevel = state.talents[talentType].level;
     const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
+    const levelElement = document.getElementById(`${talentType}Level`);
+
+    if (levelElement) {
+      levelElement.textContent = currentLevel;
+    }
 
     if (button) {
       if (currentLevel >= talent.maxLevel) {
@@ -2150,6 +2144,33 @@ function updateTalentPrices() {
       }
     }
   });
+
+  // Также обновляем значения характеристик
+  const basicDmgElement = document.getElementById('basicDmg');
+  const critChanceElement = document.getElementById('critChanceUpgrade');
+  const poisonDmgElement = document.getElementById('poisonDmgUpgrade');
+
+  if (basicDmgElement) basicDmgElement.textContent = state.talents.basic.damage;
+  if (critChanceElement) critChanceElement.textContent = Math.floor(state.talents.critical.chance * 100);
+  if (poisonDmgElement) poisonDmgElement.textContent = state.talents.poison.damage;
+}
+
+function updateChargeDisplay(type) {
+  const state = gameState.state;
+
+  // Обновляем отображение в магазине
+  const chargeCounter = document.querySelector(`.attack-charge-item[data-type="${type}"] .charge-counter`);
+  if (chargeCounter) {
+    chargeCounter.textContent = `${state.attackCharges[type].charges} шт`;
+  }
+
+  // Обновляем отображение в бою
+  if (state.inBattle) {
+    const combatButton = document.querySelector(`.attack-btn[data-attack="${type}"] .charge-counter`);
+    if (combatButton) {
+      combatButton.textContent = `Зарядов: ${state.attackCharges[type].charges}`;
+    }
+  }
 }
 
 function updateTalentBuyTab() {
@@ -2289,7 +2310,7 @@ function createTalentButtons() {
         <div class="talent-icon">${getTalentIcon(type)}</div>
         <div class="talent-info">
           <div>${getTalentButtonText(type)}</div>
-          <div class="charge-counter">Всего: ${charges}</div>
+          <div class="charge-counter">Зарядов: ${charges}</div>
         </div>
       `;
 
@@ -2322,7 +2343,7 @@ function createTalentButtons() {
         <div class="talent-icon">${talent.icon}</div>
         <div class="talent-info">
           <div>${talent.name}</div>
-          <div class="charge-counter">Всего: ${state.craftedTalents[talent.type].charges}</div>
+          <div class="charge-counter">Зарядов: ${state.craftedTalents[talent.type].charges}</div>
         </div>
       `;
       button.onclick = () => {
@@ -2351,9 +2372,9 @@ function attack(type) {
     return;
   }
 
-  // Проверяем кулдаун
+  // Проверяем кулдаун (увеличен до 500мс)
   const now = Date.now();
-  if (now - state.lastAttackTime < 100) { // Снижаем кулдаун до 100мс для тапалки
+  if (now - state.lastAttackTime < 500) {
     return;
   }
   gameState.manager.setState({ lastAttackTime: now });
@@ -2393,6 +2414,8 @@ function attack(type) {
   if (newCharges[attackType].charges > 0) {
     newCharges[attackType].charges--;
     gameState.manager.setState({ attackCharges: newCharges });
+    // Мгновенное обновление отображения зарядов
+    updateChargeDisplay(attackType);
   } else {
     showMessage('Заряды кончились!');
     gameState.manager.setState({ selectedTalent: null });
@@ -2569,7 +2592,7 @@ function applyDamageToBoss(damage) {
     timeLimit: state.battleTimeLimit
   };
 
-  gameState.manager.setState({ 
+  gameState.manager.setState({
     currentBoss: newBoss,
     activeBattle: newActiveBattle
   });
@@ -2752,7 +2775,7 @@ function showPopup(popupType) {
     // Результаты боя показываются отдельно через showBattleResultPopup
     return;
   }
-  
+
   hideAllPopups();
   const popup = document.getElementById(`${popupType}Popup`);
   if (popup) {
@@ -2784,27 +2807,28 @@ function showPopup(popupType) {
 }
 
 function showBattleResultPopup() {
-  const battlePopup = document.getElementById('battlePopup');
+  hideAllPopups();
   const resultPopup = document.getElementById('battleResultPopup');
-  
-  if (battlePopup && resultPopup) {
-    // Скрываем боевой экран
-    const combatScreen = document.getElementById('combatScreen');
-    if (combatScreen) combatScreen.style.display = 'none';
-    
-    // Показываем попап результатов ВНУТРИ боевого попапа
-    resultPopup.style.display = 'block';
-    updateResultPopup();
+  if (resultPopup) {
+    resultPopup.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // Показываем кнопку "Назад" в Telegram
+    if (tg && tg.BackButton) {
+      tg.BackButton.show();
+    }
   }
 }
 
 function hidePopup(type) {
   if (type === 'battleResult') {
     const resultPopup = document.getElementById('battleResultPopup');
-    if (resultPopup) resultPopup.style.display = 'none';
+    if (resultPopup) {
+      resultPopup.classList.remove('active');
+    }
     return;
   }
-  
+
   const popup = document.getElementById(`${type}Popup`);
   if (popup) {
     popup.classList.remove('active');
@@ -2853,46 +2877,39 @@ function updateResultPopup() {
   const battleResult = gameState.battleResult;
   const bossConfig = gameConfig.bosses[battleResult.boss.type];
 
-  if (resultBossImage) {
-    resultBossImage.src = battleResult.victory
-      ? bossConfig.defeatImage
-      : bossConfig.image;
-  }
-
-  if (battleResult.victory) {
-    if (resultTitle) {
+  if (resultTitle) {
+    if (battleResult.victory) {
       resultTitle.textContent = "ПОБЕДА!";
       resultTitle.style.color = "#4CAF50";
-    }
-    if (claimBtn) claimBtn.style.display = 'block';
-    if (closeBtn) closeBtn.style.display = 'none';
-
-    if (battleResult.reward) {
-      if (rewardHoney) rewardHoney.textContent = battleResult.reward.honey;
-      if (rewardXP) rewardXP.textContent = battleResult.reward.xp;
-
-      const keys = Object.entries(battleResult.reward.keys || {})
-        .map(([type, amount]) => amount)
-        .reduce((a, b) => a + b, 0);
-
-      if (rewardKeys) rewardKeys.textContent = keys > 0 ? keys : '0';
-    }
-  } else {
-    if (resultTitle) {
+      if (claimBtn) claimBtn.style.display = 'block';
+      if (closeBtn) closeBtn.style.display = 'none';
+    } else {
       resultTitle.textContent = "ПОРАЖЕНИЕ";
       resultTitle.style.color = "#f44336";
+      if (claimBtn) claimBtn.style.display = 'none';
+      if (closeBtn) closeBtn.style.display = 'block';
     }
-    if (claimBtn) claimBtn.style.display = 'none';
-    if (closeBtn) closeBtn.style.display = 'block';
+  }
 
+  if (resultBossImage && bossConfig) {
+    resultBossImage.src = battleResult.victory ? bossConfig.defeatImage : bossConfig.image;
+    resultBossImage.classList.toggle('defeat-image', !battleResult.victory);
+    resultBossImage.classList.toggle('victory-image', battleResult.victory);
+  }
+
+  if (battleResult.reward) {
+    if (rewardHoney) rewardHoney.textContent = battleResult.reward.honey || 0;
+    if (rewardXP) rewardXP.textContent = battleResult.reward.xp || 0;
+
+    const keys = Object.entries(battleResult.reward.keys || {})
+      .map(([type, amount]) => amount)
+      .reduce((a, b) => a + b, 0);
+
+    if (rewardKeys) rewardKeys.textContent = keys > 0 ? keys : '0';
+  } else {
     if (rewardHoney) rewardHoney.textContent = '0';
     if (rewardXP) rewardXP.textContent = '0';
     if (rewardKeys) rewardKeys.textContent = '0';
-  }
-
-  if (resultBossImage) {
-    resultBossImage.classList.toggle('defeat-image', !battleResult.victory);
-    resultBossImage.classList.toggle('victory-image', battleResult.victory);
   }
 }
 
@@ -2923,34 +2940,34 @@ function claimBattleReward() {
     gameState.updateKeysDisplay();
 
     // Закрываем попап результатов
-    const resultPopup = document.getElementById('battleResultPopup');
-    if (resultPopup) resultPopup.style.display = 'none';
-
-    // Показываем выбор боссов
-    const bossSelection = document.getElementById('bossSelection');
-    if (bossSelection) bossSelection.style.display = 'block';
+    hidePopup('battleResult');
 
     // Скрываем боевой экран
     const combatScreen = document.getElementById('combatScreen');
     if (combatScreen) combatScreen.style.display = 'none';
 
+    // Показываем выбор боссов
+    const bossSelection = document.getElementById('bossSelection');
+    if (bossSelection) bossSelection.style.display = 'block';
+
     // Сохраняем после получения награды
     setTimeout(() => gameState.save(true), 100);
+
+    showMessage('🎉 Награда получена!');
   }
 }
 
 function closeBattleResult() {
   // Закрываем попап результатов
-  const resultPopup = document.getElementById('battleResultPopup');
-  if (resultPopup) resultPopup.style.display = 'none';
-
-  // Показываем выбор боссов
-  const bossSelection = document.getElementById('bossSelection');
-  if (bossSelection) bossSelection.style.display = 'block';
+  hidePopup('battleResult');
 
   // Скрываем боевой экран
   const combatScreen = document.getElementById('combatScreen');
   if (combatScreen) combatScreen.style.display = 'none';
+
+  // Показываем выбор боссов
+  const bossSelection = document.getElementById('bossSelection');
+  if (bossSelection) bossSelection.style.display = 'block';
 
   gameState.battleResult = null;
 }
@@ -3103,6 +3120,62 @@ function updatePetButton() {
   }
 }
 
+// =================== НАГРАДЫ ЗА ДОСТИЖЕНИЯ ===================
+async function claimAchievementReward(type, level) {
+  try {
+    const state = gameState.state;
+    const newAchievements = { ...state.achievements };
+
+    // Определяем награду
+    let reward = { honey: 0, xp: 0 };
+
+    if (type === 'wasp') {
+      if (level === 1 && !newAchievements.claimed.level1) {
+        reward = { honey: 1000, xp: 500 };
+        newAchievements.claimed.level1 = true;
+      } else if (level === 2 && !newAchievements.claimed.level2) {
+        reward = { honey: 2000, xp: 1000 };
+        newAchievements.claimed.level2 = true;
+      } else if (level === 3 && !newAchievements.claimed.level3) {
+        reward = { honey: 3000, xp: 1500 };
+        newAchievements.claimed.level3 = true;
+      }
+    } else if (type === 'bear') {
+      if (level === 1 && !newAchievements.bearClaimed.level1) {
+        reward = { honey: 2000, xp: 1000 };
+        newAchievements.bearClaimed.level1 = true;
+      } else if (level === 2 && !newAchievements.bearClaimed.level2) {
+        reward = { honey: 4000, xp: 2000 };
+        newAchievements.bearClaimed.level2 = true;
+      } else if (level === 3 && !newAchievements.bearClaimed.level3) {
+        reward = { honey: 6000, xp: 3000 };
+        newAchievements.bearClaimed.level3 = true;
+      }
+    }
+
+    // Выдаем награду
+    gameState.scheduleUIUpdate('honey', state.honey + reward.honey);
+    gameState.scheduleUIUpdate('xp', state.xp + reward.xp);
+
+    // Обновляем состояние
+    gameState.manager.setState({ achievements: newAchievements });
+
+    // Обновляем UI
+    updateUI(['honey', 'xp']);
+    updateAchievementsUI();
+
+    // Сохраняем
+    await gameState.save(true);
+
+    showMessage(`🎉 Получено: ${reward.honey}🍯 + ${reward.xp}⭐`);
+
+    return true;
+  } catch (error) {
+    console.error('Ошибка получения награды:', error);
+    return false;
+  }
+}
+
 // =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
 function showMessage(text) {
   // Проверяем, есть ли уже сообщение
@@ -3162,7 +3235,7 @@ function showFireEffect(damage) {
   if (!elements.combatScreen) return;
 
   const effect = document.createElement('div');
-  effect.className = 'sonic-effect';
+  effect.className = 'fire-effect';
   effect.textContent = `🔥 ${damage}`;
   effect.style.color = '#ff4400';
   elements.combatScreen.appendChild(effect);
@@ -3173,7 +3246,7 @@ function showIceEffect(damage) {
   if (!elements.combatScreen) return;
 
   const effect = document.createElement('div');
-  effect.className = 'sonic-effect';
+  effect.className = 'ice-effect';
   effect.textContent = `❄️ ${damage}`;
   effect.style.color = '#00cccc';
   elements.combatScreen.appendChild(effect);
@@ -3352,17 +3425,6 @@ function initEventHandlers() {
       startBattle(bossCard.dataset.boss);
     }
   });
-
-  // Кнопка "Назад к выбору боссов" - УДАЛЕНО
-  // document.getElementById('backToBossSelection')?.addEventListener('click', () => {
-  //   const bossSelection = document.getElementById('bossSelection');
-  //   const combatScreen = document.getElementById('combatScreen');
-  // 
-  //   if (bossSelection && combatScreen) {
-  //     bossSelection.style.display = 'block';
-  //     combatScreen.style.display = 'none';
-  //   }
-  // });
 
   // Глобальный клик для закрытия попапов
   document.addEventListener('click', (e) => {
