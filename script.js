@@ -586,6 +586,12 @@ class OptimizedGameState {
   endBattle(victory) {
     if (!this.state.inBattle || !this.state.currentBoss) return;
 
+    console.log('Завершение битвы:', {
+      victory,
+      boss: this.state.currentBoss.type,
+      health: this.state.currentBoss.currentHealth
+    });
+
     // Очищаем данные офлайн боя
     this.manager.setState({
       activeBattle: null,
@@ -609,38 +615,7 @@ class OptimizedGameState {
         keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
       };
 
-      // Обновляем достижения (только отметка о выполнении, без выдачи наград)
-      if (this.state.currentBoss.type === 'wasp') {
-        const newWaspKills = this.state.achievements.waspKills + 1;
-        const newAchievements = { ...this.state.achievements, waspKills: newWaspKills };
-
-        // Проверяем выполнение достижений
-        if (newWaspKills >= 10 && !newAchievements.completed.level1) {
-          newAchievements.completed.level1 = true;
-        } else if (newWaspKills >= 20 && !newAchievements.completed.level2) {
-          newAchievements.completed.level2 = true;
-        } else if (newWaspKills >= 30 && !newAchievements.completed.level3) {
-          newAchievements.completed.level3 = true;
-        }
-
-        this.manager.setState({ achievements: newAchievements });
-      }
-
-      if (this.state.currentBoss.type === 'bear') {
-        const newBearKills = this.state.achievements.bearKills + 1;
-        const newAchievements = { ...this.state.achievements, bearKills: newBearKills };
-
-        // Проверяем выполнение достижений
-        if (newBearKills >= 10 && !newAchievements.bearCompleted.level1) {
-          newAchievements.bearCompleted.level1 = true;
-        } else if (newBearKills >= 20 && !newAchievements.bearCompleted.level2) {
-          newAchievements.bearCompleted.level2 = true;
-        } else if (newBearKills >= 30 && !newAchievements.bearCompleted.level3) {
-          newAchievements.bearCompleted.level3 = true;
-        }
-
-        this.manager.setState({ achievements: newAchievements });
-      }
+      console.log('Награда за победу:', reward);
     }
 
     this.battleResult = {
@@ -648,6 +623,8 @@ class OptimizedGameState {
       boss: { ...this.state.currentBoss },
       reward: reward
     };
+
+    console.log('Battle result установлен:', this.battleResult);
 
     this.manager.setState({
       currentBoss: null,
@@ -667,7 +644,7 @@ class OptimizedGameState {
     updateAchievementsUI();
 
     // Сохраняем прогресс после боя
-    setTimeout(() => this.save(), 500);
+    setTimeout(() => this.save(true), 500);
   }
 
   calculateReward(battleData) {
@@ -686,6 +663,7 @@ class OptimizedGameState {
 let gameState;
 let tg = null;
 let isGameInitialized = false;
+let defeatShown = false;
 
 const elements = {
   honey: document.getElementById('honey'),
@@ -940,9 +918,9 @@ function initTelegramWebApp() {
       tg.onEvent('viewportChanged', handleViewportChange);
 
       logger.info('Telegram WebApp инициализирован');
+    } catch (error) {
+      logger.warn('Telegram WebApp не доступен', error);
     }
-  } catch (error) {
-    logger.warn('Telegram WebApp не доступен', error);
   }
 }
 
@@ -2787,6 +2765,21 @@ function showPopup(popupType) {
       loadFriendsList();
     }
 
+    // Для попапа битвы: проверяем поражение и показываем попап, если нужно
+    if (popupType === 'battle') {
+      // Сбрасываем флаг при открытии попапа битвы
+      defeatShown = false;
+
+      // Проверяем и показываем попап поражения, если нужно
+      setTimeout(() => {
+        if (showDefeatPopupIfNeeded()) {
+          // Если показали попап поражения, скрываем выбор боссов
+          const bossSelection = document.getElementById('bossSelection');
+          if (bossSelection) bossSelection.style.display = 'none';
+        }
+      }, 100);
+    }
+
     // Восстановление активного боя
     if (popupType === 'battle' && gameState?.state.inBattle) {
       const bossSelection = document.getElementById('bossSelection');
@@ -2892,7 +2885,7 @@ function updateResultPopup() {
   }
 
   if (resultBossImage && bossConfig) {
-    resultBossImage.src = battleResult.victory ? bossConfig.defeatImage : bossConfig.image;
+    resultBossImage.src = battleResult.victory ? bossConfig.defeatImage || bossConfig.image : bossConfig.image;
     resultBossImage.classList.toggle('defeat-image', !battleResult.victory);
     resultBossImage.classList.toggle('victory-image', battleResult.victory);
   }
@@ -2911,6 +2904,68 @@ function updateResultPopup() {
     if (rewardXP) rewardXP.textContent = '0';
     if (rewardKeys) rewardKeys.textContent = '0';
   }
+
+  // ДОБАВИТЬ: Отображение статистики урона
+  const damageStats = document.getElementById('damageStats');
+  if (!damageStats) {
+    // Создаем контейнер для статистики, если его нет
+    const resultBody = document.querySelector('.result-body');
+    if (resultBody) {
+      const statsDiv = document.createElement('div');
+      statsDiv.id = 'damageStats';
+      statsDiv.className = 'damage-stats';
+      statsDiv.innerHTML = `
+        <h3>Статистика урона:</h3>
+        <div class="damage-stats-grid">
+          <div class="damage-stat">🗡️ Базовый: <span id="basicDamageStat">0</span></div>
+          <div class="damage-stat">💥 Критический: <span id="criticalDamageStat">0</span></div>
+          <div class="damage-stat">☠️ Ядовитый: <span id="poisonDamageStat">0</span></div>
+          <div class="damage-stat">🔊 Звуковой: <span id="sonicDamageStat">0</span></div>
+          <div class="damage-stat">🔥 Огненный: <span id="fireDamageStat">0</span></div>
+          <div class="damage-stat">❄️ Ледяной: <span id="iceDamageStat">0</span></div>
+          <div class="damage-stat total">📊 Общий урон: <span id="totalDamageStat">0</span></div>
+        </div>
+      `;
+
+      // Вставляем перед кнопками действий
+      const actionsDiv = resultBody.querySelector('.result-actions');
+      if (actionsDiv) {
+        resultBody.insertBefore(statsDiv, actionsDiv);
+      }
+    }
+  }
+
+  // Обновляем значения статистики
+  const state = gameState.state;
+  if (state.battleStats) {
+    document.getElementById('basicDamageStat').textContent = state.battleStats.basicDamage || 0;
+    document.getElementById('criticalDamageStat').textContent = state.battleStats.criticalDamage || 0;
+    document.getElementById('poisonDamageStat').textContent = state.battleStats.poisonDamage || 0;
+    document.getElementById('sonicDamageStat').textContent = state.battleStats.sonicDamage || 0;
+    document.getElementById('fireDamageStat').textContent = state.battleStats.fireDamage || 0;
+    document.getElementById('iceDamageStat').textContent = state.battleStats.iceDamage || 0;
+    document.getElementById('totalDamageStat').textContent = state.battleStats.totalDamage || 0;
+  }
+}
+
+function showDefeatPopupIfNeeded() {
+  // Проверяем, есть ли активное поражение и не показывали ли мы его уже
+  if (gameState.battleResult &&
+      !gameState.battleResult.victory &&
+      !defeatShown) {
+
+    // Обновляем попап результатов
+    updateResultPopup();
+
+    // Показываем попап поражения
+    showBattleResultPopup();
+
+    // Помечаем, что попап был показан
+    defeatShown = true;
+
+    return true;
+  }
+  return false;
 }
 
 function claimBattleReward() {
@@ -2920,8 +2975,13 @@ function claimBattleReward() {
 
   if (reward) {
     // Добавляем награды
-    gameState.scheduleUIUpdate('honey', gameState.state.honey + reward.honey);
-    gameState.scheduleUIUpdate('xp', gameState.state.xp + reward.xp);
+    const currentHoney = gameState.state.honey;
+    const currentXP = gameState.state.xp;
+
+    gameState.manager.setState({
+      honey: currentHoney + reward.honey,
+      xp: currentXP + reward.xp
+    });
 
     // Добавляем ключи
     if (reward.keys) {
@@ -2931,6 +2991,13 @@ function claimBattleReward() {
       });
       gameState.manager.setState({ keys: newKeys });
     }
+
+    console.log('Награда получена:', {
+      honey: reward.honey,
+      xp: reward.xp,
+      newHoney: currentHoney + reward.honey,
+      newXP: currentXP + reward.xp
+    });
 
     // Проверяем повышение уровня
     checkLevelUp();
@@ -2942,6 +3009,9 @@ function claimBattleReward() {
     // Закрываем попап результатов
     hidePopup('battleResult');
 
+    // Сбрасываем флаг поражения
+    defeatShown = false;
+
     // Скрываем боевой экран
     const combatScreen = document.getElementById('combatScreen');
     if (combatScreen) combatScreen.style.display = 'none';
@@ -2949,6 +3019,9 @@ function claimBattleReward() {
     // Показываем выбор боссов
     const bossSelection = document.getElementById('bossSelection');
     if (bossSelection) bossSelection.style.display = 'block';
+
+    // Сбрасываем результат битвы
+    gameState.battleResult = null;
 
     // Сохраняем после получения награды
     setTimeout(() => gameState.save(true), 100);
@@ -2960,6 +3033,9 @@ function claimBattleReward() {
 function closeBattleResult() {
   // Закрываем попап результатов
   hidePopup('battleResult');
+
+  // Сбрасываем флаг поражения
+  defeatShown = false;
 
   // Скрываем боевой экран
   const combatScreen = document.getElementById('combatScreen');
@@ -2975,23 +3051,43 @@ function closeBattleResult() {
 function checkLevelUp() {
   const state = gameState.state;
   let levelsGained = 0;
+  let currentXP = state.xp;
+  let currentLevel = state.level;
 
-  while (state.xp >= state.xpToNextLevel) {
-    gameState.scheduleUIUpdate('xp', state.xp - state.xpToNextLevel);
-    gameState.scheduleUIUpdate('level', state.level + 1);
+  console.log('Проверка уровня:', {
+    currentXP,
+    currentLevel,
+    xpToNextLevel: state.xpToNextLevel
+  });
+
+  while (currentXP >= state.xpToNextLevel) {
+    currentXP -= state.xpToNextLevel;
+    currentLevel += 1;
     levelsGained++;
 
     // Пересчитываем XP для следующего уровня
-    const newLevel = state.level + 1;
-    const newXPToNextLevel = gameState.calculateXPRequired(newLevel);
-    gameState.manager.setState({ xpToNextLevel: newXPToNextLevel });
+    const newXPToNextLevel = gameState.calculateXPRequired(currentLevel);
+
+    // Обновляем состояние
+    gameState.manager.setState({
+      xp: currentXP,
+      level: currentLevel,
+      xpToNextLevel: newXPToNextLevel
+    });
+
+    console.log(`Повышение уровня! Новый уровень: ${currentLevel}, XP до следующего: ${newXPToNextLevel}`);
   }
 
   if (levelsGained > 0) {
+    // Применяем бонусы за уровни
     applyLevelBonuses(levelsGained);
+
+    // Показываем эффект
     showLevelUpEffect(levelsGained);
+
+    // Обновляем UI
     updateLevelProgress();
-    updateUI(['level']);
+    updateUI(['level', 'xp', 'xpToNextLevel']);
     updateAchievementsUI();
 
     // Сохраняем при повышении уровня
