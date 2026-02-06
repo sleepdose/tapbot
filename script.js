@@ -663,7 +663,7 @@ class OptimizedGameState {
       }
 
       if (timeLeft <= 0) {
-        this.endBattle(false);
+        this.endBattle(false, this.state.currentBoss?.type, this.state.currentBoss?.maxHealth);
         const bossImage = document.getElementById('bossCombatImage');
         if (bossImage) bossImage.classList.add('grayscale');
         clearInterval(this.battleTimer);
@@ -672,17 +672,31 @@ class OptimizedGameState {
     }.bind(this), 1000);
   }
 
-  endBattle(victory) {
-    if (!this.state.inBattle || !this.state.currentBoss) return;
+  endBattle(victory, bossType = null, bossMaxHealth = null) {
+    // Если тип босса не передан, пытаемся получить из состояния
+    if (!bossType && this.state.currentBoss) {
+      bossType = this.state.currentBoss.type;
+      bossMaxHealth = this.state.currentBoss.maxHealth;
+    }
+
+    // Если все еще нет данных о боссе, выходим
+    if (!bossType) {
+      console.error('Не удалось определить тип босса для завершения битвы');
+      return;
+    }
 
     console.log('Завершение битвы:', {
       victory: victory,
-      boss: this.state.currentBoss.type,
-      health: this.state.currentBoss.currentHealth
+      boss: bossType,
+      bossMaxHealth: bossMaxHealth
     });
 
-    // Сохраняем результат боя для показа после перезагрузки
-    const bossConfig = gameConfig.bosses[this.state.currentBoss.type];
+    const bossConfig = gameConfig.bosses[bossType];
+    if (!bossConfig) {
+      console.error('Конфигурация босса не найдена для типа:', bossType);
+      return;
+    }
+
     const reward = victory ? {
       honey: bossConfig.honeyReward,
       xp: bossConfig.xpReward,
@@ -690,7 +704,6 @@ class OptimizedGameState {
     } : null;
 
     // ДОБАВЛЕНО: Корректируем статистику урона перед сохранением
-    const bossMaxHealth = this.state.currentBoss?.maxHealth || 0;
     const totalDamage = this.state.battleStats.totalDamage || 0;
 
     if (totalDamage > bossMaxHealth) {
@@ -709,10 +722,17 @@ class OptimizedGameState {
       this.manager.setState({ battleStats: newStats });
     }
 
+    // Создаем объект босса для результата
+    const bossData = {
+      type: bossType,
+      currentHealth: 0,
+      maxHealth: bossMaxHealth || bossConfig.health
+    };
+
     this.manager.setState({
       pendingBattleResult: {
         victory: victory,
-        boss: Object.assign({}, this.state.currentBoss),
+        boss: bossData,
         reward: reward,
         battleStats: this.state.battleStats
       },
@@ -733,7 +753,7 @@ class OptimizedGameState {
 
     this.battleResult = {
       victory: victory,
-      boss: Object.assign({}, this.state.currentBoss),
+      boss: bossData,
       reward: reward
     };
 
@@ -742,11 +762,6 @@ class OptimizedGameState {
     if (this.battleTimer) {
       clearInterval(this.battleTimer);
       this.battleTimer = null;
-    }
-
-    // ДОБАВЛЕНО: Обновляем достижения новой функцией
-    if (victory) {
-      updateAchievementsOnVictory(this.state.currentBoss.type);
     }
 
     // ДОБАВЛЕНО: Сбрасываем флаг показа результатов
@@ -2733,18 +2748,25 @@ const damage = talent.damage * (talent.level || 1);
 // Ограничиваем урон максимальным здоровьем босса
 const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
 
-// Показываем эффект
-if (type === 'sonic') {
-  showSonicEffect(actualDamage);
-} else if (type === 'fire') {
-  showFireEffect(actualDamage);
-} else {
-  showIceEffect(actualDamage);
-}
+// Обновляем достижения ПЕРЕД завершением боя
+if (state.currentBoss && actualDamage >= state.currentBoss.currentHealth) {
+  updateAchievementsOnVictory(state.currentBoss.type);
 
-// Применяем урон к боссу обычным способом
-const statName = type + 'Damage';
-applyDamageToBoss(actualDamage, statName);
+  // Немедленно завершаем бой с победой
+  setTimeout(() => {
+    gameState.endBattle(true, state.currentBoss.type, state.currentBoss.maxHealth);
+  }, 10);
+
+  // Немедленно показываем результат
+  setTimeout(() => {
+    updateResultPopup();
+    showBattleResultPopup();
+  }, 300);
+} else {
+  // Применяем урон к боссу обычным способом
+  const statName = type + 'Damage';
+  applyDamageToBoss(actualDamage, statName);
+}
 
 // Обновляем UI
 updateCombatUI();
@@ -2763,6 +2785,10 @@ function applyDamageToBoss(damage, damageType = null) {
   // Ограничиваем урон текущим здоровьем босса
   const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
   const newHealth = Math.max(0, state.currentBoss.currentHealth - actualDamage);
+
+  // Сохраняем данные босса ДО обновления состояния
+  const bossType = state.currentBoss.type;
+  const bossMaxHealth = state.currentBoss.maxHealth;
 
   const newBoss = Object.assign({}, state.currentBoss, {
     currentHealth: newHealth
@@ -2797,7 +2823,6 @@ function applyDamageToBoss(damage, damageType = null) {
     newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
 
     // Корректируем статистику, чтобы общий урон не превышал максимальное здоровье
-    const bossMaxHealth = state.currentBoss.maxHealth;
     if (newStats.totalDamage > bossMaxHealth) {
       const difference = newStats.totalDamage - bossMaxHealth;
       newStats.totalDamage = bossMaxHealth;
@@ -2813,11 +2838,13 @@ function applyDamageToBoss(damage, damageType = null) {
 
   // СРАЗУ проверяем смерть босса и обновляем UI
   if (newHealth <= 0) {
-    // Обновляем достижения
-    updateAchievementsOnVictory(state.currentBoss.type);
+    // Обновляем достижения ПЕРЕД завершением боя
+    updateAchievementsOnVictory(bossType);
 
-    // Немедленно завершаем бой
-    gameState.endBattle(true);
+    // Немедленно завершаем бой с ПЕРЕДАЧЕЙ ДАННЫХ БОССА
+    setTimeout(() => {
+      gameState.endBattle(true, bossType, bossMaxHealth);
+    }, 10);
 
     // СРАЗУ показываем результат без задержки
     setTimeout(() => {
@@ -2968,7 +2995,9 @@ if (newHealth <= 0) {
   updateAchievementsOnVictory(state.currentBoss.type);
 
   // Немедленно завершаем бой
-  gameState.endBattle(true);
+  setTimeout(() => {
+    gameState.endBattle(true, state.currentBoss.type, state.currentBoss.maxHealth);
+  }, 10);
 
   // Немедленно показываем результат
   setTimeout(() => {
