@@ -567,6 +567,7 @@ class OptimizedGameState {
 
     // Обновляем отображение талантов
     updateTalentPrices();
+    updateTalentLevelsDisplay();
   }
 
   updateKeysDisplay() {
@@ -977,6 +978,7 @@ function initUI() {
   updateUI();
   updateBossAvailability();
   updateAchievementsUI();
+  updateTalentLevelsDisplay();
 
   // Обработчики событий
   initEventHandlers();
@@ -1157,11 +1159,20 @@ function updateAchievementsUI() {
   const claimWasp2 = document.getElementById('claimWasp2');
   const claimWasp3 = document.getElementById('claimWasp3');
 
+  // Показываем прогресс
   if (waspKills < 10) {
     if (waspLevelElement) waspLevelElement.textContent = 'Уровень 1';
     if (waspKillCount) waspKillCount.textContent = waspKills + '/10';
     if (waspProgress) waspProgress.style.width = ((waspKills / 10) * 100) + '%';
-    if (claimWasp1) claimWasp1.style.display = state.achievements.completed.level1 && !state.achievements.claimed.level1 ? 'block' : 'none';
+
+    // Показываем кнопку получения награды если достижение выполнено
+    if (claimWasp1) {
+      const isCompleted = state.achievements.completed.level1;
+      const isClaimed = state.achievements.claimed.level1;
+      claimWasp1.style.display = (isCompleted && !isClaimed) ? 'block' : 'none';
+      claimWasp1.disabled = !isCompleted || isClaimed;
+      claimWasp1.textContent = isClaimed ? 'Получено' : 'Получить награду';
+    }
     if (claimWasp2) claimWasp2.style.display = 'none';
     if (claimWasp3) claimWasp3.style.display = 'none';
   } else if (waspKills < 20) {
@@ -1169,7 +1180,14 @@ function updateAchievementsUI() {
     if (waspKillCount) waspKillCount.textContent = (waspKills - 10) + '/10';
     if (waspProgress) waspProgress.style.width = (((waspKills - 10) / 10) * 100) + '%';
     if (claimWasp1) claimWasp1.style.display = 'none';
-    if (claimWasp2) claimWasp2.style.display = state.achievements.completed.level2 && !state.achievements.claimed.level2 ? 'block' : 'none';
+
+    if (claimWasp2) {
+      const isCompleted = state.achievements.completed.level2;
+      const isClaimed = state.achievements.claimed.level2;
+      claimWasp2.style.display = (isCompleted && !isClaimed) ? 'block' : 'none';
+      claimWasp2.disabled = !isCompleted || isClaimed;
+      claimWasp2.textContent = isClaimed ? 'Получено' : 'Получить награду';
+    }
     if (claimWasp3) claimWasp3.style.display = 'none';
   } else if (waspKills < 30) {
     if (waspLevelElement) waspLevelElement.textContent = 'Уровень 3';
@@ -1177,7 +1195,14 @@ function updateAchievementsUI() {
     if (waspProgress) waspProgress.style.width = (((waspKills - 20) / 10) * 100) + '%';
     if (claimWasp1) claimWasp1.style.display = 'none';
     if (claimWasp2) claimWasp2.style.display = 'none';
-    if (claimWasp3) claimWasp3.style.display = state.achievements.completed.level3 && !state.achievements.claimed.level3 ? 'block' : 'none';
+
+    if (claimWasp3) {
+      const isCompleted = state.achievements.completed.level3;
+      const isClaimed = state.achievements.claimed.level3;
+      claimWasp3.style.display = (isCompleted && !isClaimed) ? 'block' : 'none';
+      claimWasp3.disabled = !isCompleted || isClaimed;
+      claimWasp3.textContent = isClaimed ? 'Получено' : 'Получить награду';
+    }
   } else {
     if (waspLevelElement) waspLevelElement.textContent = 'Максимум';
     if (waspKillCount) waspKillCount.textContent = '30/30';
@@ -1200,7 +1225,14 @@ function updateAchievementsUI() {
     if (bearLevelElement) bearLevelElement.textContent = 'Уровень 1';
     if (bearKillCount) bearKillCount.textContent = bearKills + '/10';
     if (bearProgress) bearProgress.style.width = ((bearKills / 10) * 100) + '%';
-    if (claimBear1) claimBear1.style.display = state.achievements.bearCompleted.level1 && !state.achievements.bearClaimed.level1 ? 'block' : 'none';
+
+    if (claimBear1) {
+      const isCompleted = state.achievements.bearCompleted.level1;
+      const isClaimed = state.achievements.bearClaimed.level1;
+      claimBear1.style.display = (isCompleted && !isClaimed) ? 'block' : 'none';
+      claimBear1.disabled = !isCompleted || isClaimed;
+      claimBear1.textContent = isClaimed ? 'Получено' : 'Получить награду';
+    }
     if (claimBear2) claimBear2.style.display = 'none';
     if (claimBear3) claimBear3.style.display = 'none';
   } else if (bearKills < 20) {
@@ -1208,7 +1240,14 @@ function updateAchievementsUI() {
     if (bearKillCount) bearKillCount.textContent = (bearKills - 10) + '/10';
     if (bearProgress) bearProgress.style.width = (((bearKills - 10) / 10) * 100) + '%';
     if (claimBear1) claimBear1.style.display = 'none';
-    if (claimBear2) claimBear2.style.display = state.achievements.bearCompleted.level2 && !state.achievements.bearClaimed.level2 ? 'block' : 'none';
+
+    if (claimBear2) {
+      const isCompleted = state.achievements.bearCompleted.level2;
+      const isClaimed = state.achievements.bearClaimed.level2;
+      claimBear2.style.display = (isCompleted && !isClaimed) ? 'block' : 'none';
+      claimBear2.disabled = !isCompleted || isClaimed;
+      claimBear2.textContent = isClaimed ? 'Получено' : 'Получить награду';
+    }
     if (claimBear3) claimBear3.style.display = 'none';
   } else if (bearKills < 30) {
     if (bearLevelElement) bearLevelElement.textContent = 'Уровень 3';
@@ -1216,7 +1255,14 @@ function updateAchievementsUI() {
     if (bearProgress) bearProgress.style.width = (((bearKills - 20) / 10) * 100) + '%';
     if (claimBear1) claimBear1.style.display = 'none';
     if (claimBear2) claimBear2.style.display = 'none';
-    if (claimBear3) claimBear3.style.display = state.achievements.bearCompleted.level3 && !state.achievements.bearClaimed.level3 ? 'block' : 'none';
+
+    if (claimBear3) {
+      const isCompleted = state.achievements.bearCompleted.level3;
+      const isClaimed = state.achievements.bearClaimed.level3;
+      claimBear3.style.display = (isCompleted && !isClaimed) ? 'block' : 'none';
+      claimBear3.disabled = !isCompleted || isClaimed;
+      claimBear3.textContent = isClaimed ? 'Получено' : 'Получить награду';
+    }
   } else {
     if (bearLevelElement) bearLevelElement.textContent = 'Максимум';
     if (bearKillCount) bearKillCount.textContent = '30/30';
@@ -2185,6 +2231,7 @@ function upgradeTalent(talentType) {
 
   // Обновляем UI
   updateUI(['honey', 'talents']);
+  updateTalentLevelsDisplay();
   updateTalentPrices();
   showMessage('Талант улучшен!');
 
@@ -2201,11 +2248,6 @@ function updateTalentPrices() {
     const talent = talentsConfig[talentType];
     const currentLevel = state.talents[talentType].level;
     const button = document.querySelector('.talent[data-talent="' + talentType + '"] button');
-    const levelElement = document.getElementById(talentType + 'Level');
-
-    if (levelElement) {
-      levelElement.textContent = currentLevel;
-    }
 
     if (button) {
       if (currentLevel >= talent.maxLevel) {
@@ -2218,15 +2260,20 @@ function updateTalentPrices() {
       }
     }
   });
+}
 
-  // Также обновляем значения характеристик
-  const basicDmgElement = document.getElementById('basicDmg');
-  const critChanceElement = document.getElementById('critChanceUpgrade');
-  const poisonDmgElement = document.getElementById('poisonDmgUpgrade');
+function updateTalentLevelsDisplay() {
+  const state = gameState.state;
 
-  if (basicDmgElement) basicDmgElement.textContent = state.talents.basic.damage;
-  if (critChanceElement) critChanceElement.textContent = Math.floor(state.talents.critical.chance * 100);
-  if (poisonDmgElement) poisonDmgElement.textContent = state.talents.poison.damage;
+  // Обновляем уровни в попапе улучшения
+  document.getElementById('basicLevel').textContent = state.talents.basic.level;
+  document.getElementById('critLevel').textContent = state.talents.critical.level;
+  document.getElementById('poisonLevel').textContent = state.talents.poison.level;
+
+  // Обновляем урон и характеристики
+  document.getElementById('basicDmg').textContent = state.talents.basic.damage;
+  document.getElementById('critChanceUpgrade').textContent = Math.floor(state.talents.critical.chance * 100);
+  document.getElementById('poisonDmgUpgrade').textContent = state.talents.poison.damage;
 }
 
 function updateChargeDisplay(type) {
@@ -2517,8 +2564,20 @@ function attack(type) {
       return; // Яд не наносит мгновенного урона
   }
 
-  // Применяем урон к боссу
-  applyDamageToBoss(damage);
+  // ИСПРАВЛЕНИЕ: Проверяем, убивает ли удар босса
+  if (state.currentBoss && damage >= state.currentBoss.currentHealth) {
+    // Немедленно завершаем бой с победой
+    gameState.endBattle(true);
+
+    // Немедленно показываем результат
+    setTimeout(() => {
+      updateResultPopup();
+      showBattleResultPopup();
+    }, 300);
+  } else {
+    // Применяем урон к боссу обычным способом
+    applyDamageToBoss(damage);
+  }
 
   // Обновляем UI
   updateCombatUI();
@@ -2576,8 +2635,20 @@ function handleCraftedTalentAttack(type) {
     showIceEffect(damage);
   }
 
-  // Применяем урон к боссу
-  applyDamageToBoss(damage);
+  // ИСПРАВЛЕНИЕ: Проверяем, убивает ли удар босса
+  if (state.currentBoss && damage >= state.currentBoss.currentHealth) {
+    // Немедленно завершаем бой с победой
+    gameState.endBattle(true);
+
+    // Немедленно показываем результат
+    setTimeout(() => {
+      updateResultPopup();
+      showBattleResultPopup();
+    }, 300);
+  } else {
+    // Применяем урон к боссу обычным способом
+    applyDamageToBoss(damage);
+  }
 
   // Обновляем UI
   updateCombatUI();
@@ -2648,8 +2719,12 @@ function applyPoisonTick(effect) {
     gameState.save(true);
   }, 100);
 
+  // ИСПРАВЛЕННЫЙ БЛОК: Немедленная победа при смерти от яда
   if (newHealth <= 0) {
-    // ИСПРАВЛЕНИЕ: Увеличиваем счетчик достижений при победе
+    clearInterval(effect.interval);
+    gameState.battleEffects.delete(effect);
+
+    // Обновляем достижения
     const newAchievements = Object.assign({}, state.achievements);
     const bossType = state.currentBoss.type;
 
@@ -2679,8 +2754,14 @@ function applyPoisonTick(effect) {
 
     gameState.manager.setState({ achievements: newAchievements });
 
-    clearInterval(effect.interval);
+    // Немедленно завершаем бой
     gameState.endBattle(true);
+
+    // Немедленно показываем результат
+    setTimeout(() => {
+      updateResultPopup();
+      showBattleResultPopup();
+    }, 300);
   }
 }
 
@@ -2706,7 +2787,7 @@ function applyDamageToBoss(damage) {
   });
 
   if (newHealth <= 0) {
-    // ИСПРАВЛЕНИЕ: Увеличиваем счетчик достижений при победе
+    // Обновляем достижения
     const newAchievements = Object.assign({}, state.achievements);
     const bossType = state.currentBoss.type;
 
@@ -2735,7 +2816,15 @@ function applyDamageToBoss(damage) {
     }
 
     gameState.manager.setState({ achievements: newAchievements });
+
+    // Немедленно завершаем бой и показываем результат
     gameState.endBattle(true);
+
+    // Немедленно показываем результат боя
+    setTimeout(() => {
+      updateResultPopup();
+      showBattleResultPopup();
+    }, 300);
   }
 }
 
@@ -3089,7 +3178,7 @@ function updateResultPopup() {
       statsDiv.id = 'damageStats';
       statsDiv.className = 'damage-stats';
 
-      statsDiv.innerHTML = '<h3>Статистика урона:</h3><div class="damage-stats-grid"><div class="damage-stat">🗡️ Базовый: <span id="basicDamageStat">0</span></div><div class="damage-stat">💥 Критический: <span id="criticalDamageStat">0</span></div><div class="damage-stat">☠️ Ядовитый: <span id="poisonDamageStat">0</span></div><div class="damage-stat">🔊 Звуковой: <span id="sonicDamageStat">0</span></div><div class="damage-stat">🔥 Огненный: <span id="fireDamageStat">0</span></div><div class="damage-stat">❄️ Ледяной: <span id="iceDamageStat">0</span></div><div class="damage-stat total">📊 Общий урон: <span id="totalDamageStat">0</span></div></div>';
+      statsDiv.innerHTML = '<h3>Статистика урона:</h3><div class="damage-stats-grid" id="damageStatsGrid"></div>';
 
       // Вставляем перед кнопками действий
       const actionsDiv = resultBody.querySelector('.result-actions');
@@ -3099,24 +3188,37 @@ function updateResultPopup() {
     }
   }
 
-  // Обновляем значения статистики
+  // Обновляем значения статистики - показываем только использованные типы урона
   const state = gameState.state;
-  if (state.battleStats) {
-    const basicDamageStat = document.getElementById('basicDamageStat');
-    const criticalDamageStat = document.getElementById('criticalDamageStat');
-    const poisonDamageStat = document.getElementById('poisonDamageStat');
-    const sonicDamageStat = document.getElementById('sonicDamageStat');
-    const fireDamageStat = document.getElementById('fireDamageStat');
-    const iceDamageStat = document.getElementById('iceDamageStat');
-    const totalDamageStat = document.getElementById('totalDamageStat');
+  const damageStatsGrid = document.getElementById('damageStatsGrid');
 
-    if (basicDamageStat) basicDamageStat.textContent = state.battleStats.basicDamage || 0;
-    if (criticalDamageStat) criticalDamageStat.textContent = state.battleStats.criticalDamage || 0;
-    if (poisonDamageStat) poisonDamageStat.textContent = state.battleStats.poisonDamage || 0;
-    if (sonicDamageStat) sonicDamageStat.textContent = state.battleStats.sonicDamage || 0;
-    if (fireDamageStat) fireDamageStat.textContent = state.battleStats.fireDamage || 0;
-    if (iceDamageStat) iceDamageStat.textContent = state.battleStats.iceDamage || 0;
-    if (totalDamageStat) totalDamageStat.textContent = state.battleStats.totalDamage || 0;
+  if (damageStatsGrid && state.battleStats) {
+    damageStatsGrid.innerHTML = '';
+
+    const damageTypes = [
+      { key: 'basicDamage', label: '🗡️ Базовый', value: state.battleStats.basicDamage || 0 },
+      { key: 'criticalDamage', label: '💥 Критический', value: state.battleStats.criticalDamage || 0 },
+      { key: 'poisonDamage', label: '☠️ Ядовитый', value: state.battleStats.poisonDamage || 0 },
+      { key: 'sonicDamage', label: '🔊 Звуковой', value: state.battleStats.sonicDamage || 0 },
+      { key: 'fireDamage', label: '🔥 Огненный', value: state.battleStats.fireDamage || 0 },
+      { key: 'iceDamage', label: '❄️ Ледяной', value: state.battleStats.iceDamage || 0 }
+    ];
+
+    // Фильтруем и показываем только те, у которых урон > 0
+    damageTypes.forEach(type => {
+      if (type.value > 0) {
+        const statElement = document.createElement('div');
+        statElement.className = 'damage-stat';
+        statElement.innerHTML = `${type.label}: <span>${type.value}</span>`;
+        damageStatsGrid.appendChild(statElement);
+      }
+    });
+
+    // Всегда показываем общий урон
+    const totalElement = document.createElement('div');
+    totalElement.className = 'damage-stat total';
+    totalElement.innerHTML = `📊 Общий урон: <span>${state.battleStats.totalDamage || 0}</span>`;
+    damageStatsGrid.appendChild(totalElement);
   }
 }
 
@@ -3228,35 +3330,38 @@ function closeBattleResult() {
 // =================== ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОВЫШЕНИЯ УРОВНЯ ===================
 function checkLevelUp() {
   const state = gameState.state;
-  let levelsGained = 0;
   let currentXP = state.xp;
   let currentLevel = state.level;
+  let xpToNextLevel = state.xpToNextLevel;
+  let levelsGained = 0;
 
   console.log('Проверка уровня:', {
     currentXP: currentXP,
     currentLevel: currentLevel,
-    xpToNextLevel: state.xpToNextLevel
+    xpToNextLevel: xpToNextLevel
   });
 
-  while (currentXP >= state.xpToNextLevel && currentLevel < 100) {
-    currentXP -= state.xpToNextLevel;
+  while (currentXP >= xpToNextLevel && currentLevel < 100) {
+    currentXP -= xpToNextLevel;
     currentLevel += 1;
     levelsGained++;
+    xpToNextLevel = gameState.calculateXPRequired(currentLevel);
 
-    // Пересчитываем XP для следующего уровня
-    const newXPToNextLevel = gameState.calculateXPRequired(currentLevel);
-
-    // Обновляем состояние
-    gameState.manager.setState({
-      xp: currentXP,
-      level: currentLevel,
-      xpToNextLevel: newXPToNextLevel
+    console.log('Уровень повышен:', {
+      новыйУровень: currentLevel,
+      остатокОпыта: currentXP,
+      опытДляСледующегоУровня: xpToNextLevel
     });
-
-    console.log('Повышение уровня! Новый уровень: ' + currentLevel + ', XP до следующего: ' + newXPToNextLevel);
   }
 
   if (levelsGained > 0) {
+    // Обновляем состояние одним вызовом
+    gameState.manager.setState({
+      xp: currentXP,
+      level: currentLevel,
+      xpToNextLevel: xpToNextLevel
+    });
+
     // Применяем бонусы за уровни
     applyLevelBonuses(levelsGained);
 
@@ -3264,15 +3369,19 @@ function checkLevelUp() {
     showLevelUpEffect(levelsGained);
 
     // Обновляем UI
-    updateLevelProgress();
     updateUI(['level', 'xp', 'xpToNextLevel']);
+    updateLevelProgress();
     updateAchievementsUI();
 
     // Сохраняем при повышении уровня
     setTimeout(function() {
       gameState.save(true);
     }, 100);
+
+    showMessage('🎉 Уровень повышен до ' + currentLevel + '!');
+    return true;
   }
+  return false;
 }
 
 function applyLevelBonuses(levels) {
@@ -3777,8 +3886,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Обработка необработанных промисов
   window.addEventListener('unhandledrejection', (e) => {
-    logger.error('Необработанный Promise', e.reason
-
-);
-});
+    logger.error('Необработанный Promise', e.reason);
+  });
 });
