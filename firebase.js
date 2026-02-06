@@ -213,15 +213,16 @@ class FirebaseManager {
         achievements: gameState.achievements || {
           waspKills: 0,
           bearKills: 0,
-          currentLevel: 0,
-          rewards: { level1: false, level2: false, level3: false },
-          bearRewards: { level1: false, level2: false, level3: false }
+          completed: { level1: false, level2: false, level3: false },
+          claimed: { level1: false, level2: false, level3: false },
+          bearCompleted: { level1: false, level2: false, level3: false },
+          bearClaimed: { level1: false, level2: false, level3: false }
         },
 
         // ========= КАСТОМИЗАЦИЯ =========
         purchasedBackgrounds: gameState.purchasedBackgrounds || ['default'],
         currentBackground: gameState.currentBackground || 'default',
-        currentSkin: gameState.currentSkin || 'img/skin1.png',
+        currentSkin: gameState.currentSkin || 'img/human_male.png',
         currentPet: gameState.currentPet || 'img/pet1.png',
         hasPet: gameState.hasPet || false,
         isUsingSkin: gameState.isUsingSkin || false,
