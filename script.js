@@ -689,6 +689,26 @@ class OptimizedGameState {
       keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
     } : null;
 
+    // ДОБАВЛЕНО: Корректируем статистику урона перед сохранением
+    const bossMaxHealth = this.state.currentBoss?.maxHealth || 0;
+    const totalDamage = this.state.battleStats.totalDamage || 0;
+
+    if (totalDamage > bossMaxHealth) {
+      const newStats = Object.assign({}, this.state.battleStats);
+      const difference = totalDamage - bossMaxHealth;
+
+      // Распределяем корректировку пропорционально
+      Object.keys(newStats).forEach(function(key) {
+        if (key !== 'totalDamage' && newStats[key] > 0) {
+          const proportion = newStats[key] / (totalDamage - difference);
+          newStats[key] = Math.max(0, Math.round(newStats[key] - (difference * proportion)));
+        }
+      });
+
+      newStats.totalDamage = bossMaxHealth;
+      this.manager.setState({ battleStats: newStats });
+    }
+
     this.manager.setState({
       pendingBattleResult: {
         victory: victory,
@@ -1160,6 +1180,11 @@ function initUI() {
   // Подписка на изменения состояния
   gameState.subscribe(function(oldState, newState) {
     updateGameUI(oldState, newState);
+
+    // ДОБАВЛЕНО: Обновляем кнопки улучшения талантов при изменении меда
+    if (oldState.honey !== newState.honey) {
+      updateTalentPrices();
+    }
   });
 
   // Инициализация элементов
@@ -1168,6 +1193,9 @@ function initUI() {
   updateBossAvailability();
   updateAchievementsUI();
   updateTalentLevelsDisplay();
+
+  // ДОБАВЛЕНО: Инициализируем цены талантов
+  updateTalentPrices();
 
   // Обработчики событий
   initEventHandlers();
@@ -2059,7 +2087,7 @@ function craftTalent(talentType, requiredTypes) {
 
   // Сохраняем после крафта
   setTimeout(function() {
-    gameState.save();
+    gameState.save(true);
   }, 100);
 }
 
@@ -2148,7 +2176,7 @@ function initBackgroundSystem() {
 
       // Сохраняем после выбора фона
       setTimeout(function() {
-        gameState.save();
+        gameState.save(true);
       }, 100);
     });
   }
@@ -2268,7 +2296,7 @@ function buyCharges(type) {
 
     // Сохраняем после покупки
     setTimeout(function() {
-      gameState.save();
+      gameState.save(true);
     }, 100);
   } else {
     showMessage('Недостаточно мёда!');
@@ -2320,11 +2348,13 @@ function upgradeTalent(talentType) {
 
   // Сохраняем после улучшения
   setTimeout(function() {
-    gameState.save();
+    gameState.save(true);
   }, 100);
 }
 
 function updateTalentPrices() {
+  if (!gameState) return;
+
   const state = gameState.state;
 
   Object.keys(talentsConfig).forEach(function(talentType) {
@@ -2339,6 +2369,7 @@ function updateTalentPrices() {
       } else {
         const cost = Math.floor(talent.getCost(currentLevel));
         button.textContent = cost;
+        // СРАЗУ обновляем доступность кнопки на основе текущего количества меда
         button.disabled = state.honey < cost;
       }
     }
@@ -2636,7 +2667,6 @@ switch (attackType) {
     damage = calculateBasicDamage();
     // Ограничиваем урон здоровьем босса
     actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-    updateBattleStats('basicDamage', actualDamage);
     showBasicEffect(actualDamage);
     break;
   case 'critical':
@@ -2645,12 +2675,10 @@ switch (attackType) {
       damage *= 2;
       // Ограничиваем урон здоровьем босса
       actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-      updateBattleStats('criticalDamage', actualDamage);
       showCriticalEffect(actualDamage);
     } else {
       // Ограничиваем урон здоровьем босса
       actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-      updateBattleStats('criticalDamage', actualDamage);
       showBasicEffect(actualDamage);
     }
     break;
@@ -2659,22 +2687,8 @@ switch (attackType) {
     return; // Яд не наносит мгновенного урона
 }
 
-// Обновляем достижения ПЕРЕД завершением боя
-if (state.currentBoss && actualDamage >= state.currentBoss.currentHealth) {
-  updateAchievementsOnVictory(state.currentBoss.type);
-
-  // Немедленно завершаем бой с победой
-  gameState.endBattle(true);
-
-  // Немедленно показываем результат
-  setTimeout(() => {
-    updateResultPopup();
-    showBattleResultPopup();
-  }, 300);
-} else {
-  // Применяем урон к боссу обычным способом
-  applyDamageToBoss(actualDamage, attackType === 'basic' ? 'basicDamage' : 'criticalDamage');
-}
+// Применяем урон к боссу обычным способом
+applyDamageToBoss(actualDamage, attackType === 'basic' ? 'basicDamage' : 'criticalDamage');
 
 // Обновляем UI
 updateCombatUI();
@@ -2719,13 +2733,6 @@ const damage = talent.damage * (talent.level || 1);
 // Ограничиваем урон максимальным здоровьем босса
 const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
 
-// Обновляем статистику
-const statName = type + 'Damage';
-const newStats = Object.assign({}, state.battleStats);
-newStats[statName] = (newStats[statName] || 0) + actualDamage;
-newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
-gameState.manager.setState({ battleStats: newStats });
-
 // Показываем эффект
 if (type === 'sonic') {
   showSonicEffect(actualDamage);
@@ -2735,22 +2742,9 @@ if (type === 'sonic') {
   showIceEffect(actualDamage);
 }
 
-// Обновляем достижения ПЕРЕД завершением боя
-if (state.currentBoss && actualDamage >= state.currentBoss.currentHealth) {
-  updateAchievementsOnVictory(state.currentBoss.type);
-
-  // Немедленно завершаем бой с победой
-  gameState.endBattle(true);
-
-  // Немедленно показываем результат
-  setTimeout(() => {
-    updateResultPopup();
-    showBattleResultPopup();
-  }, 300);
-} else {
-  // Применяем урон к боссу обычным способом
-  applyDamageToBoss(actualDamage, statName);
-}
+// Применяем урон к боссу обычным способом
+const statName = type + 'Damage';
+applyDamageToBoss(actualDamage, statName);
 
 // Обновляем UI
 updateCombatUI();
@@ -2759,6 +2753,83 @@ updateCombatUI();
 setTimeout(function() {
   gameState.save(true);
 }, 100);
+}
+
+// =================== ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ НАНЕСЕНИЯ УРОНА БОССУ ===================
+function applyDamageToBoss(damage, damageType = null) {
+  const state = gameState.state;
+  if (!state.currentBoss || !state.inBattle) return;
+
+  // Ограничиваем урон текущим здоровьем босса
+  const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
+  const newHealth = Math.max(0, state.currentBoss.currentHealth - actualDamage);
+
+  const newBoss = Object.assign({}, state.currentBoss, {
+    currentHealth: newHealth
+  });
+
+  // Обновляем активный бой с текущим здоровьем
+  const newActiveBattle = state.activeBattle ? Object.assign({}, state.activeBattle, {
+    health: newHealth
+  }) : {
+    type: state.currentBoss.type,
+    health: newHealth,
+    timeLimit: state.battleTimeLimit
+  };
+
+  gameState.manager.setState({
+    currentBoss: newBoss,
+    activeBattle: newActiveBattle
+  });
+
+  // Обновляем статистику с actualDamage
+  if (damageType) {
+    const newStats = Object.assign({}, state.battleStats);
+
+    // Добавляем урон к соответствующему типу
+    if (damageType === 'basicDamage' || damageType === 'criticalDamage') {
+      newStats[damageType] = (newStats[damageType] || 0) + actualDamage;
+    } else if (damageType.endsWith('Damage')) {
+      newStats[damageType] = (newStats[damageType] || 0) + actualDamage;
+    }
+
+    // Обновляем общий урон
+    newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
+
+    // Корректируем статистику, чтобы общий урон не превышал максимальное здоровье
+    const bossMaxHealth = state.currentBoss.maxHealth;
+    if (newStats.totalDamage > bossMaxHealth) {
+      const difference = newStats.totalDamage - bossMaxHealth;
+      newStats.totalDamage = bossMaxHealth;
+
+      // Корректируем соответствующий тип урона
+      if (damageType === 'basicDamage' || damageType === 'criticalDamage' || damageType.endsWith('Damage')) {
+        newStats[damageType] = Math.max(0, newStats[damageType] - difference);
+      }
+    }
+
+    gameState.manager.setState({ battleStats: newStats });
+  }
+
+  // СРАЗУ проверяем смерть босса и обновляем UI
+  if (newHealth <= 0) {
+    // Обновляем достижения
+    updateAchievementsOnVictory(state.currentBoss.type);
+
+    // Немедленно завершаем бой
+    gameState.endBattle(true);
+
+    // СРАЗУ показываем результат без задержки
+    setTimeout(() => {
+      updateResultPopup();
+      showBattleResultPopup();
+    }, 50);
+
+    return; // Важно: выходим из функции, чтобы не вызывать updateCombatUI
+  }
+
+  // Обновляем UI только если босс еще жив
+  updateCombatUI();
 }
 
 // =================== ОБНОВЛЕННЫЕ ТАЙМЕРЫ ЯДА ===================
@@ -2846,9 +2917,23 @@ const newBoss = Object.assign({}, state.currentBoss, {
   currentHealth: newHealth
 });
 
+// Обновляем статистику с ограничением
 const newStats = Object.assign({}, state.battleStats);
-newStats.poisonDamage = (newStats.poisonDamage || 0) + actualDamage;
-newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
+const currentPoisonDamage = newStats.poisonDamage || 0;
+const bossMaxHealth = state.currentBoss.maxHealth;
+const totalDamageAfterThis = (newStats.totalDamage || 0) + actualDamage;
+
+// Проверяем, не превышает ли общий урон максимальное здоровье
+if (totalDamageAfterThis > bossMaxHealth) {
+  const allowedDamage = bossMaxHealth - (newStats.totalDamage || 0);
+  if (allowedDamage > 0) {
+    newStats.poisonDamage = currentPoisonDamage + allowedDamage;
+    newStats.totalDamage = bossMaxHealth;
+  }
+} else {
+  newStats.poisonDamage = currentPoisonDamage + actualDamage;
+  newStats.totalDamage = totalDamageAfterThis;
+}
 
 gameState.manager.setState({
   currentBoss: newBoss,
@@ -2897,66 +2982,30 @@ setTimeout(function() {
 }, 100);
 }
 
-function applyDamageToBoss(damage, damageType = null) {
-const state = gameState.state;
-if (!state.currentBoss || !state.inBattle) return;
+function updateBattleStats(stat, damage) {
+  const state = gameState.state;
+  if (!state.currentBoss) return;
 
-// Ограничиваем урон текущим здоровьем босса
-const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-const newHealth = Math.max(0, state.currentBoss.currentHealth - actualDamage);
-const newBoss = Object.assign({}, state.currentBoss, { currentHealth: newHealth });
-
-// Обновляем активный бой с текущим здоровьем
-const newActiveBattle = state.activeBattle ? Object.assign({}, state.activeBattle, {
-  health: newHealth
-}) : {
-  type: state.currentBoss.type,
-  health: newHealth,
-  timeLimit: state.battleTimeLimit
-};
-
-gameState.manager.setState({
-  currentBoss: newBoss,
-  activeBattle: newActiveBattle
-});
-
-// Обновляем статистику с actualDamage
-if (damageType) {
-  const statName = damageType === 'basic' ? 'basicDamage' :
-                  damageType === 'critical' ? 'criticalDamage' : damageType;
+  // Всегда ограничиваем урон текущим здоровьем босса
+  const remainingHealth = state.currentBoss.currentHealth;
+  const actualDamage = calculateActualDamage(damage, remainingHealth);
 
   const newStats = Object.assign({}, state.battleStats);
-  newStats[statName] = (newStats[statName] || 0) + actualDamage;
+  newStats[stat] = (newStats[stat] || 0) + actualDamage;
   newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
+
+  // Проверяем, чтобы общий урон не превышал максимальное здоровье босса
+  if (newStats.totalDamage > state.currentBoss.maxHealth) {
+    // Корректируем общий урон
+    const maxPossibleDamage = state.currentBoss.maxHealth;
+    const difference = newStats.totalDamage - maxPossibleDamage;
+
+    // Корректируем текущий тип урона
+    newStats[stat] = Math.max(0, newStats[stat] - difference);
+    newStats.totalDamage = maxPossibleDamage;
+  }
+
   gameState.manager.setState({ battleStats: newStats });
-}
-
-if (newHealth <= 0) {
-  // Обновляем достижения
-  updateAchievementsOnVictory(state.currentBoss.type);
-
-  // Немедленно завершаем бой
-  gameState.endBattle(true);
-
-  // Немедленно показываем результат
-  setTimeout(() => {
-    updateResultPopup();
-    showBattleResultPopup();
-  }, 300);
-}
-}
-
-function updateBattleStats(stat, damage) {
-const state = gameState.state;
-if (!state.currentBoss) return;
-
-// Ограничиваем урон текущим здоровьем босса
-const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-
-const newStats = Object.assign({}, state.battleStats);
-newStats[stat] = (newStats[stat] || 0) + actualDamage;
-newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
-gameState.manager.setState({ battleStats: newStats });
 }
 
 function updateCombatUI() {
