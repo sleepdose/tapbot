@@ -303,6 +303,10 @@ class FirebaseManager {
           totalDamage: 0
         },
 
+        // ========= НЕЗАКРЫТЫЕ РЕЗУЛЬТАТЫ БОЯ =========
+        pendingBattleResult: gameState.pendingBattleResult || null,
+        pendingBattleResultType: gameState.pendingBattleResultType || null,
+
         // ========= АУДИО И НАСТРОЙКИ =========
         isMusicMuted: gameState.isMusicMuted || false,
 
