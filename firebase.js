@@ -8,7 +8,8 @@ class FirebaseManager {
     this.isSaving = false;
     this.MAX_FRIENDS = 20;
 
-    // Конфигурация Firebase
+    // Конфигурация Firebase (⚠️ ВНИМАНИЕ: Замените на переменные окружения в продакшене!)
+    // Для безопасности рекомендуется использовать переменные окружения или серверную часть
     this.firebaseConfig = {
       apiKey: "AIzaSyAhzdARqvqC4a6zCaXUVoO9Ij94mtoNha0",
       authDomain: "hiko-ca02d.firebaseapp.com",
@@ -93,17 +94,18 @@ class FirebaseManager {
           const userDoc = usersSnapshot.docs[0];
           console.log('Найден существующий пользователь:', userDoc.id);
 
-          // Переносим данные из старого документа (кроме telegramId и username)
-          const oldData = userDoc.data();
-          delete oldData.telegramId;
-          delete oldData.username;
-          delete oldData.authUid;
-          delete oldData.createdAt;
-
-          Object.assign(userData, oldData);
-
-          // Удаляем старый документ если UID отличается
+          // Проверяем, что это не тот же самый пользователь
           if (userDoc.id !== this.currentUser.uid) {
+            // Переносим данные из старого документа (кроме telegramId и username)
+            const oldData = userDoc.data();
+            delete oldData.telegramId;
+            delete oldData.username;
+            delete oldData.authUid;
+            delete oldData.createdAt;
+
+            Object.assign(userData, oldData);
+
+            // Удаляем старый документ если UID отличается
             await this.db.collection('users').doc(userDoc.id).delete();
             console.log('Удален дублирующий документ');
           }
@@ -171,6 +173,26 @@ class FirebaseManager {
     }
   }
 
+  // Валидация игровых данных
+  validateGameData(gameState) {
+    if (!gameState) return false;
+
+    // Проверка основных числовых значений
+    if (typeof gameState.honey !== 'number' || gameState.honey < 0) return false;
+    if (typeof gameState.level !== 'number' || gameState.level < 1 || gameState.level > 100) return false;
+    if (typeof gameState.energy !== 'number' || gameState.energy < 0) return false;
+
+    // Проверка талантов
+    if (gameState.talents) {
+      const talents = gameState.talents;
+      if (talents.basic && (talents.basic.level < 1 || talents.basic.level > 10)) return false;
+      if (talents.critical && (talents.critical.level < 1 || talents.critical.level > 10)) return false;
+      if (talents.poison && (talents.poison.level < 1 || talents.poison.level > 10)) return false;
+    }
+
+    return true;
+  }
+
   // Сохранение данных игры
   async saveGameData(gameState) {
     try {
@@ -179,17 +201,23 @@ class FirebaseManager {
         return false;
       }
 
+      // Валидация данных перед сохранением
+      if (!this.validateGameData(gameState)) {
+        console.error('❌ Невалидные игровые данные');
+        return false;
+      }
+
       const telegramId = this.getTelegramId();
       const telegramUsername = this.getTelegramUsername();
 
       const dataToSave = {
         // ========= ОСНОВНЫЕ ДАННЫЕ =========
-        honey: gameState.honey || 0,
-        xp: gameState.xp || 0,
-        level: gameState.level || 1,
-        energy: gameState.energy || 100,
-        maxEnergy: gameState.maxEnergy || 100,
-        xpToNextLevel: gameState.xpToNextLevel || 100,
+        honey: Math.max(0, gameState.honey || 0),
+        xp: Math.max(0, gameState.xp || 0),
+        level: Math.max(1, Math.min(gameState.level || 1, 100)),
+        energy: Math.max(0, gameState.energy || 100),
+        maxEnergy: Math.max(100, gameState.maxEnergy || 100),
+        xpToNextLevel: Math.max(100, gameState.xpToNextLevel || 100),
 
         // ========= ТАЛЕНТЫ =========
         talents: gameState.talents || {
@@ -259,8 +287,8 @@ class FirebaseManager {
         // Текущее состояние боя:
         currentBoss: gameState.currentBoss ? {
           type: gameState.currentBoss.type,
-          currentHealth: gameState.currentBoss.currentHealth,
-          maxHealth: gameState.currentBoss.maxHealth,
+          currentHealth: Math.max(0, gameState.currentBoss.currentHealth || 0),
+          maxHealth: Math.max(1, gameState.currentBoss.maxHealth || 0),
           image: gameState.currentBoss.image
         } : null,
 
@@ -284,7 +312,8 @@ class FirebaseManager {
         lastActive: firebase.firestore.FieldValue.serverTimestamp(),
         version: '1.0.0',
         saveCount: (gameState.saveCount || 0) + 1,
-        totalPlayTime: (gameState.totalPlayTime || 0) + (Date.now() - (gameState.lastSaveTime || Date.now()))
+        totalPlayTime: (gameState.totalPlayTime || 0) +
+          (Date.now() - (gameState.lastSaveTime || Date.now()))
       };
 
       // Добавляем Telegram данные только если они есть
@@ -300,6 +329,14 @@ class FirebaseManager {
       return true;
     } catch (error) {
       console.error('❌ Ошибка сохранения в Firebase:', error);
+
+      // Логируем ошибку для отладки
+      if (error.code === 'permission-denied') {
+        console.error('Нет прав доступа. Проверьте правила безопасности Firebase.');
+      } else if (error.code === 'unavailable') {
+        console.error('Firebase недоступен. Проверьте интернет-соединение.');
+      }
+
       return false;
     }
   }
@@ -449,13 +486,11 @@ class FirebaseManager {
       }
 
       // Проверяем существующие заявки и дружбу
-      const existingRequestsQuery = this.db.collection('friendRequests')
+      const existingRequests = await this.db.collection('friendRequests')
         .where('fromUser', 'in', [this.currentUser.uid, targetUserId])
         .where('toUser', 'in', [this.currentUser.uid, targetUserId])
         .where('status', 'in', ['pending', 'accepted'])
         .get();
-
-      const existingRequests = await existingRequestsQuery;
 
       if (!existingRequests.empty) {
         for (const doc of existingRequests.docs) {
@@ -494,7 +529,10 @@ class FirebaseManager {
       return { success: true };
     } catch (error) {
       console.error('Ошибка отправки заявки:', error);
-      return { success: false, error: 'Ошибка отправки заявки: ' + error.message };
+      return {
+        success: false,
+        error: 'Ошибка отправки заявки: ' + (error.message || 'Неизвестная ошибка')
+      };
     }
   }
 
@@ -589,12 +627,12 @@ class FirebaseManager {
   async addFriend(userId1, userId2) {
     try {
       // Проверяем, не существует ли уже дружба
-      const friendshipQuery1 = this.db.collection('friendships')
+      const friendshipQuery = this.db.collection('friendships')
         .where('user1', 'in', [userId1, userId2])
         .where('user2', 'in', [userId1, userId2])
         .get();
 
-      const friendships = await friendshipQuery1;
+      const friendships = await friendshipQuery;
 
       if (!friendships.empty) {
         console.log('Дружба уже существует');
@@ -648,22 +686,28 @@ class FirebaseManager {
 
       // Получаем данные друзей
       const friends = [];
-      for (const friendId of friendIds) {
-        const friendDoc = await this.db.collection('users').doc(friendId).get();
-        if (friendDoc.exists) {
-          const friendData = friendDoc.data();
-          friends.push({
-            id: friendId,
-            telegramId: friendData.telegramId,
-            username: friendData.username || `Игрок ${friendData.telegramId || 'Неизвестно'}`,
-            level: friendData.level || 1,
-            honey: friendData.honey || 0,
-            xp: friendData.xp || 0,
-            lastOnline: friendData.lastActive || friendData.lastSaved,
-            lastActive: friendData.lastActive || friendData.lastSaved
-          });
+      const friendPromises = Array.from(friendIds).map(async (friendId) => {
+        try {
+          const friendDoc = await this.db.collection('users').doc(friendId).get();
+          if (friendDoc.exists) {
+            const friendData = friendDoc.data();
+            friends.push({
+              id: friendId,
+              telegramId: friendData.telegramId,
+              username: friendData.username || `Игрок ${friendData.telegramId || 'Неизвестно'}`,
+              level: friendData.level || 1,
+              honey: friendData.honey || 0,
+              xp: friendData.xp || 0,
+              lastOnline: friendData.lastActive || friendData.lastSaved,
+              lastActive: friendData.lastActive || friendData.lastSaved
+            });
+          }
+        } catch (error) {
+          console.error(`Ошибка загрузки данных друга ${friendId}:`, error);
         }
-      }
+      });
+
+      await Promise.all(friendPromises);
 
       return friends;
     } catch (error) {

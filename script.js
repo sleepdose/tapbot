@@ -297,8 +297,8 @@ class OptimizedGameState {
       const maxEnergy = savedData.maxEnergy || 100;
       const currentEnergy = savedData.energy || 0;
       const maxRecoveryMinutes = maxEnergy - currentEnergy;
-      const effectiveMinutes = Math.min(minutesPassed, maxRecoveryMinutes);
-      const energyToRestore = Math.max(0, Math.floor(effectiveMinutes));
+      const effectiveMinutes = Math.min(minutesPassed, 24 * 60); // Максимум 24 часа
+      const energyToRestore = Math.min(maxRecoveryMinutes, Math.floor(effectiveMinutes));
 
       if (energyToRestore > 0) {
         const newEnergy = Math.min(
@@ -310,7 +310,9 @@ class OptimizedGameState {
 
         // Показываем уведомление
         setTimeout(function() {
-          showMessage('⚡ Восстановлено ' + energyToRestore + ' энергии за оффлайн время');
+          if (energyToRestore > 0) {
+            showMessage('⚡ Восстановлено ' + energyToRestore + ' энергии за оффлайн время');
+          }
         }, 1000);
       }
     }
@@ -341,6 +343,22 @@ class OptimizedGameState {
     if (timePassed >= timeLimit) {
       console.log('Время боя истекло - поражение');
       this.showOfflineBattleResult(savedData.activeBattle, false);
+
+      // Сохраняем поражение
+      const newAchievements = Object.assign({}, savedData.achievements);
+      this.manager.setState({
+        inBattle: false,
+        activeBattle: null,
+        battleStartTime: null,
+        battleTimeLimit: null,
+        currentBoss: null,
+        achievements: newAchievements
+      });
+
+      setTimeout(() => {
+        this.save(true);
+      }, 500);
+
       return;
     }
 
@@ -578,6 +596,7 @@ class OptimizedGameState {
     this.battleTimer = setInterval(function() {
       if (!this.state.inBattle || !this.state.currentBoss || this.state.currentBoss.currentHealth <= 0) {
         clearInterval(this.battleTimer);
+        this.battleTimer = null;
         return;
       }
 
@@ -591,6 +610,8 @@ class OptimizedGameState {
         this.endBattle(false);
         const bossImage = document.getElementById('bossCombatImage');
         if (bossImage) bossImage.classList.add('grayscale');
+        clearInterval(this.battleTimer);
+        this.battleTimer = null;
       }
     }.bind(this), 1000);
   }
@@ -648,7 +669,6 @@ class OptimizedGameState {
       this.battleTimer = null;
     }
 
-    // НЕ показываем попап результата сразу
     // Обновляем достижения
     updateAchievementsUI();
 
@@ -667,65 +687,6 @@ class OptimizedGameState {
       xp: bossConfig.xpReward,
       keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
     };
-  }
-
-  // ИСПРАВЛЕННЫЙ МЕТОД checkLevelUp - удаляем дублирование
-  checkLevelUp() {
-    const state = this.state;
-    let levelsGained = 0;
-    let currentXP = state.xp;
-    let currentLevel = state.level;
-
-    console.log('Проверка уровня:', {
-      currentXP: currentXP,
-      currentLevel: currentLevel,
-      xpToNextLevel: state.xpToNextLevel
-    });
-
-    while (currentXP >= state.xpToNextLevel) {
-      currentXP -= state.xpToNextLevel;
-      currentLevel += 1;
-      levelsGained++;
-
-      // Пересчитываем XP для следующего уровня
-      const newXPToNextLevel = this.calculateXPRequired(currentLevel);
-
-      // Обновляем состояние
-      this.manager.setState({
-        xp: currentXP,
-        level: currentLevel,
-        xpToNextLevel: newXPToNextLevel
-      });
-
-      console.log('Повышение уровня! Новый уровень: ' + currentLevel + ', XP до следующего: ' + newXPToNextLevel);
-    }
-
-    if (levelsGained > 0) {
-      // Применяем бонусы за уровни
-      this.applyLevelBonuses(levelsGained);
-
-      // Обновляем UI
-      updateLevelProgress();
-      updateUI(['level', 'xp', 'xpToNextLevel']);
-      updateAchievementsUI();
-
-      // Сохраняем при повышении уровня
-      setTimeout(function() {
-        this.save(true);
-      }.bind(this), 100);
-    }
-  }
-
-  applyLevelBonuses(levels) {
-    const newTalents = Object.assign({}, this.state.talents);
-    newTalents.basic.damage += 2 * levels;
-    this.manager.setState({ talents: newTalents });
-
-    const newBoosts = Object.assign({}, this.state.boosts);
-    newBoosts.attackSpeed += 0.03 * levels;
-    this.manager.setState({ boosts: newBoosts });
-
-    console.log('Получено ' + levels + ' уровень(ей). Базовый урон: ' + newTalents.basic.damage);
   }
 }
 
@@ -1549,7 +1510,10 @@ async function sendFriendRequest() {
     const telegramIdInput = document.getElementById('friendTelegramId');
     const messageInput = document.getElementById('friendMessage');
 
-    if (!telegramIdInput || !messageInput) return;
+    if (!telegramIdInput || !messageInput) {
+      showMessage('❌ Ошибка формы');
+      return;
+    }
 
     const telegramId = telegramIdInput.value.trim();
     const message = messageInput.value.trim();
@@ -1569,6 +1533,13 @@ async function sendFriendRequest() {
 
     if (!window.firebaseManager) {
       showMessage('❌ Ошибка соединения с сервером');
+      return;
+    }
+
+    // Проверяем, не отправляем ли заявку себе
+    const myTelegramIdElement = document.getElementById('myTelegramId');
+    if (myTelegramIdElement && myTelegramIdElement.textContent === telegramId) {
+      showMessage('❌ Нельзя отправить заявку самому себе');
       return;
     }
 
@@ -1846,12 +1817,76 @@ function initCrafting() {
   if (iceButton) iceButton.style.display = 'none';
 }
 
+function checkRecipe() {
+  const slots = document.querySelectorAll('.craft-slot');
+  const talents = Array.from(slots).map(function(slot) {
+    return slot.dataset.talent;
+  }).filter(Boolean);
+
+  // Подсчитываем количество каждого типа таланта
+  const talentCounts = {};
+  talents.forEach(function(talent) {
+    talentCounts[talent] = (talentCounts[talent] || 0) + 1;
+  });
+
+  const isSonicRecipe = talents.length === 2 &&
+    talentCounts['basic'] >= 1 &&
+    talentCounts['critical'] >= 1;
+
+  const isFireRecipe = talents.length === 2 &&
+    talentCounts['critical'] >= 1 &&
+    talentCounts['poison'] >= 1;
+
+  const isIceRecipe = talents.length === 2 &&
+    talentCounts['poison'] >= 1 &&
+    talentCounts['basic'] >= 1;
+
+  const sonicButton = document.getElementById('sonicButton');
+  const fireButton = document.getElementById('fireButton');
+  const iceButton = document.getElementById('iceButton');
+
+  if (sonicButton) {
+    sonicButton.style.display = isSonicRecipe ? 'block' : 'none';
+    if (isSonicRecipe) {
+      const state = gameState.state;
+      sonicButton.disabled = state.attackCharges.basic.charges < talentCounts['basic'] ||
+        state.attackCharges.critical.charges < talentCounts['critical'];
+    }
+  }
+
+  if (fireButton) {
+    fireButton.style.display = isFireRecipe ? 'block' : 'none';
+    if (isFireRecipe) {
+      const state = gameState.state;
+      fireButton.disabled = state.attackCharges.critical.charges < talentCounts['critical'] ||
+        state.attackCharges.poison.charges < talentCounts['poison'];
+    }
+  }
+
+  if (iceButton) {
+    iceButton.style.display = isIceRecipe ? 'block' : 'none';
+    if (isIceRecipe) {
+      const state = gameState.state;
+      iceButton.disabled = state.attackCharges.basic.charges < talentCounts['basic'] ||
+        state.attackCharges.poison.charges < talentCounts['poison'];
+    }
+  }
+
+  return isSonicRecipe || isFireRecipe || isIceRecipe;
+}
+
 function craftTalent(talentType, requiredTypes) {
   const state = gameState.state;
 
-  // Проверяем достаточно ли зарядов
-  const hasEnoughCharges = requiredTypes.every(function(type) {
-    return state.attackCharges[type].charges >= 1;
+  // Подсчитываем количество каждого типа таланта
+  const talentCounts = {};
+  requiredTypes.forEach(function(type) {
+    talentCounts[type] = (talentCounts[type] || 0) + 1;
+  });
+
+  // Проверяем достаточно ли зарядов для каждого типа
+  const hasEnoughCharges = Object.keys(talentCounts).every(function(type) {
+    return state.attackCharges[type].charges >= talentCounts[type];
   });
 
   if (!hasEnoughCharges) {
@@ -1864,8 +1899,8 @@ function craftTalent(talentType, requiredTypes) {
   const newCraftedTalents = Object.assign({}, state.craftedTalents);
 
   // Вычитаем заряды
-  requiredTypes.forEach(function(type) {
-    newAttackCharges[type].charges -= 1;
+  Object.keys(talentCounts).forEach(function(type) {
+    newAttackCharges[type].charges -= talentCounts[type];
   });
 
   // Добавляем крафтовый талант
@@ -1906,58 +1941,6 @@ function getTalentName(type) {
     ice: 'Ледяной удар'
   };
   return names[type] || type;
-}
-
-function checkRecipe() {
-  const slots = document.querySelectorAll('.craft-slot');
-  const talents = Array.from(slots).map(function(slot) {
-    return slot.dataset.talent;
-  }).filter(Boolean);
-
-  const isSonicRecipe = talents.length === 2 &&
-    talents.includes('basic') &&
-    talents.includes('critical');
-
-  const isFireRecipe = talents.length === 2 &&
-    talents.includes('critical') &&
-    talents.includes('poison');
-
-  const isIceRecipe = talents.length === 2 &&
-    talents.includes('poison') &&
-    talents.includes('basic');
-
-  const sonicButton = document.getElementById('sonicButton');
-  const fireButton = document.getElementById('fireButton');
-  const iceButton = document.getElementById('iceButton');
-
-  if (sonicButton) {
-    sonicButton.style.display = isSonicRecipe ? 'block' : 'none';
-    if (isSonicRecipe) {
-      const state = gameState.state;
-      sonicButton.disabled = state.attackCharges.basic.charges < 1 ||
-        state.attackCharges.critical.charges < 1;
-    }
-  }
-
-  if (fireButton) {
-    fireButton.style.display = isFireRecipe ? 'block' : 'none';
-    if (isFireRecipe) {
-      const state = gameState.state;
-      fireButton.disabled = state.attackCharges.critical.charges < 1 ||
-        state.attackCharges.poison.charges < 1;
-    }
-  }
-
-  if (iceButton) {
-    iceButton.style.display = isIceRecipe ? 'block' : 'none';
-    if (isIceRecipe) {
-      const state = gameState.state;
-      iceButton.disabled = state.attackCharges.basic.charges < 1 ||
-        state.attackCharges.poison.charges < 1;
-    }
-  }
-
-  return isSonicRecipe || isFireRecipe || isIceRecipe;
 }
 
 function resetCrafting() {
@@ -2148,7 +2131,7 @@ function buyCharges(type) {
     // Обновляем UI
     updateUI(['honey']);
     updateChargeDisplay(type);
-    updateTalentBuyTab(); // ИСПРАВЛЕНИЕ: Добавлен вызов этой функции
+    updateTalentBuyTab();
 
     if (state.inBattle) {
       createTalentButtons();
@@ -2812,7 +2795,7 @@ function calculateDamage(type) {
 
   switch (type) {
     case 'basic':
-      return calculateBasicDamage(); // Используем унифицированный расчет
+      return calculateBasicDamage();
     case 'critical':
       return Math.random() < state.talents.critical.chance ?
         calculateBasicDamage() * 2 :
@@ -2820,7 +2803,7 @@ function calculateDamage(type) {
     case 'poison':
       return state.talents.poison.damage;
     case 'sonic':
-      return state.craftedTalents.sonic.damage; // Урон уже учитывает уровень при крафте/улучшении
+      return state.craftedTalents.sonic.damage;
     case 'fire':
       return state.craftedTalents.fire.damage;
     case 'ice':
@@ -2841,11 +2824,22 @@ function calculateBasicDamage() {
 // =================== ОБРАБОТЧИКИ КЛИКОВ ===================
 let lastClickTime = 0;
 const CLICK_COOLDOWN = 50;
+let clickTimestamps = [];
 
 function handleHiveClick(e) {
   const now = Date.now();
+
+  // Защита от спама кликами
+  clickTimestamps = clickTimestamps.filter(time => now - time < 1000);
+  if (clickTimestamps.length >= 20) {
+    showMessage('⚠️ Слишком быстро!');
+    return;
+  }
+
   if (now - lastClickTime < CLICK_COOLDOWN) return;
+
   lastClickTime = now;
+  clickTimestamps.push(now);
 
   const state = gameState.state;
 
@@ -3185,7 +3179,7 @@ function claimBattleReward() {
     // Обновляем UI
     updateUI();
     gameState.updateKeysDisplay();
-    updateAchievementsUI(); // ИСПРАВЛЕНИЕ: Добавлен вызов этой функции
+    updateAchievementsUI();
 
     // Закрываем попап результатов
     hidePopup('battleResult');
@@ -3231,7 +3225,7 @@ function closeBattleResult() {
   gameState.battleResult = null;
 }
 
-// ВНЕШНЯЯ ФУНКЦИЯ checkLevelUp (не внутри класса)
+// =================== ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОВЫШЕНИЯ УРОВНЯ ===================
 function checkLevelUp() {
   const state = gameState.state;
   let levelsGained = 0;
@@ -3244,7 +3238,7 @@ function checkLevelUp() {
     xpToNextLevel: state.xpToNextLevel
   });
 
-  while (currentXP >= state.xpToNextLevel) {
+  while (currentXP >= state.xpToNextLevel && currentLevel < 100) {
     currentXP -= state.xpToNextLevel;
     currentLevel += 1;
     levelsGained++;
@@ -3783,6 +3777,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Обработка необработанных промисов
   window.addEventListener('unhandledrejection', (e) => {
-    logger.error('Необработанный Promise', e.reason);
-  });
-}
+    logger.error('Необработанный Promise', e.reason
+
+);
+});
+});
