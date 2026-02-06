@@ -648,10 +648,7 @@ class OptimizedGameState {
       this.battleTimer = null;
     }
 
-    // Обновляем UI и показываем попап результатов
-    updateResultPopup();
-    showBattleResultPopup();
-
+    // НЕ показываем попап результата сразу
     // Обновляем достижения
     updateAchievementsUI();
 
@@ -2151,6 +2148,7 @@ function buyCharges(type) {
     // Обновляем UI
     updateUI(['honey']);
     updateChargeDisplay(type);
+    updateTalentBuyTab(); // ИСПРАВЛЕНИЕ: Добавлен вызов этой функции
 
     if (state.inBattle) {
       createTalentButtons();
@@ -2668,8 +2666,38 @@ function applyPoisonTick(effect) {
   }, 100);
 
   if (newHealth <= 0) {
-    gameState.endBattle(true);
+    // ИСПРАВЛЕНИЕ: Увеличиваем счетчик достижений при победе
+    const newAchievements = Object.assign({}, state.achievements);
+    const bossType = state.currentBoss.type;
+
+    if (bossType === 'wasp') {
+      newAchievements.waspKills = (newAchievements.waspKills || 0) + 1;
+      if (newAchievements.waspKills >= 10 && !newAchievements.completed.level1) {
+        newAchievements.completed.level1 = true;
+      }
+      if (newAchievements.waspKills >= 20 && !newAchievements.completed.level2) {
+        newAchievements.completed.level2 = true;
+      }
+      if (newAchievements.waspKills >= 30 && !newAchievements.completed.level3) {
+        newAchievements.completed.level3 = true;
+      }
+    } else if (bossType === 'bear') {
+      newAchievements.bearKills = (newAchievements.bearKills || 0) + 1;
+      if (newAchievements.bearKills >= 10 && !newAchievements.bearCompleted.level1) {
+        newAchievements.bearCompleted.level1 = true;
+      }
+      if (newAchievements.bearKills >= 20 && !newAchievements.bearCompleted.level2) {
+        newAchievements.bearCompleted.level2 = true;
+      }
+      if (newAchievements.bearKills >= 30 && !newAchievements.bearCompleted.level3) {
+        newAchievements.bearCompleted.level3 = true;
+      }
+    }
+
+    gameState.manager.setState({ achievements: newAchievements });
+
     clearInterval(effect.interval);
+    gameState.endBattle(true);
   }
 }
 
@@ -2695,6 +2723,35 @@ function applyDamageToBoss(damage) {
   });
 
   if (newHealth <= 0) {
+    // ИСПРАВЛЕНИЕ: Увеличиваем счетчик достижений при победе
+    const newAchievements = Object.assign({}, state.achievements);
+    const bossType = state.currentBoss.type;
+
+    if (bossType === 'wasp') {
+      newAchievements.waspKills = (newAchievements.waspKills || 0) + 1;
+      if (newAchievements.waspKills >= 10 && !newAchievements.completed.level1) {
+        newAchievements.completed.level1 = true;
+      }
+      if (newAchievements.waspKills >= 20 && !newAchievements.completed.level2) {
+        newAchievements.completed.level2 = true;
+      }
+      if (newAchievements.waspKills >= 30 && !newAchievements.completed.level3) {
+        newAchievements.completed.level3 = true;
+      }
+    } else if (bossType === 'bear') {
+      newAchievements.bearKills = (newAchievements.bearKills || 0) + 1;
+      if (newAchievements.bearKills >= 10 && !newAchievements.bearCompleted.level1) {
+        newAchievements.bearCompleted.level1 = true;
+      }
+      if (newAchievements.bearKills >= 20 && !newAchievements.bearCompleted.level2) {
+        newAchievements.bearCompleted.level2 = true;
+      }
+      if (newAchievements.bearKills >= 30 && !newAchievements.bearCompleted.level3) {
+        newAchievements.bearCompleted.level3 = true;
+      }
+    }
+
+    gameState.manager.setState({ achievements: newAchievements });
     gameState.endBattle(true);
   }
 }
@@ -2892,19 +2949,13 @@ function showPopup(popupType) {
       loadFriendsList();
     }
 
-    // Для попапа битвы: проверяем поражение и показываем попап, если нужно
-    if (popupType === 'battle') {
-      // Сбрасываем флаг при открытии попапа битвы
-      defeatShown = false;
-
-      // Проверяем и показываем попап поражения, если нужно
-      setTimeout(function() {
-        if (showDefeatPopupIfNeeded()) {
-          // Если показали попап поражения, скрываем выбор боссов
-          const bossSelection = document.getElementById('bossSelection');
-          if (bossSelection) bossSelection.style.display = 'none';
-        }
-      }, 100);
+    // Для попапа битвы: проверяем наличие необработанного результата боя
+    if (popupType === 'battle' && gameState.battleResult) {
+      // Показываем результат боя
+      updateResultPopup();
+      showBattleResultPopup();
+      // Сбрасываем результат
+      gameState.battleResult = null;
     }
 
     // Восстановление активного боя
@@ -3044,7 +3095,6 @@ function updateResultPopup() {
       statsDiv.id = 'damageStats';
       statsDiv.className = 'damage-stats';
 
-      // Используем конкатенацию строк вместо шаблонных строк
       statsDiv.innerHTML = '<h3>Статистика урона:</h3><div class="damage-stats-grid"><div class="damage-stat">🗡️ Базовый: <span id="basicDamageStat">0</span></div><div class="damage-stat">💥 Критический: <span id="criticalDamageStat">0</span></div><div class="damage-stat">☠️ Ядовитый: <span id="poisonDamageStat">0</span></div><div class="damage-stat">🔊 Звуковой: <span id="sonicDamageStat">0</span></div><div class="damage-stat">🔥 Огненный: <span id="fireDamageStat">0</span></div><div class="damage-stat">❄️ Ледяной: <span id="iceDamageStat">0</span></div><div class="damage-stat total">📊 Общий урон: <span id="totalDamageStat">0</span></div></div>';
 
       // Вставляем перед кнопками действий
@@ -3135,6 +3185,7 @@ function claimBattleReward() {
     // Обновляем UI
     updateUI();
     gameState.updateKeysDisplay();
+    updateAchievementsUI(); // ИСПРАВЛЕНИЕ: Добавлен вызов этой функции
 
     // Закрываем попап результатов
     hidePopup('battleResult');
@@ -3734,4 +3785,4 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('unhandledrejection', (e) => {
     logger.error('Необработанный Promise', e.reason);
   });
-});
+}
