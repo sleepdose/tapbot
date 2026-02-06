@@ -108,9 +108,9 @@ app.post('/api/get-token', async (req, res) => {
   try {
     // Проверяем инициализацию Firebase
     if (!firebaseInitialized) {
-      return res.status(503).json({ 
-        error: 'Сервис временно недоступен', 
-        code: 'FIREBASE_NOT_INITIALIZED' 
+      return res.status(503).json({
+        error: 'Сервис временно недоступен',
+        code: 'FIREBASE_NOT_INITIALIZED'
       });
     }
 
@@ -118,22 +118,22 @@ app.post('/api/get-token', async (req, res) => {
 
     // Валидация входных данных
     if (!telegramId) {
-      return res.status(400).json({ 
-        error: 'Требуется telegramId', 
-        code: 'MISSING_TELEGRAM_ID' 
+      return res.status(400).json({
+        error: 'Требуется telegramId',
+        code: 'MISSING_TELEGRAM_ID'
       });
     }
 
     if (typeof telegramId !== 'number' && isNaN(Number(telegramId))) {
-      return res.status(400).json({ 
-        error: 'telegramId должен быть числом', 
-        code: 'INVALID_TELEGRAM_ID' 
+      return res.status(400).json({
+        error: 'telegramId должен быть числом',
+        code: 'INVALID_TELEGRAM_ID'
       });
     }
 
     // Формируем уникальный идентификатор пользователя
     const uid = `telegram_${telegramId}`;
-    
+
     console.log(`🔐 Создание токена для пользователя: ${uid}`);
 
     // Проверяем существование пользователя
@@ -163,34 +163,34 @@ app.post('/api/get-token', async (req, res) => {
 
     console.log(`✅ Токен создан для пользователя: ${uid}`);
 
-    res.json({ 
+    res.json({
       token: token,
       uid: uid,
       expiresIn: 3600 // 1 час в секундах
     });
   } catch (error) {
     console.error('❌ Ошибка создания токена:', error);
-    
+
     // Классификация ошибок
     if (error.code === 'auth/invalid-argument') {
-      return res.status(400).json({ 
-        error: 'Неверные параметры запроса', 
-        code: 'INVALID_ARGUMENT' 
+      return res.status(400).json({
+        error: 'Неверные параметры запроса',
+        code: 'INVALID_ARGUMENT'
       });
     } else if (error.code === 'auth/network-request-failed') {
-      return res.status(503).json({ 
-        error: 'Ошибка сети Firebase', 
-        code: 'FIREBASE_NETWORK_ERROR' 
+      return res.status(503).json({
+        error: 'Ошибка сети Firebase',
+        code: 'FIREBASE_NETWORK_ERROR'
       });
     } else if (error.code === 'auth/internal-error') {
-      return res.status(500).json({ 
-        error: 'Внутренняя ошибка Firebase', 
-        code: 'FIREBASE_INTERNAL_ERROR' 
+      return res.status(500).json({
+        error: 'Внутренняя ошибка Firebase',
+        code: 'FIREBASE_INTERNAL_ERROR'
       });
     }
-    
-    res.status(500).json({ 
-      error: 'Ошибка генерации токена', 
+
+    res.status(500).json({
+      error: 'Ошибка генерации токена',
       code: 'TOKEN_GENERATION_FAILED',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -383,7 +383,7 @@ app.get('/api/user/:telegramId/export', async (req, res) => {
     // Устанавливаем заголовки для скачивания файла
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="aiko_tapbot_backup_${telegramId}_${Date.now()}.json"`);
-    
+
     res.json(exportData);
   } catch (error) {
     console.error('❌ Ошибка экспорта данных:', error);
@@ -399,15 +399,15 @@ app.get('/api/users/search', async (req, res) => {
     }
 
     const { username, limit = 20 } = req.query;
-    
+
     if (!username || username.length < 3) {
-      return res.status(400).json({ 
-        error: 'Требуется минимум 3 символа для поиска' 
+      return res.status(400).json({
+        error: 'Требуется минимум 3 символа для поиска'
       });
     }
 
     const db = admin.firestore();
-    
+
     // Поиск по частичному совпадению имени пользователя
     const usersRef = db.collection('users');
     const snapshot = await usersRef
@@ -453,7 +453,7 @@ app.get('/admin/stats', async (req, res) => {
     }
 
     const db = admin.firestore();
-    
+
     // Собираем статистику
     const [
       totalUsers,
@@ -503,7 +503,7 @@ app.use((req, res) => {
 // Глобальный обработчик ошибок
 app.use((error, req, res, next) => {
   console.error('🔥 Глобальная ошибка:', error);
-  
+
   res.status(error.status || 500).json({
     error: 'Внутренняя ошибка сервера',
     code: 'INTERNAL_SERVER_ERROR',
@@ -537,9 +537,9 @@ if (missingEnvVars.length > 0) {
 // Функция graceful shutdown
 const gracefulShutdown = (signal) => {
   console.log(`\n${signal} получен. Завершение работы...`);
-  
+
   // Здесь можно добавить сохранение состояния, закрытие соединений с БД и т.д.
-  
+
   setTimeout(() => {
     console.log('✅ Сервер завершил работу');
     process.exit(0);

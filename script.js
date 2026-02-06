@@ -3,36 +3,36 @@
 
 // Структурированный логгер
 const logger = {
-  info: (msg, data) => console.log(`ℹ️ ${msg}`, data || ''),
-  warn: (msg, data) => console.warn(`⚠️ ${msg}`, data || ''),
-  error: (msg, error, data) => console.error(`❌ ${msg}`, error, data || '')
+  info: function(msg, data) { console.log('ℹ️ ' + msg, data || ''); },
+  warn: function(msg, data) { console.warn('⚠️ ' + msg, data || ''); },
+  error: function(msg, error, data) { console.error('❌ ' + msg, error, data || ''); }
 };
 
 // Предзагрузка ресурсов
 const ImagePreloader = {
   images: new Set(),
 
-  preload(url) {
-    return new Promise((resolve) => {
+  preload: function(url) {
+    return new Promise(function(resolve) {
       if (this.images.has(url)) {
         resolve();
         return;
       }
 
       const img = new Image();
-      img.onload = () => {
+      img.onload = function() {
         this.images.add(url);
         resolve();
-      };
-      img.onerror = () => {
-        console.warn(`Не удалось загрузить: ${url}`);
+      }.bind(this);
+      img.onerror = function() {
+        console.warn('Не удалось загрузить: ' + url);
         resolve();
       };
       img.src = url;
-    });
+    }.bind(this));
   },
 
-  async preloadAll() {
+  preloadAll: async function() {
     const imageUrls = [
       'img/wasp.jpg', 'img/bear.jpg', 'img/dragon.jpg',
       'img/hydra.jpg', 'img/kraken.jpg',
@@ -41,7 +41,9 @@ const ImagePreloader = {
       'img/background1.png', 'img/background2.png', 'img/background3.png'
     ];
 
-    await Promise.all(imageUrls.map(url => this.preload(url)));
+    await Promise.all(imageUrls.map(function(url) {
+      return this.preload(url);
+    }.bind(this)));
     logger.info('Все изображения предзагружены');
   }
 };
@@ -55,17 +57,21 @@ class GameStateManager {
 
   setState(newState) {
     const oldState = this.state;
-    this.state = { ...oldState, ...newState };
+    this.state = Object.assign({}, oldState, newState);
     this.notifyListeners(oldState, this.state);
   }
 
   subscribe(listener) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return function() {
+      this.listeners.delete(listener);
+    }.bind(this);
   }
 
   notifyListeners(oldState, newState) {
-    this.listeners.forEach(listener => listener(oldState, newState));
+    this.listeners.forEach(function(listener) {
+      listener(oldState, newState);
+    });
   }
 }
 
@@ -184,15 +190,15 @@ class OptimizedGameState {
       this.rafCallbacks.set(key, value);
 
       if (!this.rafId) {
-        this.rafId = requestAnimationFrame(() => {
+        this.rafId = requestAnimationFrame(function() {
           const updates = {};
-          this.rafCallbacks.forEach((value, key) => {
+          this.rafCallbacks.forEach(function(value, key) {
             updates[key] = value;
-          });
+          }.bind(this));
           this.manager.setState(updates);
           this.rafCallbacks.clear();
           this.rafId = null;
-        });
+        }.bind(this));
       }
     } else {
       this.rafCallbacks.set(key, value);
@@ -204,7 +210,7 @@ class OptimizedGameState {
   }
 
   // Оптимизированное сохранение
-  async save(force = false) {
+  async save(force) {
     const now = Date.now();
     const timeSinceLastSave = now - this.state.lastSaveTime;
 
@@ -219,17 +225,16 @@ class OptimizedGameState {
     }
 
     // Используем debounce для автосохранения
-    return new Promise((resolve) => {
-      this.saveDebounceTimer = setTimeout(async () => {
+    return new Promise(function(resolve) {
+      this.saveDebounceTimer = setTimeout(async function() {
         try {
           if (window.firebaseManager) {
             // Увеличиваем общее время игры
-            const newState = {
-              ...this.state,
+            const newState = Object.assign({}, this.state, {
               totalPlayTime: this.state.totalPlayTime + (Date.now() - this.state.lastSaveTime),
               lastSaveTime: Date.now(),
               saveCount: this.state.saveCount + 1
-            };
+            });
 
             this.manager.setState(newState);
 
@@ -246,8 +251,8 @@ class OptimizedGameState {
           logger.error('Ошибка сохранения', error);
           resolve(false);
         }
-      }, force ? 0 : 100);
-    });
+      }.bind(this), force ? 0 : 100);
+    }.bind(this));
   }
 
   // Оптимизированная загрузка
@@ -262,7 +267,7 @@ class OptimizedGameState {
           // Восстанавливаем энергию в оффлайне
           this.restoreOfflineEnergy(result.data);
 
-          logger.info(`✅ Данные загружены из: ${result.source}`);
+          logger.info('✅ Данные загружены из: ' + result.source);
           if (typeof updateFirebaseStatusUI === 'function') {
             updateFirebaseStatusUI(result.source === 'firebase');
           }
@@ -304,8 +309,8 @@ class OptimizedGameState {
         this.manager.setState({ energy: newEnergy });
 
         // Показываем уведомление
-        setTimeout(() => {
-          showMessage(`⚡ Восстановлено ${energyToRestore} энергии за оффлайн время`);
+        setTimeout(function() {
+          showMessage('⚡ Восстановлено ' + energyToRestore + ' энергии за оффлайн время');
         }, 1000);
       }
     }
@@ -323,7 +328,7 @@ class OptimizedGameState {
     const timePassed = now - battleStart;
 
     // Восстанавливаем здоровье босса из сохраненных данных
-    const bossHealth = savedData.currentBoss?.currentHealth ||
+    const bossHealth = (savedData.currentBoss && savedData.currentBoss.currentHealth) ||
                       savedData.activeBattle.health;
 
     if (!bossHealth || bossHealth <= 0) {
@@ -358,19 +363,19 @@ class OptimizedGameState {
       currentBoss: {
         type: savedData.activeBattle.type,
         currentHealth: bossHealth,
-        maxHealth: savedData.currentBoss?.maxHealth || bossConfig.health,
+        maxHealth: (savedData.currentBoss && savedData.currentBoss.maxHealth) || bossConfig.health,
         image: bossConfig.image
       }
     });
 
-    console.log(`⚔️ Восстановлен бой с ${savedData.activeBattle.type}, здоровье: ${bossHealth}`);
+    console.log('⚔️ Восстановлен бой с ' + savedData.activeBattle.type + ', здоровье: ' + bossHealth);
 
     // Запускаем таймер с оставшимся временем
     const timeLeft = Math.ceil((timeLimit - timePassed) / 1000);
     this.startBattleTimer(timeLeft);
 
     // Восстанавливаем UI боя
-    setTimeout(() => {
+    setTimeout(function() {
       const bossSelection = document.getElementById('bossSelection');
       const combatScreen = document.getElementById('combatScreen');
 
@@ -391,14 +396,14 @@ class OptimizedGameState {
     const bossConfig = gameConfig.bosses[battleData.type];
     this.battleResult = {
       victory: victory,
-      boss: { ...battleData, ...bossConfig },
+      boss: Object.assign({}, battleData, bossConfig),
       reward: victory ? this.calculateReward(battleData) : null
     };
 
-    setTimeout(() => {
+    setTimeout(function() {
       updateResultPopup();
       showBattleResultPopup();
-      showMessage(`⚔️ Офлайн бой завершен: ${victory ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'}`);
+      showMessage('⚔️ Офлайн бой завершен: ' + (victory ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ'));
     }, 1500);
   }
 
@@ -407,7 +412,7 @@ class OptimizedGameState {
       console.log('Применение загруженных данных:', data);
 
       // Глубокая функция для слияния объектов
-      const deepMerge = (target, source) => {
+      const deepMerge = function(target, source) {
         for (const key in source) {
           if (source[key] && typeof source[key] === 'object' &&
               !Array.isArray(source[key]) &&
@@ -424,7 +429,7 @@ class OptimizedGameState {
       };
 
       // Создаем новый объект состояния, начиная с текущего состояния
-      const newState = deepMerge({ ...this.manager.state }, data);
+      const newState = deepMerge(Object.assign({}, this.manager.state), data);
 
       // Убедимся, что важные поля не перезаписаны undefined
       const safeMerge = {
@@ -437,30 +442,35 @@ class OptimizedGameState {
         xpToNextLevel: data.xpToNextLevel !== undefined ? data.xpToNextLevel : this.manager.state.xpToNextLevel,
 
         // Коллекции с глубоким слиянием
-        talents: data.talents ? {
-          ...this.manager.state.talents,
-          ...data.talents
-        } : this.manager.state.talents,
+        talents: data.talents ? Object.assign(
+          {},
+          this.manager.state.talents,
+          data.talents
+        ) : this.manager.state.talents,
 
-        attackCharges: data.attackCharges ? {
-          ...this.manager.state.attackCharges,
-          ...data.attackCharges
-        } : this.manager.state.attackCharges,
+        attackCharges: data.attackCharges ? Object.assign(
+          {},
+          this.manager.state.attackCharges,
+          data.attackCharges
+        ) : this.manager.state.attackCharges,
 
-        craftedTalents: data.craftedTalents ? {
-          ...this.manager.state.craftedTalents,
-          ...data.craftedTalents
-        } : this.manager.state.craftedTalents,
+        craftedTalents: data.craftedTalents ? Object.assign(
+          {},
+          this.manager.state.craftedTalents,
+          data.craftedTalents
+        ) : this.manager.state.craftedTalents,
 
-        keys: data.keys ? {
-          ...this.manager.state.keys,
-          ...data.keys
-        } : this.manager.state.keys,
+        keys: data.keys ? Object.assign(
+          {},
+          this.manager.state.keys,
+          data.keys
+        ) : this.manager.state.keys,
 
-        achievements: data.achievements ? {
-          ...this.manager.state.achievements,
-          ...data.achievements
-        } : this.manager.state.achievements,
+        achievements: data.achievements ? Object.assign(
+          {},
+          this.manager.state.achievements,
+          data.achievements
+        ) : this.manager.state.achievements,
 
         // Друзья и заявки
         friends: data.friends || this.manager.state.friends,
@@ -482,10 +492,11 @@ class OptimizedGameState {
         inBattle: data.inBattle !== undefined ? data.inBattle : false,
 
         // Боевая статистика
-        battleStats: data.battleStats ? {
-          ...this.manager.state.battleStats,
-          ...data.battleStats
-        } : this.manager.state.battleStats,
+        battleStats: data.battleStats ? Object.assign(
+          {},
+          this.manager.state.battleStats,
+          data.battleStats
+        ) : this.manager.state.battleStats,
 
         // Аудио настройки
         isMusicMuted: data.isMusicMuted !== undefined ? data.isMusicMuted : this.manager.state.isMusicMuted
@@ -509,7 +520,7 @@ class OptimizedGameState {
     // Применяем скин
     const hiveImg = document.querySelector('.hive-img');
     if (hiveImg && this.state.currentSkin) {
-      hiveImg.style.backgroundImage = `url('${this.state.currentSkin}')`;
+      hiveImg.style.backgroundImage = 'url(\'' + this.state.currentSkin + '\')';
     }
 
     // Применяем питомца
@@ -525,7 +536,9 @@ class OptimizedGameState {
 
     // Применяем фон
     if (this.state.currentBackground) {
-      const currentBg = backgrounds.find(bg => bg.name === this.state.currentBackground);
+      const currentBg = backgrounds.find(function(bg) {
+        return bg.name === this.state.currentBackground;
+      }.bind(this));
       if (currentBg) {
         document.body.style.backgroundImage = currentBg.image;
       }
@@ -539,16 +552,16 @@ class OptimizedGameState {
   }
 
   updateKeysDisplay() {
-    document.querySelectorAll('.current-keys').forEach(el => {
+    document.querySelectorAll('.current-keys').forEach(function(el) {
       const bossType = el.dataset.boss;
       if (this.state.keys[bossType] !== undefined) {
         el.textContent = this.state.keys[bossType];
       }
-    });
+    }.bind(this));
   }
 
   cleanupBattleEffects() {
-    this.battleEffects.forEach(effect => {
+    this.battleEffects.forEach(function(effect) {
       if (effect.interval) clearInterval(effect.interval);
       if (effect.timeout) clearTimeout(effect.timeout);
     });
@@ -562,7 +575,7 @@ class OptimizedGameState {
     const timerElement = document.getElementById('combatTimer');
     if (timerElement) timerElement.textContent = timeLeft;
 
-    this.battleTimer = setInterval(() => {
+    this.battleTimer = setInterval(function() {
       if (!this.state.inBattle || !this.state.currentBoss || this.state.currentBoss.currentHealth <= 0) {
         clearInterval(this.battleTimer);
         return;
@@ -576,18 +589,17 @@ class OptimizedGameState {
 
       if (timeLeft <= 0) {
         this.endBattle(false);
-        if (document.getElementById('bossCombatImage')) {
-          document.getElementById('bossCombatImage').classList.add('grayscale');
-        }
+        const bossImage = document.getElementById('bossCombatImage');
+        if (bossImage) bossImage.classList.add('grayscale');
       }
-    }, 1000);
+    }.bind(this), 1000);
   }
 
   endBattle(victory) {
     if (!this.state.inBattle || !this.state.currentBoss) return;
 
     console.log('Завершение битвы:', {
-      victory,
+      victory: victory,
       boss: this.state.currentBoss.type,
       health: this.state.currentBoss.currentHealth
     });
@@ -620,7 +632,7 @@ class OptimizedGameState {
 
     this.battleResult = {
       victory: victory,
-      boss: { ...this.state.currentBoss },
+      boss: Object.assign({}, this.state.currentBoss),
       reward: reward
     };
 
@@ -644,7 +656,9 @@ class OptimizedGameState {
     updateAchievementsUI();
 
     // Сохраняем прогресс после боя
-    setTimeout(() => this.save(true), 500);
+    setTimeout(function() {
+      this.save(true);
+    }.bind(this), 500);
   }
 
   calculateReward(battleData) {
@@ -656,6 +670,65 @@ class OptimizedGameState {
       xp: bossConfig.xpReward,
       keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
     };
+  }
+
+  // ИСПРАВЛЕННЫЙ МЕТОД checkLevelUp - удаляем дублирование
+  checkLevelUp() {
+    const state = this.state;
+    let levelsGained = 0;
+    let currentXP = state.xp;
+    let currentLevel = state.level;
+
+    console.log('Проверка уровня:', {
+      currentXP: currentXP,
+      currentLevel: currentLevel,
+      xpToNextLevel: state.xpToNextLevel
+    });
+
+    while (currentXP >= state.xpToNextLevel) {
+      currentXP -= state.xpToNextLevel;
+      currentLevel += 1;
+      levelsGained++;
+
+      // Пересчитываем XP для следующего уровня
+      const newXPToNextLevel = this.calculateXPRequired(currentLevel);
+
+      // Обновляем состояние
+      this.manager.setState({
+        xp: currentXP,
+        level: currentLevel,
+        xpToNextLevel: newXPToNextLevel
+      });
+
+      console.log('Повышение уровня! Новый уровень: ' + currentLevel + ', XP до следующего: ' + newXPToNextLevel);
+    }
+
+    if (levelsGained > 0) {
+      // Применяем бонусы за уровни
+      this.applyLevelBonuses(levelsGained);
+
+      // Обновляем UI
+      updateLevelProgress();
+      updateUI(['level', 'xp', 'xpToNextLevel']);
+      updateAchievementsUI();
+
+      // Сохраняем при повышении уровня
+      setTimeout(function() {
+        this.save(true);
+      }.bind(this), 100);
+    }
+  }
+
+  applyLevelBonuses(levels) {
+    const newTalents = Object.assign({}, this.state.talents);
+    newTalents.basic.damage += 2 * levels;
+    this.manager.setState({ talents: newTalents });
+
+    const newBoosts = Object.assign({}, this.state.boosts);
+    newBoosts.attackSpeed += 0.03 * levels;
+    this.manager.setState({ boosts: newBoosts });
+
+    console.log('Получено ' + levels + ' уровень(ей). Базовый урон: ' + newTalents.basic.damage);
   }
 }
 
@@ -742,19 +815,19 @@ const gameConfig = {
 const talentsConfig = {
   basic: {
     maxLevel: 10,
-    getDamage: level => 10 + (level * 2),
-    getCost: level => Math.floor(75 * Math.pow(1.3, level - 1))
+    getDamage: function(level) { return 10 + (level * 2); },
+    getCost: function(level) { return Math.floor(75 * Math.pow(1.3, level - 1)); }
   },
   critical: {
     maxLevel: 10,
-    getChance: level => 0.15 + (level * 0.05),
-    getCost: level => Math.floor(150 * Math.pow(1.3, level - 1))
+    getChance: function(level) { return 0.15 + (level * 0.05); },
+    getCost: function(level) { return Math.floor(150 * Math.pow(1.3, level - 1)); }
   },
   poison: {
     maxLevel: 10,
-    getDamage: level => 2 + level,
-    getDuration: level => 5 + level,
-    getCost: level => Math.floor(200 * Math.pow(1.3, level - 1))
+    getDamage: function(level) { return 2 + level; },
+    getDuration: function(level) { return 5 + level; },
+    getCost: function(level) { return Math.floor(200 * Math.pow(1.3, level - 1)); }
   }
 };
 
@@ -833,9 +906,11 @@ async function initGame() {
           console.log('✅ Данные успешно загружены');
         }
       } catch (loadError) {
-        console.warn(`Попытка ${loadAttempts + 1} загрузки не удалась:`, loadError);
+        console.warn('Попытка ' + (loadAttempts + 1) + ' загрузки не удалась:', loadError);
         loadAttempts++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(function(resolve) {
+          setTimeout(resolve, 1000);
+        });
       }
     }
 
@@ -854,7 +929,7 @@ async function initGame() {
     // 9. Финальная настройка
     updatePreloaderProgress(100);
 
-    setTimeout(() => {
+    setTimeout(function() {
       hidePreloader();
       isGameInitialized = true;
 
@@ -896,7 +971,7 @@ async function initGame() {
 
 function initTelegramWebApp() {
   try {
-    if (window.Telegram?.WebApp) {
+    if (window.Telegram && window.Telegram.WebApp) {
       tg = window.Telegram.WebApp;
       tg.expand();
 
@@ -906,21 +981,25 @@ function initTelegramWebApp() {
       tg.enableClosingConfirmation();
 
       // Кнопка "Назад"
-      tg.BackButton.onClick(() => {
-        const activePopup = document.querySelector('.popup.active');
-        if (activePopup) {
-          hideAllPopups();
-        } else {
-          tg.BackButton.hide();
-        }
-      });
+      if (tg.BackButton) {
+        tg.BackButton.onClick(function() {
+          const activePopup = document.querySelector('.popup.active');
+          if (activePopup) {
+            hideAllPopups();
+          } else {
+            tg.BackButton.hide();
+          }
+        });
+      }
 
-      tg.onEvent('viewportChanged', handleViewportChange);
+      if (tg.onEvent) {
+        tg.onEvent('viewportChanged', handleViewportChange);
+      }
 
       logger.info('Telegram WebApp инициализирован');
-    } catch (error) {
-      logger.warn('Telegram WebApp не доступен', error);
     }
+  } catch (error) {
+    logger.warn('Telegram WebApp не доступен', error);
   }
 }
 
@@ -931,7 +1010,7 @@ function handleViewportChange() {
 
 function initUI() {
   // Подписка на изменения состояния
-  gameState.subscribe((oldState, newState) => {
+  gameState.subscribe(function(oldState, newState) {
     updateGameUI(oldState, newState);
   });
 
@@ -970,7 +1049,7 @@ function updateGameUI(oldState, newState) {
   }
 
   // Применяем изменения
-  Object.keys(changes).forEach(key => {
+  Object.keys(changes).forEach(function(key) {
     const element = elements[key];
     if (element && changes[key] !== undefined) {
       element.textContent = Math.floor(changes[key]);
@@ -995,8 +1074,15 @@ function initGameSystems() {
   initTalentShop();
 
   // Обработчики результатов битвы
-  document.getElementById('claimRewardButton')?.addEventListener('click', claimBattleReward);
-  document.getElementById('closeResultButton')?.addEventListener('click', closeBattleResult);
+  const claimRewardButton = document.getElementById('claimRewardButton');
+  if (claimRewardButton) {
+    claimRewardButton.addEventListener('click', claimBattleReward);
+  }
+
+  const closeResultButton = document.getElementById('closeResultButton');
+  if (closeResultButton) {
+    closeResultButton.addEventListener('click', closeBattleResult);
+  }
 
   // Сетевые слушатели
   initNetworkListeners();
@@ -1004,7 +1090,7 @@ function initGameSystems() {
 
 function startGameLoops() {
   // Восстановление энергии
-  gameState.energyRecoveryInterval = setInterval(() => {
+  gameState.energyRecoveryInterval = setInterval(function() {
     if (gameState.state.energy < gameState.state.maxEnergy) {
       gameState.scheduleUIUpdate('energy', Math.min(
         gameState.state.energy + 1,
@@ -1014,11 +1100,13 @@ function startGameLoops() {
   }, 3000);
 
   // Автосохранение
-  setInterval(() => gameState.save(), 30000);
+  setInterval(function() {
+    gameState.save();
+  }, 30000);
 
   // Проверка онлайна друзей
-  setInterval(() => {
-    if (window.firebaseManager?.isOnline) {
+  setInterval(function() {
+    if (window.firebaseManager && window.firebaseManager.isOnline) {
       updateFriendsOnlineStatus();
     }
   }, 60000);
@@ -1026,18 +1114,20 @@ function startGameLoops() {
 
 // =================== СЕТЕВЫЕ СЛУШАТЕЛИ ===================
 function initNetworkListeners() {
-  window.addEventListener('online', () => {
+  window.addEventListener('online', function() {
     console.log('Сетевое соединение восстановлено');
     showMessage('🌐 Подключение к интернету восстановлено');
 
     // Пытаемся сохранить данные если менеджер доступен
     if (window.firebaseManager) {
       window.firebaseManager.isOnline = true;
-      setTimeout(() => gameState.save(), 1000);
+      setTimeout(function() {
+        gameState.save();
+      }, 1000);
     }
   });
 
-  window.addEventListener('offline', () => {
+  window.addEventListener('offline', function() {
     console.log('Сетевое соединение потеряно');
     showMessage('⚠️ Потеряно соединение с интернетом');
 
@@ -1048,7 +1138,8 @@ function initNetworkListeners() {
 }
 
 // =================== ОПТИМИЗИРОВАННЫЕ ФУНКЦИИ UI ===================
-function updateUI(keys = ['all']) {
+function updateUI(keys) {
+  if (!keys) keys = ['all'];
   const state = gameState.state;
 
   if (keys.includes('all') || keys.includes('honey')) {
@@ -1072,19 +1163,19 @@ function updateLevelProgress() {
   const state = gameState.state;
   const progress = (state.xp / state.xpToNextLevel) * 100;
   if (elements.levelProgress) {
-    elements.levelProgress.style.width = `${Math.min(progress, 100)}%`;
+    elements.levelProgress.style.width = Math.min(progress, 100) + '%';
   }
 }
 
 function updateHiveDisplay() {
   const hiveImg = document.querySelector('.hive-img');
   if (hiveImg && gameState.state.currentSkin) {
-    hiveImg.style.backgroundImage = `url('${gameState.state.currentSkin}')`;
+    hiveImg.style.backgroundImage = 'url(\'' + gameState.state.currentSkin + '\')';
   }
 }
 
 function updateBossAvailability() {
-  document.querySelectorAll('.boss-card').forEach(card => {
+  document.querySelectorAll('.boss-card').forEach(function(card) {
     const bossType = card.dataset.boss;
     let isLocked = false;
 
@@ -1101,7 +1192,6 @@ function updateAchievementsUI() {
 
   // Достижение ос
   const waspKills = state.achievements.waspKills;
-  const waspCard = document.getElementById('waspAchievement');
   const waspLevelElement = document.getElementById('waspLevel');
   const waspProgress = document.getElementById('waspKillProgress');
   const waspKillCount = document.getElementById('waspKillCount');
@@ -1110,38 +1200,37 @@ function updateAchievementsUI() {
   const claimWasp3 = document.getElementById('claimWasp3');
 
   if (waspKills < 10) {
-    waspLevelElement.textContent = 'Уровень 1';
-    waspKillCount.textContent = `${waspKills}/10`;
-    waspProgress.style.width = `${(waspKills / 10) * 100}%`;
-    claimWasp1.style.display = state.achievements.completed.level1 && !state.achievements.claimed.level1 ? 'block' : 'none';
-    claimWasp2.style.display = 'none';
-    claimWasp3.style.display = 'none';
+    if (waspLevelElement) waspLevelElement.textContent = 'Уровень 1';
+    if (waspKillCount) waspKillCount.textContent = waspKills + '/10';
+    if (waspProgress) waspProgress.style.width = ((waspKills / 10) * 100) + '%';
+    if (claimWasp1) claimWasp1.style.display = state.achievements.completed.level1 && !state.achievements.claimed.level1 ? 'block' : 'none';
+    if (claimWasp2) claimWasp2.style.display = 'none';
+    if (claimWasp3) claimWasp3.style.display = 'none';
   } else if (waspKills < 20) {
-    waspLevelElement.textContent = 'Уровень 2';
-    waspKillCount.textContent = `${waspKills - 10}/10`;
-    waspProgress.style.width = `${((waspKills - 10) / 10) * 100}%`;
-    claimWasp1.style.display = 'none';
-    claimWasp2.style.display = state.achievements.completed.level2 && !state.achievements.claimed.level2 ? 'block' : 'none';
-    claimWasp3.style.display = 'none';
+    if (waspLevelElement) waspLevelElement.textContent = 'Уровень 2';
+    if (waspKillCount) waspKillCount.textContent = (waspKills - 10) + '/10';
+    if (waspProgress) waspProgress.style.width = (((waspKills - 10) / 10) * 100) + '%';
+    if (claimWasp1) claimWasp1.style.display = 'none';
+    if (claimWasp2) claimWasp2.style.display = state.achievements.completed.level2 && !state.achievements.claimed.level2 ? 'block' : 'none';
+    if (claimWasp3) claimWasp3.style.display = 'none';
   } else if (waspKills < 30) {
-    waspLevelElement.textContent = 'Уровень 3';
-    waspKillCount.textContent = `${waspKills - 20}/10`;
-    waspProgress.style.width = `${((waspKills - 20) / 10) * 100}%`;
-    claimWasp1.style.display = 'none';
-    claimWasp2.style.display = 'none';
-    claimWasp3.style.display = state.achievements.completed.level3 && !state.achievements.claimed.level3 ? 'block' : 'none';
+    if (waspLevelElement) waspLevelElement.textContent = 'Уровень 3';
+    if (waspKillCount) waspKillCount.textContent = (waspKills - 20) + '/10';
+    if (waspProgress) waspProgress.style.width = (((waspKills - 20) / 10) * 100) + '%';
+    if (claimWasp1) claimWasp1.style.display = 'none';
+    if (claimWasp2) claimWasp2.style.display = 'none';
+    if (claimWasp3) claimWasp3.style.display = state.achievements.completed.level3 && !state.achievements.claimed.level3 ? 'block' : 'none';
   } else {
-    waspLevelElement.textContent = 'Максимум';
-    waspKillCount.textContent = '30/30';
-    waspProgress.style.width = '100%';
-    claimWasp1.style.display = 'none';
-    claimWasp2.style.display = 'none';
-    claimWasp3.style.display = 'none';
+    if (waspLevelElement) waspLevelElement.textContent = 'Максимум';
+    if (waspKillCount) waspKillCount.textContent = '30/30';
+    if (waspProgress) waspProgress.style.width = '100%';
+    if (claimWasp1) claimWasp1.style.display = 'none';
+    if (claimWasp2) claimWasp2.style.display = 'none';
+    if (claimWasp3) claimWasp3.style.display = 'none';
   }
 
   // Достижение медведей
   const bearKills = state.achievements.bearKills;
-  const bearCard = document.getElementById('bearAchievement');
   const bearLevelElement = document.getElementById('bearLevel');
   const bearProgress = document.getElementById('bearKillProgress');
   const bearKillCount = document.getElementById('bearKillCount');
@@ -1150,33 +1239,33 @@ function updateAchievementsUI() {
   const claimBear3 = document.getElementById('claimBear3');
 
   if (bearKills < 10) {
-    bearLevelElement.textContent = 'Уровень 1';
-    bearKillCount.textContent = `${bearKills}/10`;
-    bearProgress.style.width = `${(bearKills / 10) * 100}%`;
-    claimBear1.style.display = state.achievements.bearCompleted.level1 && !state.achievements.bearClaimed.level1 ? 'block' : 'none';
-    claimBear2.style.display = 'none';
-    claimBear3.style.display = 'none';
+    if (bearLevelElement) bearLevelElement.textContent = 'Уровень 1';
+    if (bearKillCount) bearKillCount.textContent = bearKills + '/10';
+    if (bearProgress) bearProgress.style.width = ((bearKills / 10) * 100) + '%';
+    if (claimBear1) claimBear1.style.display = state.achievements.bearCompleted.level1 && !state.achievements.bearClaimed.level1 ? 'block' : 'none';
+    if (claimBear2) claimBear2.style.display = 'none';
+    if (claimBear3) claimBear3.style.display = 'none';
   } else if (bearKills < 20) {
-    bearLevelElement.textContent = 'Уровень 2';
-    bearKillCount.textContent = `${bearKills - 10}/10`;
-    bearProgress.style.width = `${((bearKills - 10) / 10) * 100}%`;
-    claimBear1.style.display = 'none';
-    claimBear2.style.display = state.achievements.bearCompleted.level2 && !state.achievements.bearClaimed.level2 ? 'block' : 'none';
-    claimBear3.style.display = 'none';
+    if (bearLevelElement) bearLevelElement.textContent = 'Уровень 2';
+    if (bearKillCount) bearKillCount.textContent = (bearKills - 10) + '/10';
+    if (bearProgress) bearProgress.style.width = (((bearKills - 10) / 10) * 100) + '%';
+    if (claimBear1) claimBear1.style.display = 'none';
+    if (claimBear2) claimBear2.style.display = state.achievements.bearCompleted.level2 && !state.achievements.bearClaimed.level2 ? 'block' : 'none';
+    if (claimBear3) claimBear3.style.display = 'none';
   } else if (bearKills < 30) {
-    bearLevelElement.textContent = 'Уровень 3';
-    bearKillCount.textContent = `${bearKills - 20}/10`;
-    bearProgress.style.width = `${((bearKills - 20) / 10) * 100}%`;
-    claimBear1.style.display = 'none';
-    claimBear2.style.display = 'none';
-    claimBear3.style.display = state.achievements.bearCompleted.level3 && !state.achievements.bearClaimed.level3 ? 'block' : 'none';
+    if (bearLevelElement) bearLevelElement.textContent = 'Уровень 3';
+    if (bearKillCount) bearKillCount.textContent = (bearKills - 20) + '/10';
+    if (bearProgress) bearProgress.style.width = (((bearKills - 20) / 10) * 100) + '%';
+    if (claimBear1) claimBear1.style.display = 'none';
+    if (claimBear2) claimBear2.style.display = 'none';
+    if (claimBear3) claimBear3.style.display = state.achievements.bearCompleted.level3 && !state.achievements.bearClaimed.level3 ? 'block' : 'none';
   } else {
-    bearLevelElement.textContent = 'Максимум';
-    bearKillCount.textContent = '30/30';
-    bearProgress.style.width = '100%';
-    claimBear1.style.display = 'none';
-    claimBear2.style.display = 'none';
-    claimBear3.style.display = 'none';
+    if (bearLevelElement) bearLevelElement.textContent = 'Максимум';
+    if (bearKillCount) bearKillCount.textContent = '30/30';
+    if (bearProgress) bearProgress.style.width = '100%';
+    if (claimBear1) claimBear1.style.display = 'none';
+    if (claimBear2) claimBear2.style.display = 'none';
+    if (claimBear3) claimBear3.style.display = 'none';
   }
 }
 
@@ -1195,7 +1284,7 @@ function initAudio() {
   // Попытка автовоспроизведения
   document.addEventListener('click', function initialPlay() {
     if (elements.backgroundMusic.paused) {
-      elements.backgroundMusic.play().catch(error => {
+      elements.backgroundMusic.play().catch(function(error) {
         console.error('Ошибка воспроизведения музыки:', error);
       });
     }
@@ -1220,10 +1309,10 @@ function toggleMusic() {
 // =================== СИСТЕМА ДРУЗЕЙ ===================
 function initFriendsSystem() {
   // Инициализация вкладок
-  document.querySelectorAll('.friends-tabs .tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+  document.querySelectorAll('.friends-tabs .tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
       const tabId = btn.dataset.tab;
-      document.querySelectorAll('.friends-tabs .tab-btn, .friends-tab').forEach(el => {
+      document.querySelectorAll('.friends-tabs .tab-btn, .friends-tab').forEach(function(el) {
         el.classList.remove('active');
       });
       btn.classList.add('active');
@@ -1238,13 +1327,22 @@ function initFriendsSystem() {
   });
 
   // Кнопка отправки заявки
-  document.getElementById('sendFriendRequestBtn')?.addEventListener('click', sendFriendRequest);
+  const sendFriendRequestBtn = document.getElementById('sendFriendRequestBtn');
+  if (sendFriendRequestBtn) {
+    sendFriendRequestBtn.addEventListener('click', sendFriendRequest);
+  }
 
   // Кнопка копирования своего ID
-  document.getElementById('copyMyIdBtn')?.addEventListener('click', copyMyTelegramId);
+  const copyMyIdBtn = document.getElementById('copyMyIdBtn');
+  if (copyMyIdBtn) {
+    copyMyIdBtn.addEventListener('click', copyMyTelegramId);
+  }
 
   // Поиск по друзьям
-  document.getElementById('searchFriend')?.addEventListener('input', filterFriendsList);
+  const searchFriendInput = document.getElementById('searchFriend');
+  if (searchFriendInput) {
+    searchFriendInput.addEventListener('input', filterFriendsList);
+  }
 
   // Показываем свой Telegram ID
   updateMyTelegramId();
@@ -1256,15 +1354,18 @@ async function updateMyTelegramId() {
     const copyBtn = document.getElementById('copyMyIdBtn');
 
     // Получаем Telegram ID из WebApp
-    const telegramId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    const telegramId = window.Telegram && window.Telegram.WebApp &&
+                       window.Telegram.WebApp.initDataUnsafe &&
+                       window.Telegram.WebApp.initDataUnsafe.user &&
+                       window.Telegram.WebApp.initDataUnsafe.user.id;
 
     if (telegramId) {
-      myIdElement.textContent = telegramId;
+      if (myIdElement) myIdElement.textContent = telegramId;
       if (copyBtn) copyBtn.style.display = 'inline-block';
 
       // Проверяем, сохранен ли Telegram ID в Firebase
       if (window.firebaseManager) {
-        setTimeout(async () => {
+        setTimeout(async function() {
           try {
             const telegramIdFromFirebase = await window.firebaseManager.getCurrentTelegramId();
 
@@ -1276,16 +1377,20 @@ async function updateMyTelegramId() {
             }
 
             // Получаем количество друзей для отображения
-            const friendsCount = await window.firebaseManager.getFriendsCount(window.firebaseManager.currentUser?.uid);
+            const friendsCount = await window.firebaseManager.getFriendsCount(
+              window.firebaseManager.currentUser ? window.firebaseManager.currentUser.uid : null
+            );
 
             // Обновляем счетчик друзей
-            let counter = myIdElement.parentElement.querySelector('.friends-counter');
-            if (!counter) {
+            let counter = myIdElement ? myIdElement.parentElement.querySelector('.friends-counter') : null;
+            if (!counter && myIdElement && myIdElement.parentElement) {
               counter = document.createElement('div');
               counter.className = 'friends-counter';
               myIdElement.parentElement.appendChild(counter);
             }
-            counter.innerHTML = `<span style="font-size: 0.9em; color: rgba(255,255,255,0.7);">Друзей: ${friendsCount}/20</span>`;
+            if (counter) {
+              counter.innerHTML = '<span style="font-size: 0.9em; color: rgba(255,255,255,0.7);">Друзей: ' + friendsCount + '/20</span>';
+            }
 
           } catch (error) {
             console.error('Ошибка получения данных друзей:', error);
@@ -1293,21 +1398,25 @@ async function updateMyTelegramId() {
         }, 2000);
       }
     } else {
-      myIdElement.textContent = 'Откройте игру через Telegram';
+      if (myIdElement) myIdElement.textContent = 'Откройте игру через Telegram';
       if (copyBtn) copyBtn.style.display = 'none';
     }
   } catch (error) {
     console.error('Ошибка получения Telegram ID:', error);
-    document.getElementById('myTelegramId').textContent = 'Ошибка загрузки';
+    const myIdElement = document.getElementById('myTelegramId');
+    if (myIdElement) myIdElement.textContent = 'Ошибка загрузки';
   }
 }
 
 function copyMyTelegramId() {
-  const myId = document.getElementById('myTelegramId').textContent;
+  const myIdElement = document.getElementById('myTelegramId');
+  if (!myIdElement) return;
+
+  const myId = myIdElement.textContent;
   if (myId && myId !== 'Откройте игру через Telegram') {
-    navigator.clipboard.writeText(myId).then(() => {
+    navigator.clipboard.writeText(myId).then(function() {
       showMessage('✅ ID скопирован в буфер обмена!');
-    }).catch(() => {
+    }).catch(function() {
       // Fallback для старых браузеров
       const textArea = document.createElement('textarea');
       textArea.value = myId;
@@ -1330,6 +1439,8 @@ async function loadFriendsList() {
     }
 
     const friendsContainer = document.getElementById('friendsContainer');
+    if (!friendsContainer) return;
+
     friendsContainer.innerHTML = '<div class="loading">Загрузка...</div>';
 
     const friends = await window.firebaseManager.getFriends();
@@ -1339,22 +1450,22 @@ async function loadFriendsList() {
     displayFriendsList(friends);
   } catch (error) {
     console.error('Ошибка загрузки друзей:', error);
-    document.getElementById('friendsContainer').innerHTML =
-      '<div class="empty-state">❌ Ошибка загрузки друзей</div>';
+    const friendsContainer = document.getElementById('friendsContainer');
+    if (friendsContainer) {
+      friendsContainer.innerHTML = '<div class="empty-state">❌ Ошибка загрузки друзей</div>';
+    }
   }
 }
 
-function displayFriendsList(friends, searchQuery = '') {
+function displayFriendsList(friends, searchQuery) {
   const friendsContainer = document.getElementById('friendsContainer');
+  if (!friendsContainer) return;
+
   friendsContainer.innerHTML = '';
 
   if (friends.length === 0) {
     if (searchQuery) {
-      friendsContainer.innerHTML = `
-        <div class="empty-state">
-          🔍 Друзья с ID "${searchQuery}" не найдены
-        </div>
-      `;
+      friendsContainer.innerHTML = '<div class="empty-state">🔍 Друзья с ID "' + searchQuery + '" не найдены</div>';
     } else {
       friendsContainer.innerHTML = '<div class="empty-state">👥 У вас пока нет друзей</div>';
     }
@@ -1364,13 +1475,13 @@ function displayFriendsList(friends, searchQuery = '') {
   // Показываем счетчик друзей
   const friendsCounter = document.createElement('div');
   friendsCounter.className = 'friends-counter';
-  friendsCounter.innerHTML = `<span>Друзей: ${friends.length}/20</span>`;
+  friendsCounter.innerHTML = '<span>Друзей: ' + friends.length + '/20</span>';
   if (friends.length >= 20) {
     friendsCounter.innerHTML += '<span style="color: #ff6b6b; margin-left: 10px;">Лимит достигнут!</span>';
   }
   friendsContainer.appendChild(friendsCounter);
 
-  friends.forEach(friend => {
+  friends.forEach(function(friend) {
     const friendCard = createFriendCard(friend);
     friendsContainer.appendChild(friendCard);
   });
@@ -1393,54 +1504,33 @@ function createFriendCard(friend) {
     offline: '#f44336'
   }[status];
 
-  card.innerHTML = `
-    <div class="friend-header">
-      <div class="friend-info">
-        <h4>${friend.username}</h4>
-        <div class="friend-status">
-          <span class="status-dot" style="background: ${statusColor};"></span>
-          <span>${statusText}</span>
-          <span style="margin-left: auto; font-family: monospace; font-size: 0.9em;">ID: ${friend.telegramId}</span>
-        </div>
-      </div>
-      <div class="friend-level" style="background: rgba(139, 69, 19, 0.3); padding: 5px 10px; border-radius: 10px;">
-        Ур. ${friend.level}
-      </div>
-    </div>
-
-    <div class="friend-stats">
-      <div class="stat-item-small">🍯 ${formatNumber(friend.honey || 0)}</div>
-      <div class="stat-item-small">⭐ ${formatNumber(friend.xp || 0)} XP</div>
-      <div class="stat-item-small">🕐 ${friend.lastOnline ? formatLastSeen(friend.lastOnline) : 'Неизвестно'}</div>
-      <div class="stat-item-small">📅 ${friend.lastOnline ? formatDate(friend.lastOnline) : 'Нет данных'}</div>
-    </div>
-
-    <div class="friend-actions">
-      <button class="remove-friend-btn" data-friend-id="${friend.id}">
-        🗑️ Удалить из друзей
-      </button>
-    </div>
-  `;
+  card.innerHTML = '<div class="friend-header"><div class="friend-info"><h4>' + (friend.username || 'Неизвестный') + '</h4><div class="friend-status"><span class="status-dot" style="background: ' + statusColor + ';"></span><span>' + statusText + '</span><span style="margin-left: auto; font-family: monospace; font-size: 0.9em;">ID: ' + (friend.telegramId || '???') + '</span></div></div><div class="friend-level" style="background: rgba(139, 69, 19, 0.3); padding: 5px 10px; border-radius: 10px;">Ур. ' + (friend.level || 1) + '</div></div><div class="friend-stats"><div class="stat-item-small">🍯 ' + formatNumber(friend.honey || 0) + '</div><div class="stat-item-small">⭐ ' + formatNumber(friend.xp || 0) + ' XP</div><div class="stat-item-small">🕐 ' + (friend.lastOnline ? formatLastSeen(friend.lastOnline) : 'Неизвестно') + '</div><div class="stat-item-small">📅 ' + (friend.lastOnline ? formatDate(friend.lastOnline) : 'Нет данных') + '</div></div><div class="friend-actions"><button class="remove-friend-btn" data-friend-id="' + friend.id + '">🗑️ Удалить из друзей</button></div>';
 
   // Обработчик удаления друга
-  card.querySelector('.remove-friend-btn').addEventListener('click', async (e) => {
-    const friendId = e.target.dataset.friendId;
-    if (confirm('Вы уверены, что хотите удалить этого друга?')) {
-      const success = await window.firebaseManager.removeFriend(friendId);
-      if (success) {
-        showMessage('✅ Друг удален');
-        loadFriendsList();
-      } else {
-        showMessage('❌ Ошибка удаления друга');
+  const removeButton = card.querySelector('.remove-friend-btn');
+  if (removeButton) {
+    removeButton.addEventListener('click', async function(e) {
+      const friendId = e.target.dataset.friendId;
+      if (confirm('Вы уверены, что хотите удалить этого друга?')) {
+        const success = await window.firebaseManager.removeFriend(friendId);
+        if (success) {
+          showMessage('✅ Друг удален');
+          loadFriendsList();
+        } else {
+          showMessage('❌ Ошибка удаления друга');
+        }
       }
-    }
-  });
+    });
+  }
 
   return card;
 }
 
 function filterFriendsList() {
-  const searchText = document.getElementById('searchFriend').value.trim();
+  const searchInput = document.getElementById('searchFriend');
+  if (!searchInput) return;
+
+  const searchText = searchInput.value.trim();
   const friends = gameState.state.friends;
 
   if (!searchText) {
@@ -1450,9 +1540,9 @@ function filterFriendsList() {
   }
 
   // Ищем только по Telegram ID
-  const filteredFriends = friends.filter(friend =>
-    friend.telegramId && friend.telegramId.toString().includes(searchText)
-  );
+  const filteredFriends = friends.filter(function(friend) {
+    return friend.telegramId && friend.telegramId.toString().includes(searchText);
+  });
 
   displayFriendsList(filteredFriends, searchText);
 }
@@ -1461,6 +1551,8 @@ async function sendFriendRequest() {
   try {
     const telegramIdInput = document.getElementById('friendTelegramId');
     const messageInput = document.getElementById('friendMessage');
+
+    if (!telegramIdInput || !messageInput) return;
 
     const telegramId = telegramIdInput.value.trim();
     const message = messageInput.value.trim();
@@ -1485,6 +1577,8 @@ async function sendFriendRequest() {
 
     // Показываем индикатор загрузки
     const sendBtn = document.getElementById('sendFriendRequestBtn');
+    if (!sendBtn) return;
+
     const originalText = sendBtn.textContent;
     sendBtn.textContent = 'Отправка...';
     sendBtn.disabled = true;
@@ -1500,24 +1594,28 @@ async function sendFriendRequest() {
       messageInput.value = '';
 
       // Переключаемся на вкладку заявок
-      document.querySelectorAll('.friends-tabs .tab-btn, .friends-tab').forEach(el => {
+      document.querySelectorAll('.friends-tabs .tab-btn, .friends-tab').forEach(function(el) {
         el.classList.remove('active');
       });
-      document.querySelector('.friends-tabs .tab-btn[data-tab="friendRequests"]').classList.add('active');
-      document.getElementById('friendRequests').classList.add('active');
+      const friendRequestsTab = document.querySelector('.friends-tabs .tab-btn[data-tab="friendRequests"]');
+      const friendRequestsContent = document.getElementById('friendRequests');
+      if (friendRequestsTab) friendRequestsTab.classList.add('active');
+      if (friendRequestsContent) friendRequestsContent.classList.add('active');
 
       // Загружаем заявки
       loadFriendRequests();
     } else {
-      showMessage('❌ ' + result.error);
+      showMessage('❌ ' + (result.error || 'Неизвестная ошибка'));
     }
   } catch (error) {
     console.error('Ошибка отправки заявки:', error);
     showMessage('❌ Ошибка отправки заявки');
 
     const sendBtn = document.getElementById('sendFriendRequestBtn');
-    sendBtn.textContent = 'Отправить заявку';
-    sendBtn.disabled = false;
+    if (sendBtn) {
+      sendBtn.textContent = 'Отправить заявку';
+      sendBtn.disabled = false;
+    }
   }
 }
 
@@ -1529,24 +1627,28 @@ async function loadFriendRequests() {
     }
 
     const requestsContainer = document.getElementById('requestsContainer');
+    if (!requestsContainer) return;
+
     requestsContainer.innerHTML = '<div class="loading">Загрузка...</div>';
 
     const requests = await window.firebaseManager.getFriendRequests();
     gameState.manager.setState({ friendRequests: requests });
 
     console.log('Загружено заявок:', {
-      incoming: requests.incoming.length,
-      outgoing: requests.outgoing.length
+      incoming: requests.incoming ? requests.incoming.length : 0,
+      outgoing: requests.outgoing ? requests.outgoing.length : 0
     });
 
     // Обновляем счетчик заявок
     const badge = document.getElementById('requestsCount');
     if (badge) {
-      badge.textContent = requests.incoming.length;
-      badge.style.display = requests.incoming.length > 0 ? 'inline-flex' : 'none';
+      const incomingCount = requests.incoming ? requests.incoming.length : 0;
+      badge.textContent = incomingCount;
+      badge.style.display = incomingCount > 0 ? 'inline-flex' : 'none';
     }
 
-    if (requests.incoming.length === 0 && requests.outgoing.length === 0) {
+    if ((!requests.incoming || requests.incoming.length === 0) &&
+        (!requests.outgoing || requests.outgoing.length === 0)) {
       requestsContainer.innerHTML = '<div class="empty-state">📭 У вас нет заявок в друзья</div>';
       return;
     }
@@ -1554,37 +1656,39 @@ async function loadFriendRequests() {
     requestsContainer.innerHTML = '';
 
     // Входящие заявки
-    if (requests.incoming.length > 0) {
+    if (requests.incoming && requests.incoming.length > 0) {
       const incomingHeader = document.createElement('h4');
-      incomingHeader.textContent = `Входящие заявки (${requests.incoming.length}):`;
+      incomingHeader.textContent = 'Входящие заявки (' + requests.incoming.length + '):';
       incomingHeader.style.marginBottom = '10px';
       incomingHeader.style.color = 'var(--accent)';
       requestsContainer.appendChild(incomingHeader);
 
-      requests.incoming.forEach(request => {
+      requests.incoming.forEach(function(request) {
         const requestCard = createRequestCard(request, 'incoming');
         requestsContainer.appendChild(requestCard);
       });
     }
 
     // Исходящие заявки
-    if (requests.outgoing.length > 0) {
+    if (requests.outgoing && requests.outgoing.length > 0) {
       const outgoingHeader = document.createElement('h4');
-      outgoingHeader.textContent = `Исходящие заявки (${requests.outgoing.length}):`;
+      outgoingHeader.textContent = 'Исходящие заявки (' + requests.outgoing.length + '):';
       outgoingHeader.style.marginTop = '20px';
       outgoingHeader.style.marginBottom = '10px';
       outgoingHeader.style.color = 'var(--accent)';
       requestsContainer.appendChild(outgoingHeader);
 
-      requests.outgoing.forEach(request => {
+      requests.outgoing.forEach(function(request) {
         const requestCard = createRequestCard(request, 'outgoing');
         requestsContainer.appendChild(requestCard);
       });
     }
   } catch (error) {
     console.error('Ошибка загрузки заявок:', error);
-    document.getElementById('requestsContainer').innerHTML =
-      '<div class="empty-state">❌ Ошибка загрузки заявок</div>';
+    const requestsContainer = document.getElementById('requestsContainer');
+    if (requestsContainer) {
+      requestsContainer.innerHTML = '<div class="empty-state">❌ Ошибка загрузки заявок</div>';
+    }
   }
 }
 
@@ -1593,62 +1697,40 @@ function createRequestCard(request, type) {
   card.className = 'request-card';
 
   if (type === 'incoming') {
-    card.innerHTML = `
-      <div class="request-info">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <strong>${request.fromName}</strong>
-          <span style="font-family: monospace; font-size: 0.9em; color: rgba(255,255,255,0.7);">ID: ${request.fromTelegramId}</span>
-        </div>
-        ${request.message ? `<div style="margin-top: 5px; font-size: 0.9em; color: rgba(255,255,255,0.8);">💬 "${request.message}"</div>` : ''}
-        <div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">
-          📅 ${formatDate(request.createdAt)}
-        </div>
-      </div>
-      <div class="request-actions">
-        <button class="accept-btn" data-request-id="${request.id}">✓ Принять</button>
-        <button class="reject-btn" data-request-id="${request.id}">✗ Отклонить</button>
-      </div>
-    `;
+    card.innerHTML = '<div class="request-info"><div style="display: flex; justify-content: space-between; align-items: center;"><strong>' + (request.fromName || 'Неизвестный') + '</strong><span style="font-family: monospace; font-size: 0.9em; color: rgba(255,255,255,0.7);">ID: ' + (request.fromTelegramId || '???') + '</span></div>' + (request.message ? '<div style="margin-top: 5px; font-size: 0.9em; color: rgba(255,255,255,0.8);">💬 "' + request.message + '"</div>' : '') + '<div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">📅 ' + formatDate(request.createdAt) + '</div></div><div class="request-actions"><button class="accept-btn" data-request-id="' + request.id + '">✓ Принять</button><button class="reject-btn" data-request-id="' + request.id + '">✗ Отклонить</button></div>';
 
     // Обработчики для кнопок принятия/отклонения
-    card.querySelector('.accept-btn').addEventListener('click', async (e) => {
-      const requestId = e.target.dataset.requestId;
-      const result = await window.firebaseManager.respondToFriendRequest(requestId, true);
-      if (result.success) {
-        showMessage('✅ Заявка принята! Теперь вы друзья!');
-        loadFriendRequests();
-        loadFriendsList();
-      } else {
-        showMessage('❌ ' + result.error);
-      }
-    });
+    const acceptBtn = card.querySelector('.accept-btn');
+    const rejectBtn = card.querySelector('.reject-btn');
 
-    card.querySelector('.reject-btn').addEventListener('click', async (e) => {
-      const requestId = e.target.dataset.requestId;
-      const result = await window.firebaseManager.respondToFriendRequest(requestId, false);
-      if (result.success) {
-        showMessage('Заявка отклонена');
-        loadFriendRequests();
-      } else {
-        showMessage('❌ ' + result.error);
-      }
-    });
+    if (acceptBtn) {
+      acceptBtn.addEventListener('click', async function(e) {
+        const requestId = e.target.dataset.requestId;
+        const result = await window.firebaseManager.respondToFriendRequest(requestId, true);
+        if (result.success) {
+          showMessage('✅ Заявка принята! Теперь вы друзья!');
+          loadFriendRequests();
+          loadFriendsList();
+        } else {
+          showMessage('❌ ' + (result.error || 'Неизвестная ошибка'));
+        }
+      });
+    }
+
+    if (rejectBtn) {
+      rejectBtn.addEventListener('click', async function(e) {
+        const requestId = e.target.dataset.requestId;
+        const result = await window.firebaseManager.respondToFriendRequest(requestId, false);
+        if (result.success) {
+          showMessage('Заявка отклонена');
+          loadFriendRequests();
+        } else {
+          showMessage('❌ ' + (result.error || 'Неизвестная ошибка'));
+        }
+      });
+    }
   } else {
-    card.innerHTML = `
-      <div class="request-info">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <strong>${request.toName}</strong>
-          <span style="font-family: monospace; font-size: 0.9em; color: rgba(255,255,255,0.7);">ID: ${request.toTelegramId}</span>
-        </div>
-        ${request.message ? `<div style="margin-top: 5px; font-size: 0.9em; color: rgba(255,255,255,0.8);">💬 "${request.message}"</div>` : ''}
-        <div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">
-          📅 ${formatDate(request.createdAt)}
-        </div>
-        <div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">
-          Ожидание ответа...
-        </div>
-      </div>
-    `;
+    card.innerHTML = '<div class="request-info"><div style="display: flex; justify-content: space-between; align-items: center;"><strong>' + (request.toName || 'Неизвестный') + '</strong><span style="font-family: monospace; font-size: 0.9em; color: rgba(255,255,255,0.7);">ID: ' + (request.toTelegramId || '???') + '</span></div>' + (request.message ? '<div style="margin-top: 5px; font-size: 0.9em; color: rgba(255,255,255,0.8);">💬 "' + request.message + '"</div>' : '') + '<div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">📅 ' + formatDate(request.createdAt) + '</div><div style="font-size: 0.8em; color: rgba(255,255,255,0.6); margin-top: 5px;">Ожидание ответа...</div></div>';
   }
 
   return card;
@@ -1667,21 +1749,37 @@ function formatLastSeen(timestamp) {
   if (!timestamp) return 'давно';
 
   const now = Date.now();
-  const time = timestamp.toDate ? timestamp.toDate().getTime() : timestamp;
+  let time;
+  if (timestamp.toDate) {
+    time = timestamp.toDate().getTime();
+  } else if (timestamp.getTime) {
+    time = timestamp.getTime();
+  } else {
+    time = timestamp;
+  }
+
   const diff = now - time;
   const minutes = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (minutes < 60) return `${minutes} мин. назад`;
-  if (hours < 24) return `${hours} ч. назад`;
-  return `${days} дн. назад`;
+  if (minutes < 60) return minutes + ' мин. назад';
+  if (hours < 24) return hours + ' ч. назад';
+  return days + ' дн. назад';
 }
 
 function formatDate(timestamp) {
   if (!timestamp) return '';
 
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  let date;
+  if (timestamp.toDate) {
+    date = timestamp.toDate();
+  } else if (timestamp.getTime) {
+    date = new Date(timestamp);
+  } else {
+    date = new Date(timestamp);
+  }
+
   return date.toLocaleDateString('ru-RU');
 }
 
@@ -1695,9 +1793,11 @@ function initCrafting() {
   const talentCards = document.querySelectorAll('.talent-card');
   const craftSlots = document.querySelectorAll('.craft-slot');
 
-  talentCards.forEach(card => {
-    card.addEventListener('click', () => {
-      const emptySlot = Array.from(craftSlots).find(slot => !slot.dataset.talent);
+  talentCards.forEach(function(card) {
+    card.addEventListener('click', function() {
+      const emptySlot = Array.from(craftSlots).find(function(slot) {
+        return !slot.dataset.talent;
+      });
       if (emptySlot) {
         emptySlot.innerHTML = card.innerHTML;
         emptySlot.dataset.talent = card.dataset.talent;
@@ -1707,8 +1807,8 @@ function initCrafting() {
     });
   });
 
-  craftSlots.forEach(slot => {
-    slot.addEventListener('click', () => {
+  craftSlots.forEach(function(slot) {
+    slot.addEventListener('click', function() {
       if (slot.classList.contains('filled')) {
         slot.innerHTML = '';
         slot.dataset.talent = '';
@@ -1723,21 +1823,21 @@ function initCrafting() {
   const iceButton = document.getElementById('iceButton');
 
   if (sonicButton) {
-    sonicButton.addEventListener('click', (e) => {
+    sonicButton.addEventListener('click', function(e) {
       e.stopPropagation();
       craftTalent('sonic', ['basic', 'critical']);
     });
   }
 
   if (fireButton) {
-    fireButton.addEventListener('click', (e) => {
+    fireButton.addEventListener('click', function(e) {
       e.stopPropagation();
       craftTalent('fire', ['critical', 'poison']);
     });
   }
 
   if (iceButton) {
-    iceButton.addEventListener('click', (e) => {
+    iceButton.addEventListener('click', function(e) {
       e.stopPropagation();
       craftTalent('ice', ['poison', 'basic']);
     });
@@ -1753,9 +1853,9 @@ function craftTalent(talentType, requiredTypes) {
   const state = gameState.state;
 
   // Проверяем достаточно ли зарядов
-  const hasEnoughCharges = requiredTypes.every(type =>
-    state.attackCharges[type].charges >= 1
-  );
+  const hasEnoughCharges = requiredTypes.every(function(type) {
+    return state.attackCharges[type].charges >= 1;
+  });
 
   if (!hasEnoughCharges) {
     showMessage('Недостаточно зарядов!');
@@ -1763,11 +1863,11 @@ function craftTalent(talentType, requiredTypes) {
   }
 
   // Создаем новые объекты для иммутабельности
-  const newAttackCharges = { ...state.attackCharges };
-  const newCraftedTalents = { ...state.craftedTalents };
+  const newAttackCharges = Object.assign({}, state.attackCharges);
+  const newCraftedTalents = Object.assign({}, state.craftedTalents);
 
   // Вычитаем заряды
-  requiredTypes.forEach(type => {
+  requiredTypes.forEach(function(type) {
     newAttackCharges[type].charges -= 1;
   });
 
@@ -1775,7 +1875,9 @@ function craftTalent(talentType, requiredTypes) {
   newCraftedTalents[talentType].charges += 1;
   newCraftedTalents[talentType].level = Math.max(
     newCraftedTalents[talentType].level,
-    Math.max(...requiredTypes.map(type => state.talents[type].level))
+    Math.max.apply(Math, requiredTypes.map(function(type) {
+      return state.talents[type].level;
+    }))
   );
 
   // Обновляем состояние
@@ -1784,16 +1886,20 @@ function craftTalent(talentType, requiredTypes) {
     craftedTalents: newCraftedTalents
   });
 
-  showMessage(`✨ Создан новый талант: ${getTalentName(talentType)}!`);
+  showMessage('✨ Создан новый талант: ' + getTalentName(talentType) + '!');
   resetCrafting();
   updateTalentBuyTab();
 
   if (state.inBattle) {
-    setTimeout(() => createTalentButtons(), 100);
+    setTimeout(function() {
+      createTalentButtons();
+    }, 100);
   }
 
   // Сохраняем после крафта
-  setTimeout(() => gameState.save(), 100);
+  setTimeout(function() {
+    gameState.save();
+  }, 100);
 }
 
 function getTalentName(type) {
@@ -1807,7 +1913,9 @@ function getTalentName(type) {
 
 function checkRecipe() {
   const slots = document.querySelectorAll('.craft-slot');
-  const talents = Array.from(slots).map(slot => slot.dataset.talent).filter(Boolean);
+  const talents = Array.from(slots).map(function(slot) {
+    return slot.dataset.talent;
+  }).filter(Boolean);
 
   const isSonicRecipe = talents.length === 2 &&
     talents.includes('basic') &&
@@ -1857,10 +1965,10 @@ function checkRecipe() {
 
 function resetCrafting() {
   gameState.manager.setState({ selectedForCraft: [] });
-  document.querySelectorAll('.talent-card').forEach(card => {
+  document.querySelectorAll('.talent-card').forEach(function(card) {
     card.classList.remove('selected');
   });
-  document.querySelectorAll('.craft-slot').forEach(slot => {
+  document.querySelectorAll('.craft-slot').forEach(function(slot) {
     slot.innerHTML = '';
     slot.dataset.talent = '';
     slot.classList.remove('filled');
@@ -1880,18 +1988,20 @@ let previousBg = '';
 function initBackgroundSystem() {
   const bgMenuBtn = document.getElementById('bgMenuBtn');
   if (bgMenuBtn) {
-    bgMenuBtn.addEventListener('click', () => {
+    bgMenuBtn.addEventListener('click', function() {
       previousBg = gameState.state.currentBackground;
       const selector = document.getElementById('backgroundSelector');
       if (selector) selector.classList.add('active');
-      currentBgIndex = backgrounds.findIndex(bg => bg.name === gameState.state.currentBackground);
+      currentBgIndex = backgrounds.findIndex(function(bg) {
+        return bg.name === gameState.state.currentBackground;
+      });
       updateBackgroundUI();
     });
   }
 
   const bgPrevBtn = document.getElementById('bgPrevBtn');
   if (bgPrevBtn) {
-    bgPrevBtn.addEventListener('click', () => {
+    bgPrevBtn.addEventListener('click', function() {
       currentBgIndex = (currentBgIndex - 1 + backgrounds.length) % backgrounds.length;
       updateBackgroundUI();
     });
@@ -1899,7 +2009,7 @@ function initBackgroundSystem() {
 
   const bgNextBtn = document.getElementById('bgNextBtn');
   if (bgNextBtn) {
-    bgNextBtn.addEventListener('click', () => {
+    bgNextBtn.addEventListener('click', function() {
       currentBgIndex = (currentBgIndex + 1) % backgrounds.length;
       updateBackgroundUI();
     });
@@ -1907,14 +2017,15 @@ function initBackgroundSystem() {
 
   const bgActionBtn = document.getElementById('bgActionBtn');
   if (bgActionBtn) {
-    bgActionBtn.addEventListener('click', () => {
+    bgActionBtn.addEventListener('click', function() {
       const currentBg = backgrounds[currentBgIndex];
 
       if (!gameState.state.purchasedBackgrounds.includes(currentBg.name)) {
         if (gameState.state.honey >= currentBg.cost) {
           gameState.scheduleUIUpdate('honey', gameState.state.honey - currentBg.cost);
 
-          const newPurchasedBackgrounds = [...gameState.state.purchasedBackgrounds, currentBg.name];
+          const newPurchasedBackgrounds = gameState.state.purchasedBackgrounds.slice();
+          newPurchasedBackgrounds.push(currentBg.name);
           gameState.manager.setState({ purchasedBackgrounds: newPurchasedBackgrounds });
         } else {
           showMessage('Недостаточно мёда!');
@@ -1923,18 +2034,20 @@ function initBackgroundSystem() {
       }
 
       gameState.manager.setState({ currentBackground: currentBg.name });
-      showMessage(`Фон "${currentBg.name}" выбран!`);
+      showMessage('Фон "' + currentBg.name + '" выбран!');
       updateBackgroundUI();
 
       // Сохраняем после выбора фона
-      setTimeout(() => gameState.save(), 100);
+      setTimeout(function() {
+        gameState.save();
+      }, 100);
     });
   }
 
   // Кнопка закрытия меню фона
   const bgCloseBtn = document.getElementById('bgCloseBtn');
   if (bgCloseBtn) {
-    bgCloseBtn.addEventListener('click', () => {
+    bgCloseBtn.addEventListener('click', function() {
       const selector = document.getElementById('backgroundSelector');
       if (selector) selector.classList.remove('active');
     });
@@ -1943,7 +2056,7 @@ function initBackgroundSystem() {
   // Закрытие при клике вне меню
   const selector = document.getElementById('backgroundSelector');
   if (selector) {
-    selector.addEventListener('click', (e) => {
+    selector.addEventListener('click', function(e) {
       if (e.target.id === 'backgroundSelector') {
         selector.classList.remove('active');
       }
@@ -1961,7 +2074,7 @@ function updateBackgroundUI() {
   const isSelected = gameState.state.currentBackground === currentBg.name;
 
   if (actionBtn) {
-    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : `Купить за ${currentBg.cost}`;
+    actionBtn.textContent = isPurchased ? (isSelected ? 'Выбран' : 'Выбрать') : 'Купить за ' + currentBg.cost;
     actionBtn.disabled = isSelected || (!isPurchased && gameState.state.honey < currentBg.cost);
   }
 }
@@ -1969,10 +2082,10 @@ function updateBackgroundUI() {
 // =================== МАГАЗИН ТАЛЕНТОВ ===================
 function initTalentShop() {
   // Инициализация вкладок магазина талантов
-  document.querySelectorAll('.talent-tabs .tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+  document.querySelectorAll('.talent-tabs .tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
       const tabId = btn.dataset.tab;
-      document.querySelectorAll('.talent-tabs .tab-btn, .shop-tab').forEach(el => {
+      document.querySelectorAll('.talent-tabs .tab-btn, .shop-tab').forEach(function(el) {
         el.classList.remove('active');
       });
       btn.classList.add('active');
@@ -1981,17 +2094,19 @@ function initTalentShop() {
   });
 
   // Обработчики для кнопок покупки зарядов
-  document.querySelectorAll('#buyCharges .btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+  document.querySelectorAll('#buyCharges .btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
       const type = btn.dataset.type;
       buyCharges(type);
     });
   });
 
   // Обработчики для кнопок улучшения талантов
-  document.querySelectorAll('#upgradeTalents .btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const talentType = e.target.closest('.talent').dataset.talent;
+  document.querySelectorAll('#upgradeTalents .btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      const talent = e.target.closest('.talent');
+      if (!talent) return;
+      const talentType = talent.dataset.talent;
       upgradeTalent(talentType);
     });
   });
@@ -2006,18 +2121,14 @@ function initTalentBuyTab() {
 
   container.innerHTML = '';
 
-  Object.entries(gameState.state.attackCharges).forEach(([type, data]) => {
+  Object.entries(gameState.state.attackCharges).forEach(function(entry) {
+    const type = entry[0];
+    const data = entry[1];
     const item = document.createElement('div');
     item.className = 'attack-charge-item';
-    item.innerHTML = `
-      <div>
-        <h3>${getAttackName(type)}</h3>
-        <span class="charge-counter">${data.charges} шт</span>
-      </div>
-      <button class="btn" data-type="${type}">${data.basePrice}</button>
-    `;
+    item.innerHTML = '<div><h3>' + getAttackName(type) + '</h3><span class="charge-counter">' + data.charges + ' шт</span></div><button class="btn" data-type="' + type + '">' + data.basePrice + '</button>';
 
-    item.querySelector('button').addEventListener('click', () => {
+    item.querySelector('button').addEventListener('click', function() {
       buyCharges(type);
     });
 
@@ -2032,7 +2143,7 @@ function buyCharges(type) {
   if (state.honey >= charges.basePrice) {
     gameState.scheduleUIUpdate('honey', state.honey - charges.basePrice);
 
-    const newCharges = { ...state.attackCharges };
+    const newCharges = Object.assign({}, state.attackCharges);
     newCharges[type].charges += 5;
 
     gameState.manager.setState({ attackCharges: newCharges });
@@ -2046,7 +2157,9 @@ function buyCharges(type) {
     }
 
     // Сохраняем после покупки
-    setTimeout(() => gameState.save(), 100);
+    setTimeout(function() {
+      gameState.save();
+    }, 100);
   } else {
     showMessage('Недостаточно мёда!');
   }
@@ -2071,7 +2184,7 @@ function upgradeTalent(talentType) {
 
   gameState.scheduleUIUpdate('honey', state.honey - cost);
 
-  const newTalents = { ...state.talents };
+  const newTalents = Object.assign({}, state.talents);
   newTalents[talentType].level++;
 
   // Обновляем характеристики таланта
@@ -2095,17 +2208,19 @@ function upgradeTalent(talentType) {
   showMessage('Талант улучшен!');
 
   // Сохраняем после улучшения
-  setTimeout(() => gameState.save(), 100);
+  setTimeout(function() {
+    gameState.save();
+  }, 100);
 }
 
 function updateTalentPrices() {
   const state = gameState.state;
 
-  Object.keys(talentsConfig).forEach(talentType => {
+  Object.keys(talentsConfig).forEach(function(talentType) {
     const talent = talentsConfig[talentType];
     const currentLevel = state.talents[talentType].level;
-    const button = document.querySelector(`.talent[data-talent="${talentType}"] button`);
-    const levelElement = document.getElementById(`${talentType}Level`);
+    const button = document.querySelector('.talent[data-talent="' + talentType + '"] button');
+    const levelElement = document.getElementById(talentType + 'Level');
 
     if (levelElement) {
       levelElement.textContent = currentLevel;
@@ -2117,7 +2232,7 @@ function updateTalentPrices() {
         button.disabled = true;
       } else {
         const cost = Math.floor(talent.getCost(currentLevel));
-        button.textContent = `${cost}`;
+        button.textContent = cost;
         button.disabled = state.honey < cost;
       }
     }
@@ -2137,16 +2252,16 @@ function updateChargeDisplay(type) {
   const state = gameState.state;
 
   // Обновляем отображение в магазине
-  const chargeCounter = document.querySelector(`.attack-charge-item[data-type="${type}"] .charge-counter`);
+  const chargeCounter = document.querySelector('.attack-charge-item[data-type="' + type + '"] .charge-counter');
   if (chargeCounter) {
-    chargeCounter.textContent = `${state.attackCharges[type].charges} шт`;
+    chargeCounter.textContent = state.attackCharges[type].charges + ' шт';
   }
 
   // Обновляем отображение в бою
   if (state.inBattle) {
-    const combatButton = document.querySelector(`.attack-btn[data-attack="${type}"] .charge-counter`);
+    const combatButton = document.querySelector('.attack-btn[data-attack="' + type + '"] .charge-counter');
     if (combatButton) {
-      combatButton.textContent = `Зарядов: ${state.attackCharges[type].charges}`;
+      combatButton.textContent = 'Зарядов: ' + state.attackCharges[type].charges;
     }
   }
 }
@@ -2155,10 +2270,16 @@ function updateTalentBuyTab() {
   const container = document.getElementById('buyCharges');
   if (!container) return;
 
-  container.querySelectorAll('.attack-charge-item').forEach(item => {
-    const type = item.querySelector('button').dataset.type;
+  container.querySelectorAll('.attack-charge-item').forEach(function(item) {
+    const button = item.querySelector('button');
+    if (!button) return;
+
+    const type = button.dataset.type;
     const charges = gameState.state.attackCharges[type].charges;
-    item.querySelector('.charge-counter').textContent = `${charges} шт`;
+    const chargeCounter = item.querySelector('.charge-counter');
+    if (chargeCounter) {
+      chargeCounter.textContent = charges + ' шт';
+    }
   });
 }
 
@@ -2177,7 +2298,7 @@ function startBattle(bossType) {
   if (!bossConfig) return;
 
   if (bossType !== 'wasp' && gameState.state.keys[bossType] < 3) {
-    showMessage(`Нужно 3 ключа! У вас: ${gameState.state.keys[bossType]}`);
+    showMessage('Нужно 3 ключа! У вас: ' + gameState.state.keys[bossType]);
     return;
   }
 
@@ -2188,7 +2309,7 @@ function startBattle(bossType) {
 
   // Вычитаем ключи если нужно
   if (bossType !== 'wasp') {
-    const newKeys = { ...gameState.state.keys };
+    const newKeys = Object.assign({}, gameState.state.keys);
     newKeys[bossType] -= 3;
     gameState.manager.setState({ keys: newKeys });
     gameState.updateKeysDisplay();
@@ -2204,12 +2325,11 @@ function startBattle(bossType) {
     battleStartTime: Date.now(),
     battleTimeLimit: bossConfig.time,
     inBattle: true,
-    currentBoss: {
-      ...bossConfig,
+    currentBoss: Object.assign({}, bossConfig, {
       currentHealth: bossConfig.health,
       maxHealth: bossConfig.health,
       type: bossType
-    },
+    }),
     battleStats: {
       basicDamage: 0,
       criticalDamage: 0,
@@ -2252,7 +2372,7 @@ function startBattle(bossType) {
   const combatTimer = document.getElementById('combatTimer');
   if (combatTimer) combatTimer.textContent = bossConfig.time;
 
-  setTimeout(() => {
+  setTimeout(function() {
     if (bossHealth) bossHealth.style.transition = 'width 0.3s';
     updateCombatUI();
   }, 50);
@@ -2261,7 +2381,9 @@ function startBattle(bossType) {
   gameState.startBattleTimer(bossConfig.time);
 
   // Сохраняем сразу после начала боя
-  setTimeout(() => gameState.save(true), 500);
+  setTimeout(function() {
+    gameState.save(true);
+  }, 500);
 }
 
 function createTalentButtons() {
@@ -2272,7 +2394,9 @@ function createTalentButtons() {
   const state = gameState.state;
 
   // Добавляем обычные таланты
-  Object.entries(state.talents).forEach(([type, talent]) => {
+  Object.entries(state.talents).forEach(function(entry) {
+    const type = entry[0];
+    const talent = entry[1];
     if (talent.level > 0) {
       const charges = state.attackCharges[type].charges;
       if (charges <= 0) return; // Пропускаем таланты без зарядов
@@ -2281,18 +2405,12 @@ function createTalentButtons() {
       const isDisabled = !state.inBattle;
 
       const button = document.createElement('button');
-      button.className = `attack-btn ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`;
+      button.className = 'attack-btn' + (isSelected ? ' selected' : '') + (isDisabled ? ' disabled' : '');
       button.dataset.attack = type;
       button.disabled = isDisabled;
-      button.innerHTML = `
-        <div class="talent-icon">${getTalentIcon(type)}</div>
-        <div class="talent-info">
-          <div>${getTalentButtonText(type)}</div>
-          <div class="charge-counter">Зарядов: ${charges}</div>
-        </div>
-      `;
+      button.innerHTML = '<div class="talent-icon">' + getTalentIcon(type) + '</div><div class="talent-info"><div>' + getTalentButtonText(type) + '</div><div class="charge-counter">Зарядов: ' + charges + '</div></div>';
 
-      button.onclick = () => {
+      button.onclick = function() {
         if (state.selectedTalent === type) {
           gameState.manager.setState({ selectedTalent: null });
         } else {
@@ -2312,19 +2430,13 @@ function createTalentButtons() {
     { type: 'ice', icon: '❄️', name: 'Ледяной' }
   ];
 
-  craftedTalents.forEach(talent => {
+  craftedTalents.forEach(function(talent) {
     if (state.craftedTalents[talent.type].charges > 0) {
       const button = document.createElement('button');
-      button.className = `attack-btn ${state.selectedTalent === talent.type ? 'selected' : ''}`;
+      button.className = 'attack-btn' + (state.selectedTalent === talent.type ? ' selected' : '');
       button.dataset.attack = talent.type;
-      button.innerHTML = `
-        <div class="talent-icon">${talent.icon}</div>
-        <div class="talent-info">
-          <div>${talent.name}</div>
-          <div class="charge-counter">Зарядов: ${state.craftedTalents[talent.type].charges}</div>
-        </div>
-      `;
-      button.onclick = () => {
+      button.innerHTML = '<div class="talent-icon">' + talent.icon + '</div><div class="talent-info"><div>' + talent.name + '</div><div class="charge-counter">Зарядов: ' + state.craftedTalents[talent.type].charges + '</div></div>';
+      button.onclick = function() {
         const newSelected = state.selectedTalent === talent.type ? null : talent.type;
         gameState.manager.setState({ selectedTalent: newSelected });
         createTalentButtons();
@@ -2370,7 +2482,7 @@ function attack(type) {
   if (attackType === 'sonic' || attackType === 'fire' || attackType === 'ice') {
     const talent = state.craftedTalents[attackType];
     if (talent.charges <= 0) {
-      showMessage(`Нет зарядов ${getTalentName(attackType)} удара!`);
+      showMessage('Нет зарядов ' + getTalentName(attackType) + ' удара!');
       gameState.manager.setState({ selectedTalent: null });
       createTalentButtons();
       return;
@@ -2388,7 +2500,7 @@ function attack(type) {
   }
 
   // Уменьшаем заряды
-  const newCharges = { ...state.attackCharges };
+  const newCharges = Object.assign({}, state.attackCharges);
   if (newCharges[attackType].charges > 0) {
     newCharges[attackType].charges--;
     gameState.manager.setState({ attackCharges: newCharges });
@@ -2432,7 +2544,9 @@ function attack(type) {
   updateTalentBuyTab();
 
   // Сохраняем состояние после атаки
-  setTimeout(() => gameState.save(true), 100);
+  setTimeout(function() {
+    gameState.save(true);
+  }, 100);
 }
 
 function handleCraftedTalentAttack(type) {
@@ -2446,17 +2560,17 @@ function handleCraftedTalentAttack(type) {
   const talent = state.craftedTalents[type];
 
   if (talent.charges <= 0) {
-    showMessage(`Нет зарядов ${getTalentName(type)} удара!`);
+    showMessage('Нет зарядов ' + getTalentName(type) + ' удара!');
     return;
   }
 
   // Уменьшаем заряды
-  const newCraftedTalents = { ...state.craftedTalents };
+  const newCraftedTalents = Object.assign({}, state.craftedTalents);
   if (newCraftedTalents[type].charges > 0) {
     newCraftedTalents[type].charges--;
     gameState.manager.setState({ craftedTalents: newCraftedTalents });
   } else {
-    showMessage(`Нет зарядов ${getTalentName(type)} удара!`);
+    showMessage('Нет зарядов ' + getTalentName(type) + ' удара!');
     gameState.manager.setState({ selectedTalent: null });
     createTalentButtons();
     return;
@@ -2466,10 +2580,10 @@ function handleCraftedTalentAttack(type) {
   const damage = talent.damage * (talent.level || 1);
 
   // Обновляем статистику
-  const statName = `${type}Damage`;
-  const newStats = { ...state.battleStats };
-  newStats[statName] += damage;
-  newStats.totalDamage += damage;
+  const statName = type + 'Damage';
+  const newStats = Object.assign({}, state.battleStats);
+  newStats[statName] = (newStats[statName] || 0) + damage;
+  newStats.totalDamage = (newStats.totalDamage || 0) + damage;
   gameState.manager.setState({ battleStats: newStats });
 
   // Показываем эффект
@@ -2488,7 +2602,9 @@ function handleCraftedTalentAttack(type) {
   updateCombatUI();
 
   // Сохраняем состояние после атаки
-  setTimeout(() => gameState.save(true), 100);
+  setTimeout(function() {
+    gameState.save(true);
+  }, 100);
 }
 
 function startPoisonEffect() {
@@ -2509,10 +2625,12 @@ function startPoisonEffect() {
   applyPoisonTick(effect);
 
   // Последующие тики
-  effect.interval = setInterval(() => applyPoisonTick(effect), 1000);
+  effect.interval = setInterval(function() {
+    applyPoisonTick(effect);
+  }, 1000);
 
   // Остановка через duration секунд
-  effect.timer = setTimeout(() => {
+  effect.timer = setTimeout(function() {
     if (effect.interval) clearInterval(effect.interval);
     gameState.battleEffects.delete(effect);
   }, duration * 1000);
@@ -2530,11 +2648,11 @@ function applyPoisonTick(effect) {
 
   const damage = effect.damage;
   const newHealth = Math.max(0, state.currentBoss.currentHealth - damage);
-  const newBoss = { ...state.currentBoss, currentHealth: newHealth };
+  const newBoss = Object.assign({}, state.currentBoss, { currentHealth: newHealth });
 
-  const newStats = { ...state.battleStats };
-  newStats.poisonDamage += damage;
-  newStats.totalDamage += damage;
+  const newStats = Object.assign({}, state.battleStats);
+  newStats.poisonDamage = (newStats.poisonDamage || 0) + damage;
+  newStats.totalDamage = (newStats.totalDamage || 0) + damage;
 
   gameState.manager.setState({
     currentBoss: newBoss,
@@ -2545,7 +2663,9 @@ function applyPoisonTick(effect) {
   updateCombatUI();
 
   // Сохраняем после каждого тика яда
-  setTimeout(() => gameState.save(true), 100);
+  setTimeout(function() {
+    gameState.save(true);
+  }, 100);
 
   if (newHealth <= 0) {
     gameState.endBattle(true);
@@ -2558,13 +2678,12 @@ function applyDamageToBoss(damage) {
   if (!state.currentBoss || !state.inBattle) return;
 
   const newHealth = Math.max(0, state.currentBoss.currentHealth - damage);
-  const newBoss = { ...state.currentBoss, currentHealth: newHealth };
+  const newBoss = Object.assign({}, state.currentBoss, { currentHealth: newHealth });
 
   // Обновляем активный бой с текущим здоровьем
-  const newActiveBattle = state.activeBattle ? {
-    ...state.activeBattle,
+  const newActiveBattle = state.activeBattle ? Object.assign({}, state.activeBattle, {
     health: newHealth
-  } : {
+  }) : {
     type: state.currentBoss.type,
     health: newHealth,
     timeLimit: state.battleTimeLimit
@@ -2582,9 +2701,9 @@ function applyDamageToBoss(damage) {
 
 function updateBattleStats(stat, damage) {
   const state = gameState.state;
-  const newStats = { ...state.battleStats };
-  newStats[stat] += damage;
-  newStats.totalDamage += damage;
+  const newStats = Object.assign({}, state.battleStats);
+  newStats[stat] = (newStats[stat] || 0) + damage;
+  newStats.totalDamage = (newStats.totalDamage || 0) + damage;
   gameState.manager.setState({ battleStats: newStats });
 }
 
@@ -2597,15 +2716,15 @@ function updateCombatUI() {
   }
 
   const healthPercent = (state.currentBoss.currentHealth / state.currentBoss.maxHealth) * 100;
-  if (elements.bossHealth) elements.bossHealth.style.width = `${healthPercent}%`;
+  if (elements.bossHealth) elements.bossHealth.style.width = healthPercent + '%';
   if (elements.currentHealth) elements.currentHealth.textContent = state.currentBoss.currentHealth;
 
   const bossCombatImage = document.getElementById('bossCombatImage');
   if (bossCombatImage) {
     if (healthPercent <= 25) {
-      bossCombatImage.src = `img/${state.currentBoss.type}_critical.jpg`;
+      bossCombatImage.src = 'img/' + state.currentBoss.type + '_critical.jpg';
     } else if (healthPercent <= 50) {
-      bossCombatImage.src = `img/${state.currentBoss.type}_wounded.jpg`;
+      bossCombatImage.src = 'img/' + state.currentBoss.type + '_wounded.jpg';
     } else {
       bossCombatImage.src = gameConfig.bosses[state.currentBoss.type].image;
     }
@@ -2618,11 +2737,11 @@ function updatePoisonTimersDisplay() {
 
   container.innerHTML = '';
 
-  gameState.battleEffects.forEach((effect, index) => {
+  gameState.battleEffects.forEach(function(effect) {
     if (effect.duration > 0) {
       const timer = document.createElement('div');
       timer.className = 'poison-timer';
-      timer.innerHTML = `☠️ ${effect.duration}s`;
+      timer.innerHTML = '☠️ ' + effect.duration + 's';
       container.appendChild(timer);
 
       // Уменьшаем оставшееся время для отображения
@@ -2694,7 +2813,9 @@ function handleHiveClick(e) {
   // Анимация
   const hive = e.currentTarget;
   hive.style.transform = 'scale(0.95)';
-  setTimeout(() => hive.style.transform = 'scale(1)', 100);
+  setTimeout(function() {
+    hive.style.transform = 'scale(1)';
+  }, 100);
 
   // Создаем эффект
   createClickEffect(e);
@@ -2708,6 +2829,8 @@ function handleBattleClick(e) {
   if (!state.inBattle || !state.selectedTalent) return;
 
   const clickArea = document.querySelector('.click-area');
+  if (!clickArea) return;
+
   const rect = clickArea.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -2719,10 +2842,12 @@ function handleBattleClick(e) {
   damageEffect.style.top = y + 'px';
 
   const damage = calculateDamage(state.selectedTalent);
-  damageEffect.textContent = `-${damage}`;
+  damageEffect.textContent = '-' + damage;
 
   clickArea.appendChild(damageEffect);
-  setTimeout(() => damageEffect.remove(), 800);
+  setTimeout(function() {
+    damageEffect.remove();
+  }, 800);
 
   // Атака
   attack(state.selectedTalent);
@@ -2744,7 +2869,9 @@ function createClickEffect(e) {
   heart.style.top = y + 'px';
 
   e.currentTarget.appendChild(heart);
-  setTimeout(() => heart.remove(), 1000);
+  setTimeout(function() {
+    heart.remove();
+  }, 1000);
 }
 
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
@@ -2755,7 +2882,7 @@ function showPopup(popupType) {
   }
 
   hideAllPopups();
-  const popup = document.getElementById(`${popupType}Popup`);
+  const popup = document.getElementById(popupType + 'Popup');
   if (popup) {
     popup.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -2771,7 +2898,7 @@ function showPopup(popupType) {
       defeatShown = false;
 
       // Проверяем и показываем попап поражения, если нужно
-      setTimeout(() => {
+      setTimeout(function() {
         if (showDefeatPopupIfNeeded()) {
           // Если показали попап поражения, скрываем выбор боссов
           const bossSelection = document.getElementById('bossSelection');
@@ -2781,7 +2908,7 @@ function showPopup(popupType) {
     }
 
     // Восстановление активного боя
-    if (popupType === 'battle' && gameState?.state.inBattle) {
+    if (popupType === 'battle' && gameState && gameState.state && gameState.state.inBattle) {
       const bossSelection = document.getElementById('bossSelection');
       const combatScreen = document.getElementById('combatScreen');
 
@@ -2822,7 +2949,7 @@ function hidePopup(type) {
     return;
   }
 
-  const popup = document.getElementById(`${type}Popup`);
+  const popup = document.getElementById(type + 'Popup');
   if (popup) {
     popup.classList.remove('active');
     document.body.style.overflow = '';
@@ -2844,7 +2971,7 @@ function hidePopup(type) {
 }
 
 function hideAllPopups() {
-  document.querySelectorAll('.popup').forEach(p => {
+  document.querySelectorAll('.popup').forEach(function(p) {
     p.classList.remove('active');
   });
   document.body.style.overflow = '';
@@ -2885,7 +3012,7 @@ function updateResultPopup() {
   }
 
   if (resultBossImage && bossConfig) {
-    resultBossImage.src = battleResult.victory ? bossConfig.defeatImage || bossConfig.image : bossConfig.image;
+    resultBossImage.src = battleResult.victory ? (bossConfig.defeatImage || bossConfig.image) : bossConfig.image;
     resultBossImage.classList.toggle('defeat-image', !battleResult.victory);
     resultBossImage.classList.toggle('victory-image', battleResult.victory);
   }
@@ -2894,9 +3021,11 @@ function updateResultPopup() {
     if (rewardHoney) rewardHoney.textContent = battleResult.reward.honey || 0;
     if (rewardXP) rewardXP.textContent = battleResult.reward.xp || 0;
 
-    const keys = Object.entries(battleResult.reward.keys || {})
-      .map(([type, amount]) => amount)
-      .reduce((a, b) => a + b, 0);
+    const keys = Object.entries(battleResult.reward.keys || {}).map(function(entry) {
+      return entry[1];
+    }).reduce(function(a, b) {
+      return a + b;
+    }, 0);
 
     if (rewardKeys) rewardKeys.textContent = keys > 0 ? keys : '0';
   } else {
@@ -2914,18 +3043,9 @@ function updateResultPopup() {
       const statsDiv = document.createElement('div');
       statsDiv.id = 'damageStats';
       statsDiv.className = 'damage-stats';
-      statsDiv.innerHTML = `
-        <h3>Статистика урона:</h3>
-        <div class="damage-stats-grid">
-          <div class="damage-stat">🗡️ Базовый: <span id="basicDamageStat">0</span></div>
-          <div class="damage-stat">💥 Критический: <span id="criticalDamageStat">0</span></div>
-          <div class="damage-stat">☠️ Ядовитый: <span id="poisonDamageStat">0</span></div>
-          <div class="damage-stat">🔊 Звуковой: <span id="sonicDamageStat">0</span></div>
-          <div class="damage-stat">🔥 Огненный: <span id="fireDamageStat">0</span></div>
-          <div class="damage-stat">❄️ Ледяной: <span id="iceDamageStat">0</span></div>
-          <div class="damage-stat total">📊 Общий урон: <span id="totalDamageStat">0</span></div>
-        </div>
-      `;
+
+      // Используем конкатенацию строк вместо шаблонных строк
+      statsDiv.innerHTML = '<h3>Статистика урона:</h3><div class="damage-stats-grid"><div class="damage-stat">🗡️ Базовый: <span id="basicDamageStat">0</span></div><div class="damage-stat">💥 Критический: <span id="criticalDamageStat">0</span></div><div class="damage-stat">☠️ Ядовитый: <span id="poisonDamageStat">0</span></div><div class="damage-stat">🔊 Звуковой: <span id="sonicDamageStat">0</span></div><div class="damage-stat">🔥 Огненный: <span id="fireDamageStat">0</span></div><div class="damage-stat">❄️ Ледяной: <span id="iceDamageStat">0</span></div><div class="damage-stat total">📊 Общий урон: <span id="totalDamageStat">0</span></div></div>';
 
       // Вставляем перед кнопками действий
       const actionsDiv = resultBody.querySelector('.result-actions');
@@ -2938,13 +3058,21 @@ function updateResultPopup() {
   // Обновляем значения статистики
   const state = gameState.state;
   if (state.battleStats) {
-    document.getElementById('basicDamageStat').textContent = state.battleStats.basicDamage || 0;
-    document.getElementById('criticalDamageStat').textContent = state.battleStats.criticalDamage || 0;
-    document.getElementById('poisonDamageStat').textContent = state.battleStats.poisonDamage || 0;
-    document.getElementById('sonicDamageStat').textContent = state.battleStats.sonicDamage || 0;
-    document.getElementById('fireDamageStat').textContent = state.battleStats.fireDamage || 0;
-    document.getElementById('iceDamageStat').textContent = state.battleStats.iceDamage || 0;
-    document.getElementById('totalDamageStat').textContent = state.battleStats.totalDamage || 0;
+    const basicDamageStat = document.getElementById('basicDamageStat');
+    const criticalDamageStat = document.getElementById('criticalDamageStat');
+    const poisonDamageStat = document.getElementById('poisonDamageStat');
+    const sonicDamageStat = document.getElementById('sonicDamageStat');
+    const fireDamageStat = document.getElementById('fireDamageStat');
+    const iceDamageStat = document.getElementById('iceDamageStat');
+    const totalDamageStat = document.getElementById('totalDamageStat');
+
+    if (basicDamageStat) basicDamageStat.textContent = state.battleStats.basicDamage || 0;
+    if (criticalDamageStat) criticalDamageStat.textContent = state.battleStats.criticalDamage || 0;
+    if (poisonDamageStat) poisonDamageStat.textContent = state.battleStats.poisonDamage || 0;
+    if (sonicDamageStat) sonicDamageStat.textContent = state.battleStats.sonicDamage || 0;
+    if (fireDamageStat) fireDamageStat.textContent = state.battleStats.fireDamage || 0;
+    if (iceDamageStat) iceDamageStat.textContent = state.battleStats.iceDamage || 0;
+    if (totalDamageStat) totalDamageStat.textContent = state.battleStats.totalDamage || 0;
   }
 }
 
@@ -2970,8 +3098,8 @@ function showDefeatPopupIfNeeded() {
 
 function claimBattleReward() {
   const battleResult = gameState.battleResult;
-  const reward = battleResult?.reward;
-  const bossType = battleResult?.boss?.type;
+  const reward = battleResult && battleResult.reward;
+  const bossType = battleResult && battleResult.boss && battleResult.boss.type;
 
   if (reward) {
     // Добавляем награды
@@ -2985,8 +3113,10 @@ function claimBattleReward() {
 
     // Добавляем ключи
     if (reward.keys) {
-      const newKeys = { ...gameState.state.keys };
-      Object.entries(reward.keys).forEach(([type, amount]) => {
+      const newKeys = Object.assign({}, gameState.state.keys);
+      Object.entries(reward.keys).forEach(function(entry) {
+        const type = entry[0];
+        const amount = entry[1];
         newKeys[type] = (newKeys[type] || 0) + amount;
       });
       gameState.manager.setState({ keys: newKeys });
@@ -3024,7 +3154,9 @@ function claimBattleReward() {
     gameState.battleResult = null;
 
     // Сохраняем после получения награды
-    setTimeout(() => gameState.save(true), 100);
+    setTimeout(function() {
+      gameState.save(true);
+    }, 100);
 
     showMessage('🎉 Награда получена!');
   }
@@ -3048,6 +3180,7 @@ function closeBattleResult() {
   gameState.battleResult = null;
 }
 
+// ВНЕШНЯЯ ФУНКЦИЯ checkLevelUp (не внутри класса)
 function checkLevelUp() {
   const state = gameState.state;
   let levelsGained = 0;
@@ -3055,8 +3188,8 @@ function checkLevelUp() {
   let currentLevel = state.level;
 
   console.log('Проверка уровня:', {
-    currentXP,
-    currentLevel,
+    currentXP: currentXP,
+    currentLevel: currentLevel,
     xpToNextLevel: state.xpToNextLevel
   });
 
@@ -3075,7 +3208,7 @@ function checkLevelUp() {
       xpToNextLevel: newXPToNextLevel
     });
 
-    console.log(`Повышение уровня! Новый уровень: ${currentLevel}, XP до следующего: ${newXPToNextLevel}`);
+    console.log('Повышение уровня! Новый уровень: ' + currentLevel + ', XP до следующего: ' + newXPToNextLevel);
   }
 
   if (levelsGained > 0) {
@@ -3091,29 +3224,35 @@ function checkLevelUp() {
     updateAchievementsUI();
 
     // Сохраняем при повышении уровня
-    setTimeout(() => gameState.save(true), 100);
+    setTimeout(function() {
+      gameState.save(true);
+    }, 100);
   }
 }
 
 function applyLevelBonuses(levels) {
-  const newTalents = { ...gameState.state.talents };
+  const newTalents = Object.assign({}, gameState.state.talents);
   newTalents.basic.damage += 2 * levels;
   gameState.manager.setState({ talents: newTalents });
 
-  const newBoosts = { ...gameState.state.boosts };
+  const newBoosts = Object.assign({}, gameState.state.boosts);
   newBoosts.attackSpeed += 0.03 * levels;
   gameState.manager.setState({ boosts: newBoosts });
 
-  console.log(`Получено ${levels} уровень(ей). Базовый урон: ${newTalents.basic.damage}`);
+  console.log('Получено ' + levels + ' уровень(ей). Базовый урон: ' + newTalents.basic.damage);
 }
 
 // =================== КАСТОМИЗАЦИЯ ===================
 function showTab(tabName) {
-  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(function(tab) {
+    tab.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+  });
 
   const tabElement = document.getElementById(tabName);
-  const button = document.querySelector(`button[onclick="showTab('${tabName}')"]`);
+  const button = document.querySelector('button[onclick="showTab(\'' + tabName + '\')"]');
 
   if (tabElement) tabElement.classList.add('active');
   if (button) button.classList.add('active');
@@ -3121,10 +3260,13 @@ function showTab(tabName) {
 
 async function selectSkin() {
   try {
-    const selectedSkin = document.getElementById('selected-skin').src;
+    const selectedSkinElement = document.getElementById('selected-skin');
+    if (!selectedSkinElement) return;
+
+    const selectedSkin = selectedSkinElement.src;
     const hiveImg = document.querySelector('.hive-img');
     if (hiveImg) {
-      hiveImg.style.backgroundImage = `url('${selectedSkin}')`;
+      hiveImg.style.backgroundImage = 'url(\'' + selectedSkin + '\')';
       gameState.manager.setState({
         currentSkin: selectedSkin,
         isUsingSkin: true
@@ -3155,21 +3297,25 @@ function previewSkin(skin, name) {
 
 function updateSkinButton() {
   const selectButton = document.getElementById('select-skin');
-  const currentSkin = document.getElementById('selected-skin').src;
-  if (selectButton) {
-    if (currentSkin === gameState.state.currentSkin) {
-      selectButton.disabled = true;
-      selectButton.textContent = 'Выбрано';
-    } else {
-      selectButton.disabled = false;
-      selectButton.textContent = 'Выбрать';
-    }
+  const selectedSkinElement = document.getElementById('selected-skin');
+  if (!selectedSkinElement || !selectButton) return;
+
+  const currentSkin = selectedSkinElement.src;
+  if (currentSkin === gameState.state.currentSkin) {
+    selectButton.disabled = true;
+    selectButton.textContent = 'Выбрано';
+  } else {
+    selectButton.disabled = false;
+    selectButton.textContent = 'Выбрать';
   }
 }
 
 async function selectPet() {
   try {
-    const selectedPet = document.getElementById('selected-pet').src;
+    const selectedPetElement = document.getElementById('selected-pet');
+    if (!selectedPetElement) return;
+
+    const selectedPet = selectedPetElement.src;
     const petImg = document.querySelector('#pet-img');
     if (petImg) {
       petImg.src = selectedPet;
@@ -3204,15 +3350,16 @@ function previewPet(pet, name) {
 
 function updatePetButton() {
   const selectButton = document.getElementById('select-pet');
-  const currentPet = document.getElementById('selected-pet').src;
-  if (selectButton) {
-    if (currentPet === gameState.state.currentPet) {
-      selectButton.disabled = true;
-      selectButton.textContent = 'Выбрано';
-    } else {
-      selectButton.disabled = false;
-      selectButton.textContent = 'Выбрать';
-    }
+  const selectedPetElement = document.getElementById('selected-pet');
+  if (!selectedPetElement || !selectButton) return;
+
+  const currentPet = selectedPetElement.src;
+  if (currentPet === gameState.state.currentPet) {
+    selectButton.disabled = true;
+    selectButton.textContent = 'Выбрано';
+  } else {
+    selectButton.disabled = false;
+    selectButton.textContent = 'Выбрать';
   }
 }
 
@@ -3220,7 +3367,7 @@ function updatePetButton() {
 async function claimAchievementReward(type, level) {
   try {
     const state = gameState.state;
-    const newAchievements = { ...state.achievements };
+    const newAchievements = Object.assign({}, state.achievements);
 
     // Определяем награду
     let reward = { honey: 0, xp: 0 };
@@ -3263,7 +3410,7 @@ async function claimAchievementReward(type, level) {
     // Сохраняем
     await gameState.save(true);
 
-    showMessage(`🎉 Получено: ${reward.honey}🍯 + ${reward.xp}⭐`);
+    showMessage('🎉 Получено: ' + reward.honey + '🍯 + ' + reward.xp + '⭐');
 
     return true;
   } catch (error) {
@@ -3284,7 +3431,7 @@ function showMessage(text) {
   msg.className = 'game-message';
   msg.textContent = text;
   document.body.appendChild(msg);
-  setTimeout(() => {
+  setTimeout(function() {
     if (msg.parentNode) {
       msg.remove();
     }
@@ -3294,9 +3441,11 @@ function showMessage(text) {
 function showLevelUpEffect(levels) {
   const div = document.createElement('div');
   div.className = 'level-up';
-  div.textContent = `Уровень +${levels}!`;
+  div.textContent = 'Уровень +' + levels + '!';
   document.body.appendChild(div);
-  setTimeout(() => div.remove(), 2000);
+  setTimeout(function() {
+    div.remove();
+  }, 2000);
 }
 
 function showCriticalEffect(damage) {
@@ -3304,9 +3453,11 @@ function showCriticalEffect(damage) {
 
   const div = document.createElement('div');
   div.className = 'critical-effect';
-  div.textContent = `CRIT! ${damage}`;
+  div.textContent = 'CRIT! ' + damage;
   elements.combatScreen.appendChild(div);
-  setTimeout(() => div.remove(), 1000);
+  setTimeout(function() {
+    div.remove();
+  }, 1000);
 }
 
 function showEnergyWarning() {
@@ -3314,7 +3465,9 @@ function showEnergyWarning() {
   div.className = 'energy-warning';
   div.textContent = 'Недостаточно энергии!';
   document.body.appendChild(div);
-  setTimeout(() => div.remove(), 1500);
+  setTimeout(function() {
+    div.remove();
+  }, 1500);
 }
 
 function showSonicEffect(damage) {
@@ -3322,9 +3475,11 @@ function showSonicEffect(damage) {
 
   const effect = document.createElement('div');
   effect.className = 'sonic-effect';
-  effect.textContent = `🔊 ${damage}`;
+  effect.textContent = '🔊 ' + damage;
   elements.combatScreen.appendChild(effect);
-  setTimeout(() => effect.remove(), 1000);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showFireEffect(damage) {
@@ -3332,10 +3487,12 @@ function showFireEffect(damage) {
 
   const effect = document.createElement('div');
   effect.className = 'fire-effect';
-  effect.textContent = `🔥 ${damage}`;
+  effect.textContent = '🔥 ' + damage;
   effect.style.color = '#ff4400';
   elements.combatScreen.appendChild(effect);
-  setTimeout(() => effect.remove(), 1000);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showIceEffect(damage) {
@@ -3343,10 +3500,12 @@ function showIceEffect(damage) {
 
   const effect = document.createElement('div');
   effect.className = 'ice-effect';
-  effect.textContent = `❄️ ${damage}`;
+  effect.textContent = '❄️ ' + damage;
   effect.style.color = '#00cccc';
   elements.combatScreen.appendChild(effect);
-  setTimeout(() => effect.remove(), 1000);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showBasicEffect(damage) {
@@ -3354,10 +3513,12 @@ function showBasicEffect(damage) {
 
   const effect = document.createElement('div');
   effect.className = 'basic-effect';
-  effect.textContent = `🗡️ ${damage}`;
+  effect.textContent = '🗡️ ' + damage;
   effect.style.color = '#ffd700';
   elements.combatScreen.appendChild(effect);
-  setTimeout(() => effect.remove(), 1000);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showPoisonAttackEffect(damage) {
@@ -3365,7 +3526,7 @@ function showPoisonAttackEffect(damage) {
 
   const effect = document.createElement('div');
   effect.className = 'poison-attack-effect';
-  effect.textContent = `☠️ ${damage}`;
+  effect.textContent = '☠️ ' + damage;
   effect.style.color = '#32CD32';
   elements.combatScreen.appendChild(effect);
   setTimeout(() => effect.remove(), 1000);
@@ -3376,7 +3537,7 @@ function showPoisonDamageEffect(damage) {
 
   const effect = document.createElement('div');
   effect.className = 'poison-damage-effect';
-  effect.textContent = `☠️ ${damage}`;
+  effect.textContent = '☠️ ' + damage;
   effect.style.color = '#32CD32';
   effect.style.position = 'absolute';
   effect.style.left = '50%';
@@ -3429,7 +3590,7 @@ function showPreloader(text = 'Загрузка AIKO TAPBOT...') {
 function updatePreloaderProgress(percent) {
   const progressBar = document.getElementById('preloaderProgress');
   if (progressBar) {
-    progressBar.style.width = `${Math.min(percent, 100)}%`;
+    progressBar.style.width = Math.min(percent, 100) + '%';
   }
 }
 
