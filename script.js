@@ -703,24 +703,8 @@ class OptimizedGameState {
       keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
     } : null;
 
-    // ДОБАВЛЕНО: Корректируем статистику урона перед сохранением
-    const totalDamage = this.state.battleStats.totalDamage || 0;
-
-    if (totalDamage > bossMaxHealth) {
-      const newStats = Object.assign({}, this.state.battleStats);
-      const difference = totalDamage - bossMaxHealth;
-
-      // Распределяем корректировку пропорционально
-      Object.keys(newStats).forEach(function(key) {
-        if (key !== 'totalDamage' && newStats[key] > 0) {
-          const proportion = newStats[key] / (totalDamage - difference);
-          newStats[key] = Math.max(0, Math.round(newStats[key] - (difference * proportion)));
-        }
-      });
-
-      newStats.totalDamage = bossMaxHealth;
-      this.manager.setState({ battleStats: newStats });
-    }
+    // ИСПРАВЛЕНО: Корректируем статистику урона перед сохранением
+    const battleStats = this.calculateAdjustedBattleStats(this.state.battleStats, bossMaxHealth);
 
     // Создаем объект босса для результата
     const bossData = {
@@ -734,7 +718,7 @@ class OptimizedGameState {
         victory: victory,
         boss: bossData,
         reward: reward,
-        battleStats: this.state.battleStats
+        battleStats: battleStats // Используем скорректированную статистику
       },
       pendingBattleResultType: victory ? 'victory' : 'defeat',
       activeBattle: null,
@@ -742,7 +726,8 @@ class OptimizedGameState {
       battleTimeLimit: null,
       inBattle: false,
       currentBoss: null,
-      selectedTalent: null
+      selectedTalent: null,
+      battleStats: battleStats // Также обновляем основную статистику
     });
 
     // Полная очистка ядовитых эффектов
@@ -754,7 +739,8 @@ class OptimizedGameState {
     this.battleResult = {
       victory: victory,
       boss: bossData,
-      reward: reward
+      reward: reward,
+      battleStats: battleStats
     };
 
     console.log('Battle result установлен:', this.battleResult);
@@ -771,6 +757,33 @@ class OptimizedGameState {
     setTimeout(() => {
       this.save(true);
     }, 1000);
+  }
+
+  // ИСПРАВЛЕНО: Новая функция для корректировки статистики урона
+  calculateAdjustedBattleStats(stats, bossMaxHealth) {
+    const newStats = Object.assign({}, stats);
+
+    // Проверяем, не превышает ли общий урон максимальное здоровье босса
+    if (newStats.totalDamage > bossMaxHealth) {
+      // Вычисляем коэффициент корректировки
+      const adjustmentRatio = bossMaxHealth / newStats.totalDamage;
+
+      // Корректируем каждый тип урона
+      const damageTypes = ['basicDamage', 'criticalDamage', 'poisonDamage', 'sonicDamage', 'fireDamage', 'iceDamage'];
+      damageTypes.forEach(type => {
+        if (newStats[type] > 0) {
+          newStats[type] = Math.round(newStats[type] * adjustmentRatio);
+        }
+      });
+
+      // Пересчитываем общий урон как сумму всех типов
+      newStats.totalDamage = damageTypes.reduce((sum, type) => sum + (newStats[type] || 0), 0);
+    }
+
+    // Убедимся, что общий урон не превышает максимальное здоровье
+    newStats.totalDamage = Math.min(newStats.totalDamage, bossMaxHealth);
+
+    return newStats;
   }
 
   calculateReward(battleData) {
@@ -935,12 +948,12 @@ function updateKeysImmediately() {
   });
 }
 
-// ДОБАВЛЕНО: Функция для расчета фактического урона (не превышающего HP босса)
+// ИСПРАВЛЕНО: Функция для расчета фактического урона (не превышающего HP босса)
 function calculateActualDamage(damage, currentHealth) {
   return Math.min(damage, currentHealth);
 }
 
-// ДОБАВЛЕНО: Функция обновления достижений при победе
+// ИСПРАВЛЕНО: Функция обновления достижений при победе
 function updateAchievementsOnVictory(bossType) {
   if (!gameState) return;
 
@@ -1039,6 +1052,24 @@ function updateAchievementElement(type, kills, completed, claimed, config) {
       claimBtn.textContent = isClaimed ? 'Получено' : 'Получить награду';
     }
   }
+}
+
+// ИСПРАВЛЕНО: Функция для обновления статистики урона
+function updateDamageStats(damage, statType) {
+  if (!gameState || !damage || damage <= 0) return;
+
+  const state = gameState.state;
+  const newStats = Object.assign({}, state.battleStats);
+
+  // Добавляем урон к соответствующему типу
+  newStats[statType] = (newStats[statType] || 0) + damage;
+
+  // Пересчитываем общий урон как сумму всех типов
+  const damageTypes = ['basicDamage', 'criticalDamage', 'poisonDamage', 'sonicDamage', 'fireDamage', 'iceDamage'];
+  newStats.totalDamage = damageTypes.reduce((sum, type) => sum + (newStats[type] || 0), 0);
+
+  // Обновляем состояние
+  gameState.manager.setState({ battleStats: newStats });
 }
 
 // =================== ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ ===================
@@ -2607,6 +2638,7 @@ function createTalentButtons() {
   });
 }
 
+// ИСПРАВЛЕНО: Основная функция атаки
 function attack(type) {
   const state = gameState.state;
 
@@ -2637,147 +2669,145 @@ function attack(type) {
   }
 
   // Получаем тип атаки из выбранного таланта
-const attackType = state.selectedTalent;
+  const attackType = state.selectedTalent;
 
-// Обработка крафтовых талантов
-if (attackType === 'sonic' || attackType === 'fire' || attackType === 'ice') {
-  const talent = state.craftedTalents[attackType];
-  if (talent.charges <= 0) {
-    showMessage('Нет зарядов ' + getTalentName(attackType) + ' удара!');
+  // Обработка крафтовых талантов
+  if (attackType === 'sonic' || attackType === 'fire' || attackType === 'ice') {
+    const talent = state.craftedTalents[attackType];
+    if (talent.charges <= 0) {
+      showMessage('Нет зарядов ' + getTalentName(attackType) + ' удара!');
+      gameState.manager.setState({ selectedTalent: null });
+      createTalentButtons();
+      return;
+    }
+    handleCraftedTalentAttack(attackType);
+    return;
+  }
+
+  // Проверяем заряды для обычных талантов
+  if (state.attackCharges[attackType].charges <= 0) {
+    showMessage('Заряды кончились! Купите новые в магазине талантов.');
     gameState.manager.setState({ selectedTalent: null });
     createTalentButtons();
     return;
   }
-  handleCraftedTalentAttack(attackType);
-  return;
-}
 
-// Проверяем заряды для обычных талантов
-if (state.attackCharges[attackType].charges <= 0) {
-  showMessage('Заряды кончились! Купите новые в магазине талантов.');
-  gameState.manager.setState({ selectedTalent: null });
-  createTalentButtons();
-  return;
-}
+  // Уменьшаем заряды
+  const newCharges = Object.assign({}, state.attackCharges);
+  if (newCharges[attackType].charges > 0) {
+    newCharges[attackType].charges--;
+    gameState.manager.setState({ attackCharges: newCharges });
+    // Мгновенное обновление отображения зарядов
+    updateChargeDisplay(attackType);
+  } else {
+    showMessage('Заряды кончились!');
+    gameState.manager.setState({ selectedTalent: null });
+    createTalentButtons();
+    return;
+  }
 
-// Уменьшаем заряды
-const newCharges = Object.assign({}, state.attackCharges);
-if (newCharges[attackType].charges > 0) {
-  newCharges[attackType].charges--;
-  gameState.manager.setState({ attackCharges: newCharges });
-  // Мгновенное обновление отображения зарядов
-  updateChargeDisplay(attackType);
-} else {
-  showMessage('Заряды кончились!');
-  gameState.manager.setState({ selectedTalent: null });
-  createTalentButtons();
-  return;
-}
+  // Наносим урон
+  let damage = 0;
+  let actualDamage = 0;
+  let statType = '';
 
-// Наносим урон
-let damage = 0;
-let actualDamage = 0;
-switch (attackType) {
-  case 'basic':
-    damage = calculateBasicDamage();
-    // Ограничиваем урон здоровьем босса
-    actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-    showBasicEffect(actualDamage);
-    break;
-  case 'critical':
-    damage = calculateBasicDamage();
-    if (Math.random() < state.talents.critical.chance) {
-      damage *= 2;
-      // Ограничиваем урон здоровьем босса
+  switch (attackType) {
+    case 'basic':
+      damage = calculateBasicDamage();
       actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-      showCriticalEffect(actualDamage);
-    } else {
-      // Ограничиваем урон здоровьем босса
-      actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
+      statType = 'basicDamage';
       showBasicEffect(actualDamage);
-    }
-    break;
-  case 'poison':
-    startPoisonEffect();
-    return; // Яд не наносит мгновенного урона
+      break;
+    case 'critical':
+      damage = calculateBasicDamage();
+      if (Math.random() < state.talents.critical.chance) {
+        damage *= 2;
+        actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
+        statType = 'criticalDamage';
+        showCriticalEffect(actualDamage);
+      } else {
+        actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
+        statType = 'basicDamage';
+        showBasicEffect(actualDamage);
+      }
+      break;
+    case 'poison':
+      startPoisonEffect();
+      return; // Яд не наносит мгновенного урона
+  }
+
+  // Применяем урон к боссу
+  applyDamageToBoss(actualDamage, statType);
+
+  // Обновляем UI
+  updateCombatUI();
+  updateTalentBuyTab();
+
+  // Сохраняем состояние после атаки
+  setTimeout(function() {
+    gameState.save(true);
+  }, 100);
 }
 
-// Применяем урон к боссу обычным способом
-applyDamageToBoss(actualDamage, attackType === 'basic' ? 'basicDamage' : 'criticalDamage');
-
-// Обновляем UI
-updateCombatUI();
-updateTalentBuyTab();
-
-// Сохраняем состояние после атаки
-setTimeout(function() {
-  gameState.save(true);
-}, 100);
-}
-
+// ИСПРАВЛЕНО: Функция для крафтовых талантов
 function handleCraftedTalentAttack(type) {
-const state = gameState.state;
+  const state = gameState.state;
 
-if (!state.inBattle) {
-  console.warn('Попытка использовать крафтовый талант вне боя');
-  return;
+  if (!state.inBattle) {
+    console.warn('Попытка использовать крафтовый талант вне боя');
+    return;
+  }
+
+  const talent = state.craftedTalents[type];
+
+  if (talent.charges <= 0) {
+    showMessage('Нет зарядов ' + getTalentName(type) + ' удара!');
+    return;
+  }
+
+  // Уменьшаем заряды
+  const newCraftedTalents = Object.assign({}, state.craftedTalents);
+  if (newCraftedTalents[type].charges > 0) {
+    newCraftedTalents[type].charges--;
+    gameState.manager.setState({ craftedTalents: newCraftedTalents });
+  } else {
+    showMessage('Нет зарядов ' + getTalentName(type) + ' удара!');
+    gameState.manager.setState({ selectedTalent: null });
+    createTalentButtons();
+    return;
+  }
+
+  // Наносим урон
+  const damage = talent.damage * (talent.level || 1);
+  const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
+  const statType = type + 'Damage';
+
+  // Применяем урон
+  applyDamageToBoss(actualDamage, statType);
+
+  // Показываем эффект
+  switch (type) {
+    case 'sonic':
+      showSonicEffect(actualDamage);
+      break;
+    case 'fire':
+      showFireEffect(actualDamage);
+      break;
+    case 'ice':
+      showIceEffect(actualDamage);
+      break;
+  }
+
+  // Обновляем UI
+  updateCombatUI();
+
+  // Сохраняем состояние после атаки
+  setTimeout(function() {
+    gameState.save(true);
+  }, 100);
 }
 
-const talent = state.craftedTalents[type];
-
-if (talent.charges <= 0) {
-  showMessage('Нет зарядов ' + getTalentName(type) + ' удара!');
-  return;
-}
-
-// Уменьшаем заряды
-const newCraftedTalents = Object.assign({}, state.craftedTalents);
-if (newCraftedTalents[type].charges > 0) {
-  newCraftedTalents[type].charges--;
-  gameState.manager.setState({ craftedTalents: newCraftedTalents });
-} else {
-  showMessage('Нет зарядов ' + getTalentName(type) + ' удара!');
-  gameState.manager.setState({ selectedTalent: null });
-  createTalentButtons();
-  return;
-}
-
-// Наносим урон
-const damage = talent.damage * (talent.level || 1);
-
-// Ограничиваем урон максимальным здоровьем босса
-const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-
-// Обновляем достижения ПЕРЕД завершением боя
-if (state.currentBoss && actualDamage >= state.currentBoss.currentHealth) {
-  updateAchievementsOnVictory(state.currentBoss.type);
-
-  // Немедленно завершаем бой с победой
-  setTimeout(() => {
-    gameState.endBattle(true, state.currentBoss.type, state.currentBoss.maxHealth);
-  }, 10);
-
-  // Немедленно показываем результат
-  setTimeout(() => {
-    updateResultPopup();
-    showBattleResultPopup();
-  }, 300);
-} else {
-  // Применяем урон к боссу обычным способом
-  const statName = type + 'Damage';
-  applyDamageToBoss(actualDamage, statName);
-}
-
-// Обновляем UI
-updateCombatUI();
-
-// Сохраняем состояние после атаки
-setTimeout(function() {
-  gameState.save(true);
-}, 100);
-}
-
-// =================== ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ НАНЕСЕНИЯ УРОНА БОССУ ===================
+// ИСПРАВЛЕНО: Функция для нанесения урона боссу
 function applyDamageToBoss(damage, damageType = null) {
   const state = gameState.state;
   if (!state.currentBoss || !state.inBattle) return;
@@ -2808,32 +2838,9 @@ function applyDamageToBoss(damage, damageType = null) {
     activeBattle: newActiveBattle
   });
 
-  // Обновляем статистику с actualDamage
-  if (damageType) {
-    const newStats = Object.assign({}, state.battleStats);
-
-    // Добавляем урон к соответствующему типу
-    if (damageType === 'basicDamage' || damageType === 'criticalDamage') {
-      newStats[damageType] = (newStats[damageType] || 0) + actualDamage;
-    } else if (damageType.endsWith('Damage')) {
-      newStats[damageType] = (newStats[damageType] || 0) + actualDamage;
-    }
-
-    // Обновляем общий урон
-    newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
-
-    // Корректируем статистику, чтобы общий урон не превышал максимальное здоровье
-    if (newStats.totalDamage > bossMaxHealth) {
-      const difference = newStats.totalDamage - bossMaxHealth;
-      newStats.totalDamage = bossMaxHealth;
-
-      // Корректируем соответствующий тип урона
-      if (damageType === 'basicDamage' || damageType === 'criticalDamage' || damageType.endsWith('Damage')) {
-        newStats[damageType] = Math.max(0, newStats[damageType] - difference);
-      }
-    }
-
-    gameState.manager.setState({ battleStats: newStats });
+  // Обновляем статистику урона
+  if (damageType && actualDamage > 0) {
+    updateDamageStats(actualDamage, damageType);
   }
 
   // СРАЗУ проверяем смерть босса и обновляем UI
@@ -2859,237 +2866,166 @@ function applyDamageToBoss(damage, damageType = null) {
   updateCombatUI();
 }
 
-// =================== ОБНОВЛЕННЫЕ ТАЙМЕРЫ ЯДА ===================
+// ИСПРАВЛЕНО: Обновленные таймеры яда
 function updatePoisonTimersDisplay() {
-const container = document.getElementById('poisonTimersContainer');
-if (!container) return;
+  const container = document.getElementById('poisonTimersContainer');
+  if (!container) return;
 
-container.innerHTML = '';
+  container.innerHTML = '';
 
-// Создаем копию для безопасной итерации
-const effects = Array.from(gameState.battleEffects);
-let hasActiveEffects = false;
+  // Создаем копию для безопасной итерации
+  const effects = Array.from(gameState.battleEffects);
+  let hasActiveEffects = false;
 
-effects.forEach(function(effect) {
-  if (effect.duration > 0) {
-    const timer = document.createElement('div');
-    timer.className = 'poison-timer';
-    timer.innerHTML = '☠️ ' + effect.duration + 's';
-    container.appendChild(timer);
-    hasActiveEffects = true;
+  effects.forEach(function(effect) {
+    if (effect.duration > 0) {
+      const timer = document.createElement('div');
+      timer.className = 'poison-timer';
+      timer.innerHTML = '☠️ ' + effect.duration + 's';
+      container.appendChild(timer);
+      hasActiveEffects = true;
 
-    // Уменьшаем только для отображения, сохраняя оригинальное duration для логики
-    effect.displayDuration = (effect.displayDuration || effect.duration) - 1;
+      // Уменьшаем только для отображения, сохраняя оригинальное duration для логики
+      effect.displayDuration = (effect.displayDuration || effect.duration) - 1;
+    }
+  });
+
+  // Если нет активных эффектов, но контейнер не пустой - очищаем
+  if (!hasActiveEffects && container.children.length > 0) {
+    setTimeout(() => {
+      container.innerHTML = '';
+    }, 100);
   }
-});
-
-// Если нет активных эффектов, но контейнер не пустой - очищаем
-if (!hasActiveEffects && container.children.length > 0) {
-  setTimeout(() => {
-    container.innerHTML = '';
-  }, 100);
-}
 }
 
 function startPoisonEffect() {
-const state = gameState.state;
-const poisonDamage = state.talents.poison.damage;
-const duration = talentsConfig.poison.getDuration(state.talents.poison.level);
-
-showPoisonAttackEffect(poisonDamage);
-
-const effect = {
-  damage: poisonDamage,
-  duration: duration,
-  displayDuration: duration,
-  interval: null,
-  timer: null
-};
-
-// Первый тик сразу
-applyPoisonTick(effect);
-
-// Последующие тики
-effect.interval = setInterval(function() {
-  applyPoisonTick(effect);
-}, 1000);
-
-// Остановка через duration секунд
-effect.timer = setTimeout(function() {
-  if (effect.interval) clearInterval(effect.interval);
-  gameState.battleEffects.delete(effect);
-  updatePoisonTimersDisplay();
-}, duration * 1000);
-
-gameState.battleEffects.add(effect);
-updatePoisonTimersDisplay();
-}
-
-function applyPoisonTick(effect) {
-const state = gameState.state;
-if (!state.inBattle || !state.currentBoss) {
-  clearInterval(effect.interval);
-  gameState.battleEffects.delete(effect);
-  updatePoisonTimersDisplay();
-  return;
-}
-
-const damage = effect.damage;
-
-// Ограничиваем урон максимальным здоровьем босса
-const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
-const newHealth = Math.max(0, state.currentBoss.currentHealth - actualDamage);
-
-const newBoss = Object.assign({}, state.currentBoss, {
-  currentHealth: newHealth
-});
-
-// Обновляем статистику с ограничением
-const newStats = Object.assign({}, state.battleStats);
-const currentPoisonDamage = newStats.poisonDamage || 0;
-const bossMaxHealth = state.currentBoss.maxHealth;
-const totalDamageAfterThis = (newStats.totalDamage || 0) + actualDamage;
-
-// Проверяем, не превышает ли общий урон максимальное здоровье
-if (totalDamageAfterThis > bossMaxHealth) {
-  const allowedDamage = bossMaxHealth - (newStats.totalDamage || 0);
-  if (allowedDamage > 0) {
-    newStats.poisonDamage = currentPoisonDamage + allowedDamage;
-    newStats.totalDamage = bossMaxHealth;
-  }
-} else {
-  newStats.poisonDamage = currentPoisonDamage + actualDamage;
-  newStats.totalDamage = totalDamageAfterThis;
-}
-
-gameState.manager.setState({
-  currentBoss: newBoss,
-  battleStats: newStats
-});
-
-showPoisonDamageEffect(actualDamage);
-updateCombatUI();
-
-// Уменьшаем длительность эффекта
-effect.duration -= 1;
-effect.displayDuration = effect.duration;
-
-// Обновляем отображение таймеров
-updatePoisonTimersDisplay();
-
-if (effect.duration <= 0) {
-  clearInterval(effect.interval);
-  if (effect.timer) clearTimeout(effect.timer);
-  gameState.battleEffects.delete(effect);
-  updatePoisonTimersDisplay();
-}
-
-// Немедленная победа при смерти от яда с обновлением достижений
-if (newHealth <= 0) {
-  clearInterval(effect.interval);
-  if (effect.timer) clearTimeout(effect.timer);
-  gameState.battleEffects.delete(effect);
-  updatePoisonTimersDisplay();
-
-  // Обновляем достижения ДО завершения боя
-  updateAchievementsOnVictory(state.currentBoss.type);
-
-  // Немедленно завершаем бой
-  setTimeout(() => {
-    gameState.endBattle(true, state.currentBoss.type, state.currentBoss.maxHealth);
-  }, 10);
-
-  // Немедленно показываем результат
-  setTimeout(() => {
-    updateResultPopup();
-    showBattleResultPopup();
-  }, 300);
-}
-
-setTimeout(function() {
-  gameState.save(true);
-}, 100);
-}
-
-function updateBattleStats(stat, damage) {
   const state = gameState.state;
-  if (!state.currentBoss) return;
+  const poisonDamage = state.talents.poison.damage;
+  const duration = talentsConfig.poison.getDuration(state.talents.poison.level);
 
-  // Всегда ограничиваем урон текущим здоровьем босса
-  const remainingHealth = state.currentBoss.currentHealth;
-  const actualDamage = calculateActualDamage(damage, remainingHealth);
+  showPoisonAttackEffect(poisonDamage);
 
-  const newStats = Object.assign({}, state.battleStats);
-  newStats[stat] = (newStats[stat] || 0) + actualDamage;
-  newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
+  const effect = {
+    damage: poisonDamage,
+    duration: duration,
+    displayDuration: duration,
+    interval: null,
+    timer: null
+  };
 
-  // Проверяем, чтобы общий урон не превышал максимальное здоровье босса
-  if (newStats.totalDamage > state.currentBoss.maxHealth) {
-    // Корректируем общий урон
-    const maxPossibleDamage = state.currentBoss.maxHealth;
-    const difference = newStats.totalDamage - maxPossibleDamage;
+  // Первый тик сразу
+  applyPoisonTick(effect);
 
-    // Корректируем текущий тип урона
-    newStats[stat] = Math.max(0, newStats[stat] - difference);
-    newStats.totalDamage = maxPossibleDamage;
+  // Последующие тики
+  effect.interval = setInterval(function() {
+    applyPoisonTick(effect);
+  }, 1000);
+
+  // Остановка через duration секунд
+  effect.timer = setTimeout(function() {
+    if (effect.interval) clearInterval(effect.interval);
+    gameState.battleEffects.delete(effect);
+    updatePoisonTimersDisplay();
+  }, duration * 1000);
+
+  gameState.battleEffects.add(effect);
+  updatePoisonTimersDisplay();
+}
+
+// ИСПРАВЛЕНО: Функция для тика яда
+function applyPoisonTick(effect) {
+  const state = gameState.state;
+  if (!state.inBattle || !state.currentBoss) {
+    clearInterval(effect.interval);
+    gameState.battleEffects.delete(effect);
+    updatePoisonTimersDisplay();
+    return;
   }
 
-  gameState.manager.setState({ battleStats: newStats });
+  const damage = effect.damage;
+
+  // Ограничиваем урон максимальным здоровьем босса
+  const actualDamage = calculateActualDamage(damage, state.currentBoss.currentHealth);
+
+  // Используем ту же функцию для нанесения урона
+  applyDamageToBoss(actualDamage, 'poisonDamage');
+
+  // Показываем эффект урона
+  showPoisonDamageEffect(actualDamage);
+
+  // Уменьшаем длительность эффекта
+  effect.duration -= 1;
+  effect.displayDuration = effect.duration;
+
+  // Обновляем отображение таймеров
+  updatePoisonTimersDisplay();
+
+  if (effect.duration <= 0) {
+    clearInterval(effect.interval);
+    if (effect.timer) clearTimeout(effect.timer);
+    gameState.battleEffects.delete(effect);
+    updatePoisonTimersDisplay();
+  }
+
+  // Сохраняем состояние
+  setTimeout(function() {
+    gameState.save(true);
+  }, 100);
 }
 
 function updateCombatUI() {
-const state = gameState.state;
-if (!state.currentBoss) return;
+  const state = gameState.state;
+  if (!state.currentBoss) return;
 
-if (state.currentBoss.currentHealth < 0) {
-  state.currentBoss.currentHealth = 0;
-}
-
-const healthPercent = (state.currentBoss.currentHealth / state.currentBoss.maxHealth) * 100;
-if (elements.bossHealth) elements.bossHealth.style.width = healthPercent + '%';
-if (elements.currentHealth) elements.currentHealth.textContent = state.currentBoss.currentHealth;
-
-const bossCombatImage = document.getElementById('bossCombatImage');
-if (bossCombatImage) {
-  if (healthPercent <= 25) {
-    bossCombatImage.src = 'img/' + state.currentBoss.type + '_critical.jpg';
-  } else if (healthPercent <= 50) {
-    bossCombatImage.src = 'img/' + state.currentBoss.type + '_wounded.jpg';
-  } else {
-    bossCombatImage.src = gameConfig.bosses[state.currentBoss.type].image;
+  if (state.currentBoss.currentHealth < 0) {
+    state.currentBoss.currentHealth = 0;
   }
-}
+
+  const healthPercent = (state.currentBoss.currentHealth / state.currentBoss.maxHealth) * 100;
+  if (elements.bossHealth) elements.bossHealth.style.width = healthPercent + '%';
+  if (elements.currentHealth) elements.currentHealth.textContent = state.currentBoss.currentHealth;
+
+  const bossCombatImage = document.getElementById('bossCombatImage');
+  if (bossCombatImage) {
+    if (healthPercent <= 25) {
+      bossCombatImage.src = 'img/' + state.currentBoss.type + '_critical.jpg';
+    } else if (healthPercent <= 50) {
+      bossCombatImage.src = 'img/' + state.currentBoss.type + '_wounded.jpg';
+    } else {
+      bossCombatImage.src = gameConfig.bosses[state.currentBoss.type].image;
+    }
+  }
 }
 
 function calculateDamage(type) {
-const state = gameState.state;
+  const state = gameState.state;
 
-switch (type) {
-  case 'basic':
-    return calculateBasicDamage();
-  case 'critical':
-    return Math.random() < state.talents.critical.chance ?
-      calculateBasicDamage() * 2 :
-      calculateBasicDamage();
-  case 'poison':
-    return state.talents.poison.damage;
-  case 'sonic':
-    return state.craftedTalents.sonic.damage;
-  case 'fire':
-    return state.craftedTalents.fire.damage;
-  case 'ice':
-    return state.craftedTalents.ice.damage;
-  default:
-    return 0;
-}
+  switch (type) {
+    case 'basic':
+      return calculateBasicDamage();
+    case 'critical':
+      return Math.random() < state.talents.critical.chance ?
+        calculateBasicDamage() * 2 :
+        calculateBasicDamage();
+    case 'poison':
+      return state.talents.poison.damage;
+    case 'sonic':
+      return state.craftedTalents.sonic.damage;
+    case 'fire':
+      return state.craftedTalents.fire.damage;
+    case 'ice':
+      return state.craftedTalents.ice.damage;
+    default:
+      return 0;
+  }
 }
 
 function calculateBasicDamage() {
-const state = gameState.state;
-let damage = state.talents.basic.damage;
-damage *= state.boosts.attackSpeed;
-if (state.boosts.shield) damage *= 0.7;
-return Math.round(damage);
+  const state = gameState.state;
+  let damage = state.talents.basic.damage;
+  damage *= state.boosts.attackSpeed;
+  if (state.boosts.shield) damage *= 0.7;
+  return Math.round(damage);
 }
 
 // =================== ОБРАБОТЧИКИ КЛИКОВ ===================
@@ -3098,354 +3034,392 @@ const CLICK_COOLDOWN = 50;
 let clickTimestamps = [];
 
 function handleHiveClick(e) {
-const now = Date.now();
+  const now = Date.now();
 
-// Защита от спама кликами
-clickTimestamps = clickTimestamps.filter(time => now - time < 1000);
-if (clickTimestamps.length >= 20) {
-  showMessage('⚠️ Слишком быстро!');
-  return;
-}
+  // Защита от спама кликами
+  clickTimestamps = clickTimestamps.filter(time => now - time < 1000);
+  if (clickTimestamps.length >= 20) {
+    showMessage('⚠️ Слишком быстро!');
+    return;
+  }
 
-if (now - lastClickTime < CLICK_COOLDOWN) return;
+  if (now - lastClickTime < CLICK_COOLDOWN) return;
 
-lastClickTime = now;
-clickTimestamps.push(now);
+  lastClickTime = now;
+  clickTimestamps.push(now);
 
-const state = gameState.state;
+  const state = gameState.state;
 
-// Если в бою и выбран талант
-if (state.inBattle && state.selectedTalent) {
-  handleBattleClick(e);
-  return;
-}
+  // Если в бою и выбран талант
+  if (state.inBattle && state.selectedTalent) {
+    handleBattleClick(e);
+    return;
+  }
 
-// Проверка энергии
-if (state.energy <= 0) {
-  showEnergyWarning();
-  return;
-}
+  // Проверка энергии
+  if (state.energy <= 0) {
+    showEnergyWarning();
+    return;
+  }
 
-// Обычный клик
-const multiplier = state.boosts.multiclick ? 2 : 1;
+  // Обычный клик
+  const multiplier = state.boosts.multiclick ? 2 : 1;
 
-gameState.scheduleUIUpdate('honey', state.honey + 1 * multiplier);
-gameState.scheduleUIUpdate('energy', Math.max(0, state.energy - 1));
+  gameState.scheduleUIUpdate('honey', state.honey + 1 * multiplier);
+  gameState.scheduleUIUpdate('energy', Math.max(0, state.energy - 1));
 
-// Анимация
-const hive = e.currentTarget;
-hive.style.transform = 'scale(0.95)';
-setTimeout(function() {
-  hive.style.transform = 'scale(1)';
-}, 100);
+  // Анимация
+  const hive = e.currentTarget;
+  hive.style.transform = 'scale(0.95)';
+  setTimeout(function() {
+    hive.style.transform = 'scale(1)';
+  }, 100);
 
-// Создаем эффект
-createClickEffect(e);
+  // Создаем эффект
+  createClickEffect(e);
 
-// Автосохранение
-gameState.save();
+  // Автосохранение
+  gameState.save();
 }
 
 function handleBattleClick(e) {
-const state = gameState.state;
-if (!state.inBattle || !state.selectedTalent) return;
+  const state = gameState.state;
+  if (!state.inBattle || !state.selectedTalent) return;
 
-const clickArea = document.querySelector('.click-area');
-if (!clickArea) return;
+  const clickArea = document.querySelector('.click-area');
+  if (!clickArea) return;
 
-const rect = clickArea.getBoundingClientRect();
-const x = e.clientX - rect.left;
-const y = e.clientY - rect.top;
+  const rect = clickArea.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
 
-// Эффект урона
-const damageEffect = document.createElement('div');
-damageEffect.className = 'damage-effect';
-damageEffect.style.left = x + 'px';
-damageEffect.style.top = y + 'px';
+  // Эффект урона
+  const damageEffect = document.createElement('div');
+  damageEffect.className = 'damage-effect';
+  damageEffect.style.left = x + 'px';
+  damageEffect.style.top = y + 'px';
 
-const damage = calculateDamage(state.selectedTalent);
-damageEffect.textContent = '-' + damage;
+  const damage = calculateDamage(state.selectedTalent);
+  damageEffect.textContent = '-' + damage;
 
-clickArea.appendChild(damageEffect);
-setTimeout(function() {
-  damageEffect.remove();
-}, 800);
+  clickArea.appendChild(damageEffect);
+  setTimeout(function() {
+    damageEffect.remove();
+  }, 800);
 
-// Атака
-attack(state.selectedTalent);
+  // Атака
+  attack(state.selectedTalent);
 
-// Вибрация (если поддерживается)
-if (navigator.vibrate) navigator.vibrate(30);
+  // Вибрация (если поддерживается)
+  if (navigator.vibrate) navigator.vibrate(30);
 }
 
 function createClickEffect(e) {
-const rect = e.currentTarget.getBoundingClientRect();
-const heart = document.createElement('div');
-heart.className = 'heart-effect';
-heart.innerHTML = '❤️';
+  const rect = e.currentTarget.getBoundingClientRect();
+  const heart = document.createElement('div');
+  heart.className = 'heart-effect';
+  heart.innerHTML = '❤️';
 
-const x = Math.random() * rect.width;
-const y = Math.random() * rect.height;
+  const x = Math.random() * rect.width;
+  const y = Math.random() * rect.height;
 
-heart.style.left = x + 'px';
-heart.style.top = y + 'px';
+  heart.style.left = x + 'px';
+  heart.style.top = y + 'px';
 
-e.currentTarget.appendChild(heart);
-setTimeout(function() {
-  heart.remove();
-}, 1000);
+  e.currentTarget.appendChild(heart);
+  setTimeout(function() {
+    heart.remove();
+  }, 1000);
 }
 
 // =================== УПРАВЛЕНИЕ ПОПАПАМИ ===================
 function showPopup(popupType) {
-// ДОБАВЛЕНО: Если это попап битвы, проверяем наличие необработанного результата
-if (popupType === 'battle') {
-  // Показываем результаты битвы ТОЛЬКО если они есть и еще не были показаны
-  if (gameState && gameState.battleResult && !battleResultShown) {
-    // Задержка для корректного отображения UI
-    setTimeout(() => {
-      updateResultPopup();
-      showBattleResultPopup();
-      battleResultShown = true;
-    }, 300);
-  }
-}
-
-hideAllPopups();
-const popup = document.getElementById(popupType + 'Popup');
-if (popup) {
-  popup.classList.add('active');
-  document.body.style.overflow = 'hidden';
-
-  // Особые действия при открытии определенных попапов
-  if (popupType === 'friends') {
-    loadFriendsList();
-  }
-
-  // Для попапа битвы: восстановление активного боя
-  if (popupType === 'battle' && gameState && gameState.state && gameState.state.inBattle) {
-    const bossSelection = document.getElementById('bossSelection');
-    const combatScreen = document.getElementById('combatScreen');
-
-    if (bossSelection && combatScreen) {
-      bossSelection.style.display = 'none';
-      combatScreen.style.display = 'block';
-      createTalentButtons();
+  // ДОБАВЛЕНО: Если это попап битвы, проверяем наличие необработанного результата
+  if (popupType === 'battle') {
+    // Показываем результаты битвы ТОЛЬКО если они есть и еще не были показаны
+    if (gameState && gameState.battleResult && !battleResultShown) {
+      // Задержка для корректного отображения UI
+      setTimeout(() => {
+        updateResultPopup();
+        showBattleResultPopup();
+        battleResultShown = true;
+      }, 300);
     }
   }
 
-  // Показываем кнопку "Назад" в Telegram
-  if (tg && tg.BackButton) {
-    tg.BackButton.show();
+  hideAllPopups();
+  const popup = document.getElementById(popupType + 'Popup');
+  if (popup) {
+    popup.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // Особые действия при открытии определенных попапов
+    if (popupType === 'friends') {
+      loadFriendsList();
+    }
+
+    // Для попапа битвы: восстановление активного боя
+    if (popupType === 'battle' && gameState && gameState.state && gameState.state.inBattle) {
+      const bossSelection = document.getElementById('bossSelection');
+      const combatScreen = document.getElementById('combatScreen');
+
+      if (bossSelection && combatScreen) {
+        bossSelection.style.display = 'none';
+        combatScreen.style.display = 'block';
+        createTalentButtons();
+      }
+    }
+
+    // Показываем кнопку "Назад" в Telegram
+    if (tg && tg.BackButton) {
+      tg.BackButton.show();
+    }
   }
-}
 }
 
 function showBattleResultPopup() {
-hideAllPopups();
-const resultPopup = document.getElementById('battleResultPopup');
-if (resultPopup) {
-  resultPopup.classList.add('active');
-  document.body.style.overflow = 'hidden';
+  hideAllPopups();
+  const resultPopup = document.getElementById('battleResultPopup');
+  if (resultPopup) {
+    resultPopup.classList.add('active');
+    document.body.style.overflow = 'hidden';
 
-  // Показываем кнопку "Назад" в Telegram
-  if (tg && tg.BackButton) {
-    tg.BackButton.show();
+    // Показываем кнопку "Назад" в Telegram
+    if (tg && tg.BackButton) {
+      tg.BackButton.show();
+    }
   }
-}
 }
 
 function hidePopup(type) {
-if (type === 'battleResult') {
-  const resultPopup = document.getElementById('battleResultPopup');
-  if (resultPopup) {
-    resultPopup.classList.remove('active');
-  }
-  return;
-}
-
-const popup = document.getElementById(type + 'Popup');
-if (popup) {
-  popup.classList.remove('active');
-  document.body.style.overflow = '';
-
-  if (type === 'battle') {
-    gameState.manager.setState({ selectedTalent: null });
-    if (!gameState.state.inBattle) {
-      const combatScreen = document.getElementById('combatScreen');
-      if (combatScreen) combatScreen.style.display = 'none';
+  if (type === 'battleResult') {
+    const resultPopup = document.getElementById('battleResultPopup');
+    if (resultPopup) {
+      resultPopup.classList.remove('active');
     }
-    createTalentButtons();
+    return;
   }
 
-  // Скрываем кнопку "Назад" в Telegram если нет открытых попапов
-  if (tg && tg.BackButton && !document.querySelector('.popup.active')) {
-    tg.BackButton.hide();
+  const popup = document.getElementById(type + 'Popup');
+  if (popup) {
+    popup.classList.remove('active');
+    document.body.style.overflow = '';
+
+    if (type === 'battle') {
+      gameState.manager.setState({ selectedTalent: null });
+      if (!gameState.state.inBattle) {
+        const combatScreen = document.getElementById('combatScreen');
+        if (combatScreen) combatScreen.style.display = 'none';
+      }
+      createTalentButtons();
+    }
+
+    // Скрываем кнопку "Назад" в Telegram если нет открытых попапов
+    if (tg && tg.BackButton && !document.querySelector('.popup.active')) {
+      tg.BackButton.hide();
+    }
   }
-}
 }
 
 function hideAllPopups() {
-document.querySelectorAll('.popup').forEach(function(p) {
-  p.classList.remove('active');
-});
-document.body.style.overflow = '';
+  document.querySelectorAll('.popup').forEach(function(p) {
+    p.classList.remove('active');
+  });
+  document.body.style.overflow = '';
 
-// Скрываем кнопку "Назад" в Telegram
-if (tg && tg.BackButton) {
-  tg.BackButton.hide();
-}
+  // Скрываем кнопку "Назад" в Telegram
+  if (tg && tg.BackButton) {
+    tg.BackButton.hide();
+  }
 }
 
 // =================== ПОПАП РЕЗУЛЬТАТОВ БИТВЫ ===================
 function updateResultPopup() {
-if (!gameState.battleResult) return;
+  if (!gameState.battleResult) return;
 
-const resultTitle = document.getElementById('resultTitle');
-const resultBossImage = document.getElementById('resultBossImage');
-const rewardHoney = document.getElementById('rewardHoney');
-const rewardXP = document.getElementById('rewardXP');
-const rewardKeys = document.getElementById('rewardKeys');
-const claimBtn = document.getElementById('claimRewardButton');
-const closeBtn = document.getElementById('closeResultButton');
+  const resultTitle = document.getElementById('resultTitle');
+  const resultBossImage = document.getElementById('resultBossImage');
+  const rewardHoney = document.getElementById('rewardHoney');
+  const rewardXP = document.getElementById('rewardXP');
+  const rewardKeys = document.getElementById('rewardKeys');
+  const claimBtn = document.getElementById('claimRewardButton');
+  const closeBtn = document.getElementById('closeResultButton');
 
-const battleResult = gameState.battleResult;
-const bossConfig = gameConfig.bosses[battleResult.boss.type];
+  const battleResult = gameState.battleResult;
+  const bossConfig = gameConfig.bosses[battleResult.boss.type];
 
-if (resultTitle) {
-  if (battleResult.victory) {
-    resultTitle.textContent = "ПОБЕДА!";
-    resultTitle.style.color = "#4CAF50";
-    if (claimBtn) claimBtn.style.display = 'block';
-    if (closeBtn) closeBtn.style.display = 'none';
+  if (resultTitle) {
+    if (battleResult.victory) {
+      resultTitle.textContent = "ПОБЕДА!";
+      resultTitle.style.color = "#4CAF50";
+      if (claimBtn) claimBtn.style.display = 'block';
+      if (closeBtn) closeBtn.style.display = 'none';
+    } else {
+      resultTitle.textContent = "ПОРАЖЕНИЕ";
+      resultTitle.style.color = "#f44336";
+      if (claimBtn) claimBtn.style.display = 'none';
+      if (closeBtn) closeBtn.style.display = 'block';
+    }
+  }
+
+  if (resultBossImage && bossConfig) {
+    resultBossImage.src = battleResult.victory ? (bossConfig.defeatImage || bossConfig.image) : bossConfig.image;
+    resultBossImage.classList.toggle('defeat-image', !battleResult.victory);
+    resultBossImage.classList.toggle('victory-image', battleResult.victory);
+  }
+
+  if (battleResult.reward) {
+    if (rewardHoney) rewardHoney.textContent = battleResult.reward.honey || 0;
+    if (rewardXP) rewardXP.textContent = battleResult.reward.xp || 0;
+
+    const keys = Object.entries(battleResult.reward.keys || {}).map(function(entry) {
+      return entry[1];
+    }).reduce(function(a, b) {
+      return a + b;
+    }, 0);
+
+    if (rewardKeys) rewardKeys.textContent = keys > 0 ? keys : '0';
   } else {
-    resultTitle.textContent = "ПОРАЖЕНИЕ";
-    resultTitle.style.color = "#f44336";
-    if (claimBtn) claimBtn.style.display = 'none';
-    if (closeBtn) closeBtn.style.display = 'block';
+    if (rewardHoney) rewardHoney.textContent = '0';
+    if (rewardXP) rewardXP.textContent = '0';
+    if (rewardKeys) rewardKeys.textContent = '0';
   }
-}
 
-if (resultBossImage && bossConfig) {
-  resultBossImage.src = battleResult.victory ? (bossConfig.defeatImage || bossConfig.image) : bossConfig.image;
-  resultBossImage.classList.toggle('defeat-image', !battleResult.victory);
-  resultBossImage.classList.toggle('victory-image', battleResult.victory);
-}
+  // Отображение статистики урона с исправленными значениями
+  const damageStats = document.getElementById('damageStats');
+  if (!damageStats) {
+    // Создаем контейнер для статистики, если его нет
+    const resultBody = document.querySelector('.result-body');
+    if (resultBody) {
+      const statsDiv = document.createElement('div');
+      statsDiv.id = 'damageStats';
+      statsDiv.className = 'damage-stats';
 
-if (battleResult.reward) {
-  if (rewardHoney) rewardHoney.textContent = battleResult.reward.honey || 0;
-  if (rewardXP) rewardXP.textContent = battleResult.reward.xp || 0;
+      statsDiv.innerHTML = '<h3>Статистика урона:</h3><div class="damage-stats-grid" id="damageStatsGrid"></div>';
 
-  const keys = Object.entries(battleResult.reward.keys || {}).map(function(entry) {
-    return entry[1];
-  }).reduce(function(a, b) {
-    return a + b;
-  }, 0);
-
-  if (rewardKeys) rewardKeys.textContent = keys > 0 ? keys : '0';
-} else {
-  if (rewardHoney) rewardHoney.textContent = '0';
-  if (rewardXP) rewardXP.textContent = '0';
-  if (rewardKeys) rewardKeys.textContent = '0';
-}
-
-// Отображение статистики урона с исправленными значениями
-const damageStats = document.getElementById('damageStats');
-if (!damageStats) {
-  // Создаем контейнер для статистики, если его нет
-  const resultBody = document.querySelector('.result-body');
-  if (resultBody) {
-    const statsDiv = document.createElement('div');
-    statsDiv.id = 'damageStats';
-    statsDiv.className = 'damage-stats';
-
-    statsDiv.innerHTML = '<h3>Статистика урона:</h3><div class="damage-stats-grid" id="damageStatsGrid"></div>';
-
-    // Вставляем перед кнопками действий
-    const actionsDiv = resultBody.querySelector('.result-actions');
-    if (actionsDiv) {
-      resultBody.insertBefore(statsDiv, actionsDiv);
+      // Вставляем перед кнопками действий
+      const actionsDiv = resultBody.querySelector('.result-actions');
+      if (actionsDiv) {
+        resultBody.insertBefore(statsDiv, actionsDiv);
+      }
     }
   }
-}
 
-// Обновляем значения статистики - показываем только использованные типы урона
-const state = gameState.state;
-const damageStatsGrid = document.getElementById('damageStatsGrid');
+  // Обновляем значения статистики - показываем только использованные типы урона
+  const stats = gameState.battleResult.battleStats || gameState.state.battleStats;
+  const damageStatsGrid = document.getElementById('damageStatsGrid');
 
-if (damageStatsGrid && state.battleStats) {
-  damageStatsGrid.innerHTML = '';
+  if (damageStatsGrid && stats) {
+    damageStatsGrid.innerHTML = '';
 
-  const damageTypes = [
-    { key: 'basicDamage', label: '🗡️ Базовый', value: state.battleStats.basicDamage || 0 },
-    { key: 'criticalDamage', label: '💥 Критический', value: state.battleStats.criticalDamage || 0 },
-    { key: 'poisonDamage', label: '☠️ Ядовитый', value: state.battleStats.poisonDamage || 0 },
-    { key: 'sonicDamage', label: '🔊 Звуковой', value: state.battleStats.sonicDamage || 0 },
-    { key: 'fireDamage', label: '🔥 Огненный', value: state.battleStats.fireDamage || 0 },
-    { key: 'iceDamage', label: '❄️ Ледяной', value: state.battleStats.iceDamage || 0 }
-  ];
+    const damageTypes = [
+      { key: 'basicDamage', label: '🗡️ Базовый', value: stats.basicDamage || 0 },
+      { key: 'criticalDamage', label: '💥 Критический', value: stats.criticalDamage || 0 },
+      { key: 'poisonDamage', label: '☠️ Ядовитый', value: stats.poisonDamage || 0 },
+      { key: 'sonicDamage', label: '🔊 Звуковой', value: stats.sonicDamage || 0 },
+      { key: 'fireDamage', label: '🔥 Огненный', value: stats.fireDamage || 0 },
+      { key: 'iceDamage', label: '❄️ Ледяной', value: stats.iceDamage || 0 }
+    ];
 
-  // Фильтруем и показываем только те, у которых урон > 0
-  damageTypes.forEach(type => {
-    if (type.value > 0) {
-      const statElement = document.createElement('div');
-      statElement.className = 'damage-stat';
-      statElement.innerHTML = `${type.label}: <span>${type.value}</span>`;
-      damageStatsGrid.appendChild(statElement);
-    }
-  });
+    // Фильтруем и показываем только те, у которых урон > 0
+    let totalDamage = 0;
+    damageTypes.forEach(type => {
+      if (type.value > 0) {
+        totalDamage += type.value;
+        const statElement = document.createElement('div');
+        statElement.className = 'damage-stat';
+        statElement.innerHTML = `${type.label}: <span>${type.value}</span>`;
+        damageStatsGrid.appendChild(statElement);
+      }
+    });
 
-  // Всегда показываем общий урон
-  const totalElement = document.createElement('div');
-  totalElement.className = 'damage-stat total';
-  totalElement.innerHTML = `📊 Общий урон: <span>${state.battleStats.totalDamage || 0}</span>`;
-  damageStatsGrid.appendChild(totalElement);
-}
+    // Всегда показываем общий урон
+    const totalElement = document.createElement('div');
+    totalElement.className = 'damage-stat total';
+    totalElement.innerHTML = `📊 Общий урон: <span>${totalDamage}</span>`;
+    damageStatsGrid.appendChild(totalElement);
+  }
 }
 
 function claimBattleReward() {
-const battleResult = gameState.battleResult;
-const reward = battleResult && battleResult.reward;
-const bossType = battleResult && battleResult.boss && battleResult.boss.type;
+  const battleResult = gameState.battleResult;
+  const reward = battleResult && battleResult.reward;
+  const bossType = battleResult && battleResult.boss && battleResult.boss.type;
 
-if (reward) {
-  // Добавляем награды
-  const currentHoney = gameState.state.honey;
-  const currentXP = gameState.state.xp;
+  if (reward) {
+    // Добавляем награды
+    const currentHoney = gameState.state.honey;
+    const currentXP = gameState.state.xp;
 
+    gameState.manager.setState({
+      honey: currentHoney + reward.honey,
+      xp: currentXP + reward.xp,
+      pendingBattleResult: null, // Очищаем незакрытый результат
+      pendingBattleResultType: null
+    });
+
+    // Добавляем ключи
+    if (reward.keys) {
+      const newKeys = Object.assign({}, gameState.state.keys);
+      Object.entries(reward.keys).forEach(function(entry) {
+        const type = entry[0];
+        const amount = entry[1];
+        newKeys[type] = (newKeys[type] || 0) + amount;
+      });
+      gameState.manager.setState({ keys: newKeys });
+    }
+
+    console.log('Награда получена:', {
+      honey: reward.honey,
+      xp: reward.xp,
+      newHoney: currentHoney + reward.honey,
+      newXP: currentXP + reward.xp
+    });
+
+    // Проверяем повышение уровня
+    checkLevelUp();
+
+    // Обновляем UI
+    updateUI();
+    gameState.updateKeysDisplay();
+    updateKeysImmediately(); // ДОБАВЛЕНО: Мгновенное обновление
+    updateAchievementsUI();
+
+    // Закрываем попап результатов
+    hidePopup('battleResult');
+
+    // Сбрасываем флаг поражения
+    defeatShown = false;
+
+    // Сбрасываем флаг показа результатов
+    battleResultShown = false;
+
+    // Скрываем боевой экран
+    const combatScreen = document.getElementById('combatScreen');
+    if (combatScreen) combatScreen.style.display = 'none';
+
+    // Показываем выбор боссов
+    const bossSelection = document.getElementById('bossSelection');
+    if (bossSelection) bossSelection.style.display = 'block';
+
+    // Сбрасываем результат битвы
+    gameState.battleResult = null;
+
+    // Сохраняем после получения награды
+    setTimeout(function() {
+      gameState.save(true);
+    }, 100);
+
+    showMessage('🎉 Награда получена!');
+  }
+}
+
+function closeBattleResult() {
+  // Очищаем незакрытый результат
   gameState.manager.setState({
-    honey: currentHoney + reward.honey,
-    xp: currentXP + reward.xp,
-    pendingBattleResult: null, // Очищаем незакрытый результат
+    pendingBattleResult: null,
     pendingBattleResultType: null
   });
-
-  // Добавляем ключи
-  if (reward.keys) {
-    const newKeys = Object.assign({}, gameState.state.keys);
-    Object.entries(reward.keys).forEach(function(entry) {
-      const type = entry[0];
-      const amount = entry[1];
-      newKeys[type] = (newKeys[type] || 0) + amount;
-    });
-    gameState.manager.setState({ keys: newKeys });
-  }
-
-  console.log('Награда получена:', {
-    honey: reward.honey,
-    xp: reward.xp,
-    newHoney: currentHoney + reward.honey,
-    newXP: currentXP + reward.xp
-  });
-
-  // Проверяем повышение уровня
-  checkLevelUp();
-
-  // Обновляем UI
-  updateUI();
-  gameState.updateKeysDisplay();
-  updateKeysImmediately(); // ДОБАВЛЕНО: Мгновенное обновление
-  updateAchievementsUI();
 
   // Закрываем попап результатов
   hidePopup('battleResult');
@@ -3464,609 +3438,573 @@ if (reward) {
   const bossSelection = document.getElementById('bossSelection');
   if (bossSelection) bossSelection.style.display = 'block';
 
-  // Сбрасываем результат битвы
   gameState.battleResult = null;
 
-  // Сохраняем после получения награды
-  setTimeout(function() {
+  // Сохраняем состояние после закрытия попапа
+  setTimeout(() => {
     gameState.save(true);
   }, 100);
-
-  showMessage('🎉 Награда получена!');
-}
-}
-
-function closeBattleResult() {
-// Очищаем незакрытый результат
-gameState.manager.setState({
-  pendingBattleResult: null,
-  pendingBattleResultType: null
-});
-
-// Закрываем попап результатов
-hidePopup('battleResult');
-
-// Сбрасываем флаг поражения
-defeatShown = false;
-
-// Сбрасываем флаг показа результатов
-battleResultShown = false;
-
-// Скрываем боевой экран
-const combatScreen = document.getElementById('combatScreen');
-if (combatScreen) combatScreen.style.display = 'none';
-
-// Показываем выбор боссов
-const bossSelection = document.getElementById('bossSelection');
-if (bossSelection) bossSelection.style.display = 'block';
-
-gameState.battleResult = null;
-
-// Сохраняем состояние после закрытия попапа
-setTimeout(() => {
-  gameState.save(true);
-}, 100);
 }
 
 // =================== ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОВЫШЕНИЯ УРОВНЯ ===================
 function checkLevelUp() {
-const state = gameState.state;
-let currentXP = state.xp;
-let currentLevel = state.level;
-let xpToNextLevel = state.xpToNextLevel;
-let levelsGained = 0;
+  const state = gameState.state;
+  let currentXP = state.xp;
+  let currentLevel = state.level;
+  let xpToNextLevel = state.xpToNextLevel;
+  let levelsGained = 0;
 
-console.log('Проверка уровня:', {
-  currentXP: currentXP,
-  currentLevel: currentLevel,
-  xpToNextLevel: xpToNextLevel
-});
-
-while (currentXP >= xpToNextLevel && currentLevel < 100) {
-  currentXP -= xpToNextLevel;
-  currentLevel += 1;
-  levelsGained++;
-  xpToNextLevel = gameState.calculateXPRequired(currentLevel);
-
-  console.log('Уровень повышен:', {
-    новыйУровень: currentLevel,
-    остатокОпыта: currentXP,
-    опытДляСледующегоУровня: xpToNextLevel
-  });
-}
-
-if (levelsGained > 0) {
-  // Обновляем состояние одним вызовом
-  gameState.manager.setState({
-    xp: currentXP,
-    level: currentLevel,
+  console.log('Проверка уровня:', {
+    currentXP: currentXP,
+    currentLevel: currentLevel,
     xpToNextLevel: xpToNextLevel
   });
 
-  // Применяем бонусы за уровни
-  applyLevelBonuses(levelsGained);
+  while (currentXP >= xpToNextLevel && currentLevel < 100) {
+    currentXP -= xpToNextLevel;
+    currentLevel += 1;
+    levelsGained++;
+    xpToNextLevel = gameState.calculateXPRequired(currentLevel);
 
-  // Показываем эффект
-  showLevelUpEffect(levelsGained);
+    console.log('Уровень повышен:', {
+      новыйУровень: currentLevel,
+      остатокОпыта: currentXP,
+      опытДляСледующегоУровня: xpToNextLevel
+    });
+  }
 
-  // Обновляем UI
-  updateUI(['level', 'xp', 'xpToNextLevel']);
-  updateLevelProgress();
-  updateAchievementsUI();
+  if (levelsGained > 0) {
+    // Обновляем состояние одним вызовом
+    gameState.manager.setState({
+      xp: currentXP,
+      level: currentLevel,
+      xpToNextLevel: xpToNextLevel
+    });
 
-  // Сохраняем при повышении уровня
-  setTimeout(function() {
-    gameState.save(true);
-  }, 100);
+    // Применяем бонусы за уровни
+    applyLevelBonuses(levelsGained);
 
-  showMessage('🎉 Уровень повышен до ' + currentLevel + '!');
-  return true;
-}
-return false;
+    // Показываем эффект
+    showLevelUpEffect(levelsGained);
+
+    // Обновляем UI
+    updateUI(['level', 'xp', 'xpToNextLevel']);
+    updateLevelProgress();
+    updateAchievementsUI();
+
+    // Сохраняем при повышении уровня
+    setTimeout(function() {
+      gameState.save(true);
+    }, 100);
+
+    showMessage('🎉 Уровень повышен до ' + currentLevel + '!');
+    return true;
+  }
+  return false;
 }
 
 function applyLevelBonuses(levels) {
-const newTalents = Object.assign({}, gameState.state.talents);
-newTalents.basic.damage += 2 * levels;
-gameState.manager.setState({ talents: newTalents });
+  const newTalents = Object.assign({}, gameState.state.talents);
+  newTalents.basic.damage += 2 * levels;
+  gameState.manager.setState({ talents: newTalents });
 
-const newBoosts = Object.assign({}, gameState.state.boosts);
-newBoosts.attackSpeed += 0.03 * levels;
-gameState.manager.setState({ boosts: newBoosts });
+  const newBoosts = Object.assign({}, gameState.state.boosts);
+  newBoosts.attackSpeed += 0.03 * levels;
+  gameState.manager.setState({ boosts: newBoosts });
 
-console.log('Получено ' + levels + ' уровень(ей). Базовый урон: ' + newTalents.basic.damage);
+  console.log('Получено ' + levels + ' уровень(ей). Базовый урон: ' + newTalents.basic.damage);
 }
 
 // =================== КАСТОМИЗАЦИЯ ===================
 function showTab(tabName) {
-document.querySelectorAll('.tab-content').forEach(function(tab) {
-  tab.classList.remove('active');
-});
-document.querySelectorAll('.tab-btn').forEach(function(btn) {
-  btn.classList.remove('active');
-});
+  document.querySelectorAll('.tab-content').forEach(function(tab) {
+    tab.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+  });
 
-const tabElement = document.getElementById(tabName);
-const button = document.querySelector('button[onclick="showTab(\'' + tabName + '\')"]');
+  const tabElement = document.getElementById(tabName);
+  const button = document.querySelector('button[onclick="showTab(\'' + tabName + '\')"]');
 
-if (tabElement) tabElement.classList.add('active');
-if (button) button.classList.add('active');
+  if (tabElement) tabElement.classList.add('active');
+  if (button) button.classList.add('active');
 }
 
 async function selectSkin() {
-try {
-  const selectedSkinElement = document.getElementById('selected-skin');
-  if (!selectedSkinElement) return;
+  try {
+    const selectedSkinElement = document.getElementById('selected-skin');
+    if (!selectedSkinElement) return;
 
-  const selectedSkin = selectedSkinElement.src;
-  const hiveImg = document.querySelector('.hive-img');
-  if (hiveImg) {
-    hiveImg.style.backgroundImage = 'url(\'' + selectedSkin + '\')';
-    gameState.manager.setState({
-      currentSkin: selectedSkin,
-      isUsingSkin: true
-    });
-    updateSkinButton();
+    const selectedSkin = selectedSkinElement.src;
+    const hiveImg = document.querySelector('.hive-img');
+    if (hiveImg) {
+      hiveImg.style.backgroundImage = 'url(\'' + selectedSkin + '\')';
+      gameState.manager.setState({
+        currentSkin: selectedSkin,
+        isUsingSkin: true
+      });
+      updateSkinButton();
 
-    await gameState.save(true);
-    console.log('✅ Скин сохранен в Firebase:', selectedSkin);
+      await gameState.save(true);
+      console.log('✅ Скин сохранен в Firebase:', selectedSkin);
 
-    showMessage('✅ Скин сохранен и применен!');
+      showMessage('✅ Скин сохранен и применен!');
+    }
+  } catch (error) {
+    console.error('❌ Ошибка сохранения скина:', error);
+    showMessage('❌ Ошибка сохранения скина');
   }
-} catch (error) {
-  console.error('❌ Ошибка сохранения скина:', error);
-  showMessage('❌ Ошибка сохранения скина');
-}
-hidePopup('customization');
+  hidePopup('customization');
 }
 
 function previewSkin(skin, name) {
-const selectedSkin = document.getElementById('selected-skin');
-const skinName = document.getElementById('skin-name');
+  const selectedSkin = document.getElementById('selected-skin');
+  const skinName = document.getElementById('skin-name');
 
-if (selectedSkin) selectedSkin.src = skin;
-if (skinName) skinName.textContent = name;
+  if (selectedSkin) selectedSkin.src = skin;
+  if (skinName) skinName.textContent = name;
 
-updateSkinButton();
+  updateSkinButton();
 }
 
 function updateSkinButton() {
-const selectButton = document.getElementById('select-skin');
-const selectedSkinElement = document.getElementById('selected-skin');
-if (!selectedSkinElement || !selectButton) return;
+  const selectButton = document.getElementById('select-skin');
+  const selectedSkinElement = document.getElementById('selected-skin');
+  if (!selectedSkinElement || !selectButton) return;
 
-const currentSkin = selectedSkinElement.src;
-if (currentSkin === gameState.state.currentSkin) {
-  selectButton.disabled = true;
-  selectButton.textContent = 'Выбрано';
-} else {
-  selectButton.disabled = false;
-  selectButton.textContent = 'Выбрать';
-}
+  const currentSkin = selectedSkinElement.src;
+  if (currentSkin === gameState.state.currentSkin) {
+    selectButton.disabled = true;
+    selectButton.textContent = 'Выбрано';
+  } else {
+    selectButton.disabled = false;
+    selectButton.textContent = 'Выбрать';
+  }
 }
 
 async function selectPet() {
-try {
-  const selectedPetElement = document.getElementById('selected-pet');
-  if (!selectedPetElement) return;
+  try {
+    const selectedPetElement = document.getElementById('selected-pet');
+    if (!selectedPetElement) return;
 
-  const selectedPet = selectedPetElement.src;
-  const petImg = document.querySelector('#pet-img');
-  if (petImg) {
-    petImg.src = selectedPet;
-    gameState.manager.setState({
-      currentPet: selectedPet,
-      hasPet: true
-    });
-    petImg.style.display = 'block';
-    updatePetButton();
+    const selectedPet = selectedPetElement.src;
+    const petImg = document.querySelector('#pet-img');
+    if (petImg) {
+      petImg.src = selectedPet;
+      gameState.manager.setState({
+        currentPet: selectedPet,
+        hasPet: true
+      });
+      petImg.style.display = 'block';
+      updatePetButton();
 
-    await gameState.save(true);
-    console.log('✅ Питомец сохранен в Firebase:', selectedPet);
+      await gameState.save(true);
+      console.log('✅ Питомец сохранен в Firebase:', selectedPet);
 
-    showMessage('✅ Питомец сохранен!');
+      showMessage('✅ Питомец сохранен!');
+    }
+  } catch (error) {
+    console.error('❌ Ошибка сохранения питомца:', error);
+    showMessage('❌ Ошибка сохранения питомца');
   }
-} catch (error) {
-  console.error('❌ Ошибка сохранения питомца:', error);
-  showMessage('❌ Ошибка сохранения питомца');
-}
-hidePopup('customization');
+  hidePopup('customization');
 }
 
 function previewPet(pet, name) {
-const selectedPet = document.getElementById('selected-pet');
-const petName = document.getElementById('pet-name');
+  const selectedPet = document.getElementById('selected-pet');
+  const petName = document.getElementById('pet-name');
 
-if (selectedPet) selectedPet.src = pet;
-if (petName) petName.textContent = name;
+  if (selectedPet) selectedPet.src = pet;
+  if (petName) petName.textContent = name;
 
-updatePetButton();
+  updatePetButton();
 }
 
 function updatePetButton() {
-const selectButton = document.getElementById('select-pet');
-const selectedPetElement = document.getElementById('selected-pet');
-if (!selectedPetElement || !selectButton) return;
+  const selectButton = document.getElementById('select-pet');
+  const selectedPetElement = document.getElementById('selected-pet');
+  if (!selectedPetElement || !selectButton) return;
 
-const currentPet = selectedPetElement.src;
-if (currentPet === gameState.state.currentPet) {
-  selectButton.disabled = true;
-  selectButton.textContent = 'Выбрано';
-} else {
-  selectButton.disabled = false;
-  selectButton.textContent = 'Выбрать';
-}
+  const currentPet = selectedPetElement.src;
+  if (currentPet === gameState.state.currentPet) {
+    selectButton.disabled = true;
+    selectButton.textContent = 'Выбрано';
+  } else {
+    selectButton.disabled = false;
+    selectButton.textContent = 'Выбрать';
+  }
 }
 
 // =================== НАГРАДЫ ЗА ДОСТИЖЕНИЯ ===================
 async function claimAchievementReward(type, level) {
-try {
-  const state = gameState.state;
-  const newAchievements = Object.assign({}, state.achievements);
-  const config = achievementsConfig[type];
+  try {
+    const state = gameState.state;
+    const newAchievements = Object.assign({}, state.achievements);
+    const config = achievementsConfig[type];
 
-  if (!config || level < 1 || level > config.levels.length) {
-    showMessage('❌ Неверный уровень достижения');
+    if (!config || level < 1 || level > config.levels.length) {
+      showMessage('❌ Неверный уровень достижения');
+      return false;
+    }
+
+    const levelKey = 'level' + level;
+    const completedKey = type === 'wasp' ? 'completed' : 'bearCompleted';
+    const claimedKey = type === 'wasp' ? 'claimed' : 'bearClaimed';
+
+    // Проверяем, выполнено ли достижение
+    if (!newAchievements[completedKey][levelKey]) {
+      showMessage('❌ Достижение еще не выполнено');
+      return false;
+    }
+
+    // Проверяем, получена ли уже награда
+    if (newAchievements[claimedKey][levelKey]) {
+      showMessage('✅ Награда уже получена');
+      return false;
+    }
+
+    // Получаем награду
+    const reward = config.levels[level - 1];
+
+    // Выдаем награду
+    gameState.scheduleUIUpdate('honey', state.honey + reward.honey);
+    gameState.scheduleUIUpdate('xp', state.xp + reward.xp);
+
+    // Отмечаем награду как полученную
+    newAchievements[claimedKey][levelKey] = true;
+    gameState.manager.setState({ achievements: newAchievements });
+
+    // Обновляем UI
+    updateUI(['honey', 'xp']);
+    updateAchievementsUI();
+
+    // Сохраняем
+    await gameState.save(true);
+
+    showMessage(`🎉 Получено: ${reward.honey}🍯 + ${reward.xp}⭐`);
+    return true;
+
+  } catch (error) {
+    console.error('Ошибка получения награды:', error);
+    showMessage('❌ Ошибка получения награды');
     return false;
   }
-
-  const levelKey = 'level' + level;
-  const completedKey = type === 'wasp' ? 'completed' : 'bearCompleted';
-  const claimedKey = type === 'wasp' ? 'claimed' : 'bearClaimed';
-
-  // Проверяем, выполнено ли достижение
-  if (!newAchievements[completedKey][levelKey]) {
-    showMessage('❌ Достижение еще не выполнено');
-    return false;
-  }
-
-  // Проверяем, получена ли уже награда
-  if (newAchievements[claimedKey][levelKey]) {
-    showMessage('✅ Награда уже получена');
-    return false;
-  }
-
-  // Получаем награду
-  const reward = config.levels[level - 1];
-
-  // Выдаем награду
-  gameState.scheduleUIUpdate('honey', state.honey + reward.honey);
-  gameState.scheduleUIUpdate('xp', state.xp + reward.xp);
-
-  // Отмечаем награду как полученную
-  newAchievements[claimedKey][levelKey] = true;
-  gameState.manager.setState({ achievements: newAchievements });
-
-  // Обновляем UI
-  updateUI(['honey', 'xp']);
-  updateAchievementsUI();
-
-  // Сохраняем
-  await gameState.save(true);
-
-  showMessage(`🎉 Получено: ${reward.honey}🍯 + ${reward.xp}⭐`);
-  return true;
-
-} catch (error) {
-  console.error('Ошибка получения награды:', error);
-  showMessage('❌ Ошибка получения награды');
-  return false;
-}
 }
 
 // =================== ВИЗУАЛЬНЫЕ ЭФФЕКТЫ ===================
 function showMessage(text) {
-// Проверяем, есть ли уже сообщение
-const existingMessage = document.querySelector('.game-message');
-if (existingMessage) {
-  existingMessage.remove();
-}
-
-const msg = document.createElement('div');
-msg.className = 'game-message';
-msg.textContent = text;
-document.body.appendChild(msg);
-setTimeout(function() {
-  if (msg.parentNode) {
-    msg.remove();
+  // Проверяем, есть ли уже сообщение
+  const existingMessage = document.querySelector('.game-message');
+  if (existingMessage) {
+    existingMessage.remove();
   }
-}, 2000);
+
+  const msg = document.createElement('div');
+  msg.className = 'game-message';
+  msg.textContent = text;
+  document.body.appendChild(msg);
+  setTimeout(function() {
+    if (msg.parentNode) {
+      msg.remove();
+    }
+  }, 2000);
 }
 
 function showLevelUpEffect(levels) {
-const div = document.createElement('div');
-div.className = 'level-up';
-div.textContent = 'Уровень +' + levels + '!';
-document.body.appendChild(div);
-setTimeout(function() {
-  div.remove();
-}, 2000);
+  const div = document.createElement('div');
+  div.className = 'level-up';
+  div.textContent = 'Уровень +' + levels + '!';
+  document.body.appendChild(div);
+  setTimeout(function() {
+    div.remove();
+  }, 2000);
 }
 
 function showCriticalEffect(damage) {
-if (!elements.combatScreen) return;
+  if (!elements.combatScreen) return;
 
-const div = document.createElement('div');
-div.className = 'critical-effect';
-div.textContent = 'CRIT! ' + damage;
-elements.combatScreen.appendChild(div);
-setTimeout(function() {
-  div.remove();
-}, 1000);
+  const div = document.createElement('div');
+  div.className = 'critical-effect';
+  div.textContent = 'CRIT! ' + damage;
+  elements.combatScreen.appendChild(div);
+  setTimeout(function() {
+    div.remove();
+  }, 1000);
 }
 
 function showEnergyWarning() {
-const div = document.createElement('div');
-div.className = 'energy-warning';
-div.textContent = 'Недостаточно энергии!';
-document.body.appendChild(div);
-setTimeout(function() {
-  div.remove();
-}, 1500);
+  const div = document.createElement('div');
+  div.className = 'energy-warning';
+  div.textContent = 'Недостаточно энергии!';
+  document.body.appendChild(div);
+  setTimeout(function() {
+    div.remove();
+  }, 1500);
 }
 
 function showSonicEffect(damage) {
-if (!elements.combatScreen) return;
+  if (!elements.combatScreen) return;
 
-const effect = document.createElement('div');
-effect.className = 'sonic-effect';
-effect.textContent = '🔊 ' + damage;
-elements.combatScreen.appendChild(effect);
-setTimeout(function() {
-  effect.remove();
-}, 1000);
+  const effect = document.createElement('div');
+  effect.className = 'sonic-effect';
+  effect.textContent = '🔊 ' + damage;
+  elements.combatScreen.appendChild(effect);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showFireEffect(damage) {
-if (!elements.combatScreen) return;
+  if (!elements.combatScreen) return;
 
-const effect = document.createElement('div');
-effect.className = 'fire-effect';
-effect.textContent = '🔥 ' + damage;
-effect.style.color = '#ff4400';
-elements.combatScreen.appendChild(effect);
-setTimeout(function() {
-  effect.remove();
-}, 1000);
+  const effect = document.createElement('div');
+  effect.className = 'fire-effect';
+  effect.textContent = '🔥 ' + damage;
+  effect.style.color = '#ff4400';
+  elements.combatScreen.appendChild(effect);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showIceEffect(damage) {
-if (!elements.combatScreen) return;
+  if (!elements.combatScreen) return;
 
-const effect = document.createElement('div');
-effect.className = 'ice-effect';
-effect.textContent = '❄️ ' + damage;
-effect.style.color = '#00cccc';
-elements.combatScreen.appendChild(effect);
-setTimeout(function() {
-  effect.remove();
-}, 1000);
+  const effect = document.createElement('div');
+  effect.className = 'ice-effect';
+  effect.textContent = '❄️ ' + damage;
+  effect.style.color = '#00cccc';
+  elements.combatScreen.appendChild(effect);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showBasicEffect(damage) {
-if (!elements.combatScreen) return;
+  if (!elements.combatScreen) return;
 
-const effect = document.createElement('div');
-effect.className = 'basic-effect';
-effect.textContent = '🗡️ ' + damage;
-effect.style.color = '#ffd700';
-elements.combatScreen.appendChild(effect);
-setTimeout(function() {
-  effect.remove();
-}, 1000);
+  const effect = document.createElement('div');
+  effect.className = 'basic-effect';
+  effect.textContent = '🗡️ ' + damage;
+  effect.style.color = '#ffd700';
+  elements.combatScreen.appendChild(effect);
+  setTimeout(function() {
+    effect.remove();
+  }, 1000);
 }
 
 function showPoisonAttackEffect(damage) {
-if (!elements.combatScreen) return;
+  if (!elements.combatScreen) return;
 
-const effect = document.createElement('div');
-effect.className = 'poison-attack-effect';
-effect.textContent = '☠️ ' + damage;
-effect.style.color = '#32CD32';
-elements.combatScreen.appendChild(effect);
-setTimeout(() => effect.remove(), 1000);
+  const effect = document.createElement('div');
+  effect.className = 'poison-attack-effect';
+  effect.textContent = '☠️ ' + damage;
+  effect.style.color = '#32CD32';
+  elements.combatScreen.appendChild(effect);
+  setTimeout(() => effect.remove(), 1000);
 }
 
 function showPoisonDamageEffect(damage) {
-if (!elements.combatScreen) return;
+  if (!elements.combatScreen) return;
 
-const effect = document.createElement('div');
-effect.className = 'poison-damage-effect';
-effect.textContent = '☠️ ' + damage;
-effect.style.color = '#32CD32';
-effect.style.position = 'absolute';
-effect.style.left = '50%';
-effect.style.top = '60%';
-effect.style.transform = 'translate(-50%, -50%)';
-effect.style.fontSize = '1.5em';
-effect.style.fontWeight = 'bold';
-effect.style.textShadow = '0 0 5px #000';
-effect.style.zIndex = '1002';
-effect.style.animation = 'damageEffect 1s ease-out forwards';
+  const effect = document.createElement('div');
+  effect.className = 'poison-damage-effect';
+  effect.textContent = '☠️ ' + damage;
+  effect.style.color = '#32CD32';
+  effect.style.position = 'absolute';
+  effect.style.left = '50%';
+  effect.style.top = '60%';
+  effect.style.transform = 'translate(-50%, -50%)';
+  effect.style.fontSize = '1.5em';
+  effect.style.fontWeight = 'bold';
+  effect.style.textShadow = '0 0 5px #000';
+  effect.style.zIndex = '1002';
+  effect.style.animation = 'damageEffect 1s ease-out forwards';
 
-elements.combatScreen.appendChild(effect);
-setTimeout(() => effect.remove(), 1000);
+  elements.combatScreen.appendChild(effect);
+  setTimeout(() => effect.remove(), 1000);
 }
 
 // =================== УТИЛИТЫ ===================
 function getTalentButtonText(type) {
-const names = {
-  basic: 'Базовый',
-  critical: 'Критический',
-  poison: 'Ядовитый'
-};
-return names[type] || '';
+  const names = {
+    basic: 'Базовый',
+    critical: 'Критический',
+    poison: 'Ядовитый'
+  };
+  return names[type] || '';
 }
 
 function getTalentIcon(type) {
-const icons = {
-  basic: '🗡️',
-  critical: '💥',
-  poison: '☠️',
-  sonic: '🔊',
-  fire: '🔥',
-  ice: '❄️'
-};
-return icons[type] || '';
+  const icons = {
+    basic: '🗡️',
+    critical: '💥',
+    poison: '☠️',
+    sonic: '🔊',
+    fire: '🔥',
+    ice: '❄️'
+  };
+  return icons[type] || '';
 }
 
 // =================== ПРЕЛОАДЕР ===================
 function showPreloader(text = 'Загрузка AIKO TAPBOT...') {
-const preloader = document.getElementById('preloader');
-const statusText = document.getElementById('preloaderStatus');
+  const preloader = document.getElementById('preloader');
+  const statusText = document.getElementById('preloaderStatus');
 
-if (preloader) {
-  preloader.style.display = 'flex';
-  preloader.classList.remove('hidden');
-  if (statusText) statusText.textContent = text;
-}
+  if (preloader) {
+    preloader.style.display = 'flex';
+    preloader.classList.remove('hidden');
+    if (statusText) statusText.textContent = text;
+  }
 }
 
 function updatePreloaderProgress(percent) {
-const progressBar = document.getElementById('preloaderProgress');
-if (progressBar) {
-  progressBar.style.width = Math.min(percent, 100) + '%';
-}
+  const progressBar = document.getElementById('preloaderProgress');
+  if (progressBar) {
+    progressBar.style.width = Math.min(percent, 100) + '%';
+  }
 }
 
 function hidePreloader() {
-const preloader = document.getElementById('preloader');
-const gameScreen = document.getElementById('gameScreen');
+  const preloader = document.getElementById('preloader');
+  const gameScreen = document.getElementById('gameScreen');
 
-if (preloader) {
-  setTimeout(() => {
-    preloader.classList.add('hidden');
-
-    if (gameScreen) {
-      gameScreen.style.display = 'block';
-    }
-
+  if (preloader) {
     setTimeout(() => {
-      if (preloader.parentNode) {
-        preloader.style.display = 'none';
+      preloader.classList.add('hidden');
+
+      if (gameScreen) {
+        gameScreen.style.display = 'block';
       }
+
+      setTimeout(() => {
+        if (preloader.parentNode) {
+          preloader.style.display = 'none';
+        }
+      }, 500);
     }, 500);
-  }, 500);
-}
+  }
 }
 
 // =================== СТАТУС FIREBASE ===================
 function updateFirebaseStatusUI(isOnline) {
-const statusElement = document.getElementById('firebaseStatus');
-const statusDot = document.getElementById('statusDot');
-const statusText = document.getElementById('statusText');
+  const statusElement = document.getElementById('firebaseStatus');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
 
-if (statusElement && statusDot && statusText) {
-  if (isOnline) {
-    statusElement.style.display = 'block';
-    statusDot.className = 'status-dot online';
-    statusText.textContent = 'Сохранено в облаке';
+  if (statusElement && statusDot && statusText) {
+    if (isOnline) {
+      statusElement.style.display = 'block';
+      statusDot.className = 'status-dot online';
+      statusText.textContent = 'Сохранено в облаке';
 
-    setTimeout(() => {
-      statusElement.style.opacity = '0';
       setTimeout(() => {
-        statusElement.style.display = 'none';
-        statusElement.style.opacity = '1';
-      }, 500);
-    }, 3000);
-  } else {
-    statusElement.style.display = 'block';
-    statusDot.className = 'status-dot offline';
-    statusText.textContent = 'Нет интернета - данные не сохраняются';
+        statusElement.style.opacity = '0';
+        setTimeout(() => {
+          statusElement.style.display = 'none';
+          statusElement.style.opacity = '1';
+        }, 500);
+      }, 3000);
+    } else {
+      statusElement.style.display = 'block';
+      statusDot.className = 'status-dot offline';
+      statusText.textContent = 'Нет интернета - данные не сохраняются';
+    }
   }
-}
 }
 
 // =================== ИНИЦИАЛИЗАЦИЯ ОБРАБОТЧИКОВ СОБЫТИЙ ===================
 function initEventHandlers() {
-// Клик по улью
-document.getElementById('hive')?.addEventListener('click', handleHiveClick);
+  // Клик по улью
+  document.getElementById('hive')?.addEventListener('click', handleHiveClick);
 
-// Навигационные кнопки
-document.querySelectorAll('.nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => showPopup(btn.dataset.popup));
-});
+  // Навигационные кнопки
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => showPopup(btn.dataset.popup));
+  });
 
-// Закрытие попапов
-document.querySelectorAll('.close').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const popup = btn.closest('.popup');
-    if (popup.id === 'talentsPopup') {
-      resetCrafting();
-    }
-    if (popup.id === 'battleResultPopup') {
-      if (gameState.battleResult?.victory) {
-        claimBattleReward();
-      } else {
-        closeBattleResult();
+  // Закрытие попапов
+  document.querySelectorAll('.close').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const popup = btn.closest('.popup');
+      if (popup.id === 'talentsPopup') {
+        resetCrafting();
       }
-    } else {
-      const popupType = popup.id.replace('Popup', '');
-      hidePopup(popupType);
+      if (popup.id === 'battleResultPopup') {
+        if (gameState.battleResult?.victory) {
+          claimBattleReward();
+        } else {
+          closeBattleResult();
+        }
+      } else {
+        const popupType = popup.id.replace('Popup', '');
+        hidePopup(popupType);
+      }
+    });
+  });
+
+  // Клик по боссу в бою
+  document.getElementById('bossCombatImage')?.addEventListener('click', handleBattleClick);
+
+  // Выбор босса
+  document.getElementById('battlePopup')?.addEventListener('click', (e) => {
+    const bossCard = e.target.closest('.boss-card');
+    if (bossCard && !bossCard.classList.contains('locked')) {
+      startBattle(bossCard.dataset.boss);
     }
   });
-});
 
-// Клик по боссу в бою
-document.getElementById('bossCombatImage')?.addEventListener('click', handleBattleClick);
+  // Глобальный клик для закрытия попапов
+  document.addEventListener('click', (e) => {
+    const isPopup = e.target.closest('.popup');
+    const isNav = e.target.closest('.nav-btn');
+    const isCombat = e.target.closest('#combatScreen') || e.target.closest('.attack-btn');
+    const isBackgroundSelector = e.target.closest('#backgroundSelector');
+    const isBgMenuBtn = e.target.closest('#bgMenuBtn');
 
-// Выбор босса
-document.getElementById('battlePopup')?.addEventListener('click', (e) => {
-  const bossCard = e.target.closest('.boss-card');
-  if (bossCard && !bossCard.classList.contains('locked')) {
-    startBattle(bossCard.dataset.boss);
-  }
-});
+    if (!isPopup && !isNav && !isCombat && !isBackgroundSelector && !isBgMenuBtn) {
+      hideAllPopups();
+    }
+  });
 
-// Глобальный клик для закрытия попапов
-document.addEventListener('click', (e) => {
-  const isPopup = e.target.closest('.popup');
-  const isNav = e.target.closest('.nav-btn');
-  const isCombat = e.target.closest('#combatScreen') || e.target.closest('.attack-btn');
-  const isBackgroundSelector = e.target.closest('#backgroundSelector');
-  const isBgMenuBtn = e.target.closest('#bgMenuBtn');
+  // Обработка изменения размера окна
+  window.addEventListener('resize', () => {
+    updateHiveDisplay();
+    updateCombatUI();
+  });
 
-  if (!isPopup && !isNav && !isCombat && !isBackgroundSelector && !isBgMenuBtn) {
-    hideAllPopups();
-  }
-});
+  // Автосохранение при скрытии вкладки
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      gameState.save(true);
+    }
+  });
 
-// Обработка изменения размера окна
-window.addEventListener('resize', () => {
-  updateHiveDisplay();
-  updateCombatUI();
-});
-
-// Автосохранение при скрытии вкладки
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
+  // Сохранение при закрытии
+  window.addEventListener('beforeunload', () => {
     gameState.save(true);
-  }
-});
-
-// Сохранение при закрытии
-window.addEventListener('beforeunload', () => {
-  gameState.save(true);
-});
+  });
 }
 
 // =================== ЗАПУСК ИГРЫ ===================
 document.addEventListener('DOMContentLoaded', () => {
-// Инициализация при полной загрузке страницы
-if (document.readyState === 'complete') {
-  initGame();
-} else {
-  window.addEventListener('load', initGame);
-}
+  // Инициализация при полной загрузке страницы
+  if (document.readyState === 'complete') {
+    initGame();
+  } else {
+    window.addEventListener('load', initGame);
+  }
 
-// Глобальная обработка ошибок
-window.addEventListener('error', (e) => {
-  logger.error('Глобальная ошибка', e.error);
-  showMessage('⚠️ Произошла ошибка');
-});
+  // Глобальная обработка ошибок
+  window.addEventListener('error', (e) => {
+    logger.error('Глобальная ошибка', e.error);
+    showMessage('⚠️ Произошла ошибка');
+  });
 
-// Обработка необработанных промисов
-window.addEventListener('unhandledrejection', (e) => {
-  logger.error('Необработанный Promise', e.reason);
-});
+  // Обработка необработанных промисов
+  window.addEventListener('unhandledrejection', (e) => {
+    logger.error('Необработанный Promise', e.reason);
+  });
 });
