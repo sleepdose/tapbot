@@ -172,7 +172,11 @@ class OptimizedGameState {
       saveCount: 0,
       lastSaveTime: Date.now(),
       totalPlayTime: 0,
-      lastAttackTime: 0
+      lastAttackTime: 0,
+
+      // Новые поля для сохранения незакрытых результатов боя
+      pendingBattleResult: null,
+      pendingBattleResultType: null
     });
   }
 
@@ -275,6 +279,18 @@ class OptimizedGameState {
           // Восстанавливаем бой если он был активен
           if (result.data.activeBattle) {
             this.restoreBattle(result.data);
+          }
+
+          // Восстанавливаем незакрытый результат боя если он есть
+          if (result.data.pendingBattleResult) {
+            console.log('Восстанавливаем незакрытый результат боя:', result.data.pendingBattleResultType);
+            this.battleResult = result.data.pendingBattleResult;
+
+            // Откладываем показ попапа, чтобы UI успел загрузиться
+            setTimeout(() => {
+              updateResultPopup();
+              showBattleResultPopup();
+            }, 2000);
           }
 
           return true;
@@ -516,6 +532,10 @@ class OptimizedGameState {
           data.battleStats
         ) : this.manager.state.battleStats,
 
+        // Незакрытые результаты боя
+        pendingBattleResult: data.pendingBattleResult || null,
+        pendingBattleResultType: data.pendingBattleResultType || null,
+
         // Аудио настройки
         isMusicMuted: data.isMusicMuted !== undefined ? data.isMusicMuted : this.manager.state.isMusicMuted
       };
@@ -585,6 +605,12 @@ class OptimizedGameState {
       if (effect.timeout) clearTimeout(effect.timeout);
     });
     this.battleEffects.clear();
+
+    // Очищаем контейнер таймеров
+    const poisonContainer = document.getElementById('poisonTimersContainer');
+    if (poisonContainer) {
+      poisonContainer.innerHTML = '';
+    }
   }
 
   startBattleTimer(seconds) {
@@ -626,31 +652,35 @@ class OptimizedGameState {
       health: this.state.currentBoss.currentHealth
     });
 
-    // Очищаем данные офлайн боя
+    // Сохраняем результат боя для показа после перезагрузки
+    const bossConfig = gameConfig.bosses[this.state.currentBoss.type];
+    const reward = victory ? {
+      honey: bossConfig.honeyReward,
+      xp: bossConfig.xpReward,
+      keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
+    } : null;
+
     this.manager.setState({
+      pendingBattleResult: {
+        victory: victory,
+        boss: Object.assign({}, this.state.currentBoss),
+        reward: reward,
+        battleStats: this.state.battleStats
+      },
+      pendingBattleResultType: victory ? 'victory' : 'defeat',
       activeBattle: null,
       battleStartTime: null,
       battleTimeLimit: null,
-      inBattle: false
+      inBattle: false,
+      currentBoss: null,
+      selectedTalent: null
     });
 
-    // Очистка ядовитых эффектов
+    // Полная очистка ядовитых эффектов
     this.cleanupBattleEffects();
 
     const bossCombatImage = document.getElementById('bossCombatImage');
     if (bossCombatImage) bossCombatImage.classList.remove('grayscale');
-
-    let reward = null;
-    if (victory) {
-      const bossConfig = gameConfig.bosses[this.state.currentBoss.type];
-      reward = {
-        honey: bossConfig.honeyReward,
-        xp: bossConfig.xpReward,
-        keys: bossConfig.keyReward ? { [bossConfig.keyReward.type]: bossConfig.keyReward.amount } : {}
-      };
-
-      console.log('Награда за победу:', reward);
-    }
 
     this.battleResult = {
       victory: victory,
@@ -660,11 +690,6 @@ class OptimizedGameState {
 
     console.log('Battle result установлен:', this.battleResult);
 
-    this.manager.setState({
-      currentBoss: null,
-      selectedTalent: null
-    });
-
     if (this.battleTimer) {
       clearInterval(this.battleTimer);
       this.battleTimer = null;
@@ -673,10 +698,16 @@ class OptimizedGameState {
     // Обновляем достижения
     updateAchievementsUI();
 
+    // Показываем попап с результатом
+    setTimeout(() => {
+      updateResultPopup();
+      showBattleResultPopup();
+    }, 500);
+
     // Сохраняем прогресс после боя
-    setTimeout(function() {
+    setTimeout(() => {
       this.save(true);
-    }.bind(this), 500);
+    }, 1000);
   }
 
   calculateReward(battleData) {
@@ -816,6 +847,22 @@ const backgrounds = [
     preview: 'img/bg_space_preview.jpg'
   }
 ];
+
+// =================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===================
+function updateAchievementLevels(achievements, type) {
+  const kills = type === 'wasp' ? achievements.waspKills : achievements.bearKills;
+  const completedKey = type === 'wasp' ? 'completed' : 'bearCompleted';
+
+  if (kills >= 10 && !achievements[completedKey].level1) {
+    achievements[completedKey].level1 = true;
+  }
+  if (kills >= 20 && !achievements[completedKey].level2) {
+    achievements[completedKey].level2 = true;
+  }
+  if (kills >= 30 && !achievements[completedKey].level3) {
+    achievements[completedKey].level3 = true;
+  }
+}
 
 // =================== ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ ===================
 async function initGame() {
@@ -2543,29 +2590,50 @@ function attack(type) {
 
   // Наносим урон
   let damage = 0;
+  let actualDamage = 0;
   switch (attackType) {
     case 'basic':
       damage = calculateBasicDamage();
-      updateBattleStats('basicDamage', damage);
-      showBasicEffect(damage);
+      // Ограничиваем урон здоровьем босса (ИСПРАВЛЕНИЕ БАГА 3)
+      actualDamage = Math.min(damage, state.currentBoss.currentHealth);
+      updateBattleStats('basicDamage', actualDamage);
+      showBasicEffect(actualDamage);
       break;
     case 'critical':
       damage = calculateBasicDamage();
       if (Math.random() < state.talents.critical.chance) {
         damage *= 2;
-        showCriticalEffect(damage);
+        // Ограничиваем урон здоровьем босса (ИСПРАВЛЕНИЕ БАГА 3)
+        actualDamage = Math.min(damage, state.currentBoss.currentHealth);
+        updateBattleStats('criticalDamage', actualDamage);
+        showCriticalEffect(actualDamage);
       } else {
-        showBasicEffect(damage);
+        // Ограничиваем урон здоровьем босса (ИСПРАВЛЕНИЕ БАГА 3)
+        actualDamage = Math.min(damage, state.currentBoss.currentHealth);
+        updateBattleStats('criticalDamage', actualDamage);
+        showBasicEffect(actualDamage);
       }
-      updateBattleStats('criticalDamage', damage);
       break;
     case 'poison':
       startPoisonEffect();
       return; // Яд не наносит мгновенного урона
   }
 
-  // ИСПРАВЛЕНИЕ: Проверяем, убивает ли удар босса
-  if (state.currentBoss && damage >= state.currentBoss.currentHealth) {
+  // ИСПРАВЛЕНИЕ: Обновляем достижения ПЕРЕД завершением боя
+  if (state.currentBoss && actualDamage >= state.currentBoss.currentHealth) {
+    const newAchievements = Object.assign({}, state.achievements);
+    const bossType = state.currentBoss.type;
+
+    if (bossType === 'wasp') {
+      newAchievements.waspKills = (newAchievements.waspKills || 0) + 1;
+      updateAchievementLevels(newAchievements, 'wasp');
+    } else if (bossType === 'bear') {
+      newAchievements.bearKills = (newAchievements.bearKills || 0) + 1;
+      updateAchievementLevels(newAchievements, 'bear');
+    }
+
+    gameState.manager.setState({ achievements: newAchievements });
+
     // Немедленно завершаем бой с победой
     gameState.endBattle(true);
 
@@ -2576,7 +2644,7 @@ function attack(type) {
     }, 300);
   } else {
     // Применяем урон к боссу обычным способом
-    applyDamageToBoss(damage);
+    applyDamageToBoss(actualDamage, attackType === 'basic' ? 'basicDamage' : 'criticalDamage');
   }
 
   // Обновляем UI
@@ -2619,24 +2687,40 @@ function handleCraftedTalentAttack(type) {
   // Наносим урон
   const damage = talent.damage * (talent.level || 1);
 
+  // Ограничиваем урон максимальным здоровьем босса (ИСПРАВЛЕНИЕ БАГА 3)
+  const actualDamage = Math.min(damage, state.currentBoss.currentHealth);
+
   // Обновляем статистику
   const statName = type + 'Damage';
   const newStats = Object.assign({}, state.battleStats);
-  newStats[statName] = (newStats[statName] || 0) + damage;
-  newStats.totalDamage = (newStats.totalDamage || 0) + damage;
+  newStats[statName] = (newStats[statName] || 0) + actualDamage; // Используем actualDamage
+  newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage; // Используем actualDamage
   gameState.manager.setState({ battleStats: newStats });
 
   // Показываем эффект
   if (type === 'sonic') {
-    showSonicEffect(damage);
+    showSonicEffect(actualDamage);
   } else if (type === 'fire') {
-    showFireEffect(damage);
+    showFireEffect(actualDamage);
   } else {
-    showIceEffect(damage);
+    showIceEffect(actualDamage);
   }
 
-  // ИСПРАВЛЕНИЕ: Проверяем, убивает ли удар босса
-  if (state.currentBoss && damage >= state.currentBoss.currentHealth) {
+  // ИСПРАВЛЕНИЕ: Обновляем достижения ПЕРЕД завершением боя
+  if (state.currentBoss && actualDamage >= state.currentBoss.currentHealth) {
+    const newAchievements = Object.assign({}, state.achievements);
+    const bossType = state.currentBoss.type;
+
+    if (bossType === 'wasp') {
+      newAchievements.waspKills = (newAchievements.waspKills || 0) + 1;
+      updateAchievementLevels(newAchievements, 'wasp');
+    } else if (bossType === 'bear') {
+      newAchievements.bearKills = (newAchievements.bearKills || 0) + 1;
+      updateAchievementLevels(newAchievements, 'bear');
+    }
+
+    gameState.manager.setState({ achievements: newAchievements });
+
     // Немедленно завершаем бой с победой
     gameState.endBattle(true);
 
@@ -2647,7 +2731,7 @@ function handleCraftedTalentAttack(type) {
     }, 300);
   } else {
     // Применяем урон к боссу обычным способом
-    applyDamageToBoss(damage);
+    applyDamageToBoss(actualDamage, statName);
   }
 
   // Обновляем UI
@@ -2657,6 +2741,38 @@ function handleCraftedTalentAttack(type) {
   setTimeout(function() {
     gameState.save(true);
   }, 100);
+}
+
+// =================== ОБНОВЛЕННЫЕ ТАЙМЕРЫ ЯДА ===================
+function updatePoisonTimersDisplay() {
+  const container = document.getElementById('poisonTimersContainer');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  // Создаем копию для безопасной итерации
+  const effects = Array.from(gameState.battleEffects);
+  let hasActiveEffects = false;
+
+  effects.forEach(function(effect) {
+    if (effect.duration > 0) {
+      const timer = document.createElement('div');
+      timer.className = 'poison-timer';
+      timer.innerHTML = '☠️ ' + effect.duration + 's';
+      container.appendChild(timer);
+      hasActiveEffects = true;
+
+      // Уменьшаем только для отображения, сохраняя оригинальное duration для логики
+      effect.displayDuration = (effect.displayDuration || effect.duration) - 1;
+    }
+  });
+
+  // Если нет активных эффектов, но контейнер не пустой - очищаем
+  if (!hasActiveEffects && container.children.length > 0) {
+    setTimeout(() => {
+      container.innerHTML = '';
+    }, 100);
+  }
 }
 
 function startPoisonEffect() {
@@ -2669,6 +2785,7 @@ function startPoisonEffect() {
   const effect = {
     damage: poisonDamage,
     duration: duration,
+    displayDuration: duration,
     interval: null,
     timer: null
   };
@@ -2685,6 +2802,7 @@ function startPoisonEffect() {
   effect.timer = setTimeout(function() {
     if (effect.interval) clearInterval(effect.interval);
     gameState.battleEffects.delete(effect);
+    updatePoisonTimersDisplay();
   }, duration * 1000);
 
   gameState.battleEffects.add(effect);
@@ -2695,61 +2813,64 @@ function applyPoisonTick(effect) {
   const state = gameState.state;
   if (!state.inBattle || !state.currentBoss) {
     clearInterval(effect.interval);
+    gameState.battleEffects.delete(effect);
+    updatePoisonTimersDisplay();
     return;
   }
 
   const damage = effect.damage;
   const newHealth = Math.max(0, state.currentBoss.currentHealth - damage);
-  const newBoss = Object.assign({}, state.currentBoss, { currentHealth: newHealth });
+
+  // Ограничиваем урон максимальным здоровьем босса (ИСПРАВЛЕНИЕ БАГА 3)
+  const actualDamage = Math.min(damage, state.currentBoss.currentHealth);
+
+  const newBoss = Object.assign({}, state.currentBoss, {
+    currentHealth: newHealth
+  });
 
   const newStats = Object.assign({}, state.battleStats);
-  newStats.poisonDamage = (newStats.poisonDamage || 0) + damage;
-  newStats.totalDamage = (newStats.totalDamage || 0) + damage;
+  newStats.poisonDamage = (newStats.poisonDamage || 0) + actualDamage; // Используем actualDamage
+  newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage; // Используем actualDamage
 
   gameState.manager.setState({
     currentBoss: newBoss,
     battleStats: newStats
   });
 
-  showPoisonDamageEffect(damage);
+  showPoisonDamageEffect(actualDamage);
   updateCombatUI();
 
-  // Сохраняем после каждого тика яда
-  setTimeout(function() {
-    gameState.save(true);
-  }, 100);
+  // Уменьшаем длительность эффекта
+  effect.duration -= 1;
+  effect.displayDuration = effect.duration;
 
-  // ИСПРАВЛЕННЫЙ БЛОК: Немедленная победа при смерти от яда
+  // Обновляем отображение таймеров
+  updatePoisonTimersDisplay();
+
+  if (effect.duration <= 0) {
+    clearInterval(effect.interval);
+    if (effect.timer) clearTimeout(effect.timer);
+    gameState.battleEffects.delete(effect);
+    updatePoisonTimersDisplay();
+  }
+
+  // ИСПРАВЛЕННЫЙ БЛОК: Немедленная победа при смерти от яда с обновлением достижений
   if (newHealth <= 0) {
     clearInterval(effect.interval);
+    if (effect.timer) clearTimeout(effect.timer);
     gameState.battleEffects.delete(effect);
+    updatePoisonTimersDisplay();
 
-    // Обновляем достижения
+    // Обновляем достижения ДО завершения боя
     const newAchievements = Object.assign({}, state.achievements);
     const bossType = state.currentBoss.type;
 
     if (bossType === 'wasp') {
       newAchievements.waspKills = (newAchievements.waspKills || 0) + 1;
-      if (newAchievements.waspKills >= 10 && !newAchievements.completed.level1) {
-        newAchievements.completed.level1 = true;
-      }
-      if (newAchievements.waspKills >= 20 && !newAchievements.completed.level2) {
-        newAchievements.completed.level2 = true;
-      }
-      if (newAchievements.waspKills >= 30 && !newAchievements.completed.level3) {
-        newAchievements.completed.level3 = true;
-      }
+      updateAchievementLevels(newAchievements, 'wasp');
     } else if (bossType === 'bear') {
       newAchievements.bearKills = (newAchievements.bearKills || 0) + 1;
-      if (newAchievements.bearKills >= 10 && !newAchievements.bearCompleted.level1) {
-        newAchievements.bearCompleted.level1 = true;
-      }
-      if (newAchievements.bearKills >= 20 && !newAchievements.bearCompleted.level2) {
-        newAchievements.bearCompleted.level2 = true;
-      }
-      if (newAchievements.bearKills >= 30 && !newAchievements.bearCompleted.level3) {
-        newAchievements.bearCompleted.level3 = true;
-      }
+      updateAchievementLevels(newAchievements, 'bear');
     }
 
     gameState.manager.setState({ achievements: newAchievements });
@@ -2763,13 +2884,19 @@ function applyPoisonTick(effect) {
       showBattleResultPopup();
     }, 300);
   }
+
+  setTimeout(function() {
+    gameState.save(true);
+  }, 100);
 }
 
-function applyDamageToBoss(damage) {
+function applyDamageToBoss(damage, damageType = null) {
   const state = gameState.state;
   if (!state.currentBoss || !state.inBattle) return;
 
-  const newHealth = Math.max(0, state.currentBoss.currentHealth - damage);
+  // Ограничиваем урон текущим здоровьем босса (ИСПРАВЛЕНИЕ БАГА 3)
+  const actualDamage = Math.min(damage, state.currentBoss.currentHealth);
+  const newHealth = Math.max(0, state.currentBoss.currentHealth - actualDamage);
   const newBoss = Object.assign({}, state.currentBoss, { currentHealth: newHealth });
 
   // Обновляем активный бой с текущим здоровьем
@@ -2786,6 +2913,17 @@ function applyDamageToBoss(damage) {
     activeBattle: newActiveBattle
   });
 
+  // Обновляем статистику с actualDamage
+  if (damageType) {
+    const statName = damageType === 'basic' ? 'basicDamage' :
+                    damageType === 'critical' ? 'criticalDamage' : damageType;
+
+    const newStats = Object.assign({}, state.battleStats);
+    newStats[statName] = (newStats[statName] || 0) + actualDamage;
+    newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
+    gameState.manager.setState({ battleStats: newStats });
+  }
+
   if (newHealth <= 0) {
     // Обновляем достижения
     const newAchievements = Object.assign({}, state.achievements);
@@ -2793,34 +2931,18 @@ function applyDamageToBoss(damage) {
 
     if (bossType === 'wasp') {
       newAchievements.waspKills = (newAchievements.waspKills || 0) + 1;
-      if (newAchievements.waspKills >= 10 && !newAchievements.completed.level1) {
-        newAchievements.completed.level1 = true;
-      }
-      if (newAchievements.waspKills >= 20 && !newAchievements.completed.level2) {
-        newAchievements.completed.level2 = true;
-      }
-      if (newAchievements.waspKills >= 30 && !newAchievements.completed.level3) {
-        newAchievements.completed.level3 = true;
-      }
+      updateAchievementLevels(newAchievements, 'wasp');
     } else if (bossType === 'bear') {
       newAchievements.bearKills = (newAchievements.bearKills || 0) + 1;
-      if (newAchievements.bearKills >= 10 && !newAchievements.bearCompleted.level1) {
-        newAchievements.bearCompleted.level1 = true;
-      }
-      if (newAchievements.bearKills >= 20 && !newAchievements.bearCompleted.level2) {
-        newAchievements.bearCompleted.level2 = true;
-      }
-      if (newAchievements.bearKills >= 30 && !newAchievements.bearCompleted.level3) {
-        newAchievements.bearCompleted.level3 = true;
-      }
+      updateAchievementLevels(newAchievements, 'bear');
     }
 
     gameState.manager.setState({ achievements: newAchievements });
 
-    // Немедленно завершаем бой и показываем результат
+    // Немедленно завершаем бой
     gameState.endBattle(true);
 
-    // Немедленно показываем результат боя
+    // Немедленно показываем результат
     setTimeout(() => {
       updateResultPopup();
       showBattleResultPopup();
@@ -2830,9 +2952,14 @@ function applyDamageToBoss(damage) {
 
 function updateBattleStats(stat, damage) {
   const state = gameState.state;
+  if (!state.currentBoss) return;
+
+  // Ограничиваем урон текущим здоровьем босса (ИСПРАВЛЕНИЕ БАГА 3)
+  const actualDamage = Math.min(damage, state.currentBoss.currentHealth);
+
   const newStats = Object.assign({}, state.battleStats);
-  newStats[stat] = (newStats[stat] || 0) + damage;
-  newStats.totalDamage = (newStats.totalDamage || 0) + damage;
+  newStats[stat] = (newStats[stat] || 0) + actualDamage;
+  newStats.totalDamage = (newStats.totalDamage || 0) + actualDamage;
   gameState.manager.setState({ battleStats: newStats });
 }
 
@@ -2858,25 +2985,6 @@ function updateCombatUI() {
       bossCombatImage.src = gameConfig.bosses[state.currentBoss.type].image;
     }
   }
-}
-
-function updatePoisonTimersDisplay() {
-  const container = document.getElementById('poisonTimersContainer');
-  if (!container) return;
-
-  container.innerHTML = '';
-
-  gameState.battleEffects.forEach(function(effect) {
-    if (effect.duration > 0) {
-      const timer = document.createElement('div');
-      timer.className = 'poison-timer';
-      timer.innerHTML = '☠️ ' + effect.duration + 's';
-      container.appendChild(timer);
-
-      // Уменьшаем оставшееся время для отображения
-      effect.duration -= 1;
-    }
-  });
 }
 
 function calculateDamage(type) {
@@ -3168,7 +3276,7 @@ function updateResultPopup() {
     if (rewardKeys) rewardKeys.textContent = '0';
   }
 
-  // ДОБАВИТЬ: Отображение статистики урона
+  // ДОБАВИТЬ: Отображение статистики урона с исправленными значениями
   const damageStats = document.getElementById('damageStats');
   if (!damageStats) {
     // Создаем контейнер для статистики, если его нет
@@ -3254,7 +3362,9 @@ function claimBattleReward() {
 
     gameState.manager.setState({
       honey: currentHoney + reward.honey,
-      xp: currentXP + reward.xp
+      xp: currentXP + reward.xp,
+      pendingBattleResult: null, // Очищаем незакрытый результат
+      pendingBattleResultType: null
     });
 
     // Добавляем ключи
@@ -3310,6 +3420,12 @@ function claimBattleReward() {
 }
 
 function closeBattleResult() {
+  // Очищаем незакрытый результат
+  gameState.manager.setState({
+    pendingBattleResult: null,
+    pendingBattleResultType: null
+  });
+
   // Закрываем попап результатов
   hidePopup('battleResult');
 
@@ -3325,6 +3441,11 @@ function closeBattleResult() {
   if (bossSelection) bossSelection.style.display = 'block';
 
   gameState.battleResult = null;
+
+  // Сохраняем состояние после закрытия попапа
+  setTimeout(() => {
+    gameState.save(true);
+  }, 100);
 }
 
 // =================== ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОВЫШЕНИЯ УРОВНЯ ===================
