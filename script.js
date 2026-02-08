@@ -157,6 +157,11 @@ class OptimizedGameState {
       hasPet: false,
       isUsingSkin: false,
 
+      // ========= ГИЛЬДИЯ =========
+      guildId: null,
+      guildName: null,
+      guildRole: null,
+
       activeHive: 'basic',
       purchasedHives: ['basic'],
 
@@ -495,6 +500,11 @@ class OptimizedGameState {
         energy: data.energy !== undefined ? data.energy : this.manager.state.energy,
         maxEnergy: data.maxEnergy !== undefined ? data.maxEnergy : this.manager.state.maxEnergy,
         xpToNextLevel: data.xpToNextLevel !== undefined ? data.xpToNextLevel : this.manager.state.xpToNextLevel,
+
+        // ГИЛЬДИЯ
+        guildId: data.guildId || null,
+        guildName: data.guildName || null,
+        guildRole: data.guildRole || null,
 
         // Коллекции с глубоким слиянием
         talents: data.talents ? Object.assign(
@@ -1072,6 +1082,575 @@ function updateDamageStats(damage, statType) {
   gameState.manager.setState({ battleStats: newStats });
 }
 
+// =================== СИСТЕМА ГИЛЬДИЙ ===================
+
+// ИСПРАВЛЕНО: Функция для обновления видимости вкладок гильдии
+function updateGuildTabsVisibility() {
+  if (!gameState) return;
+
+  const state = gameState.state;
+  const guildId = state.guildId;
+
+  const guildInfoTab = document.getElementById('guildInfoTab');
+  const guildListTab = document.getElementById('guildListTab');
+  const createGuildTab = document.getElementById('createGuildTab');
+
+  // ИСПРАВЛЕНО: Управление видимостью вкладок
+  if (guildId) {
+    // Если игрок в гильдии - показываем только "Моя гильдия"
+    if (guildInfoTab) {
+      guildInfoTab.style.display = 'block';
+      guildInfoTab.classList.add('active');
+    }
+    if (guildListTab) {
+      guildListTab.style.display = 'none';
+      guildListTab.classList.remove('active');
+    }
+    if (createGuildTab) {
+      createGuildTab.style.display = 'none';
+      createGuildTab.classList.remove('active');
+    }
+
+    // Показываем контент "Моя гильдия", скрываем остальное
+    const guildInfoContent = document.getElementById('guildInfo');
+    const guildListContent = document.getElementById('guildList');
+    const createGuildContent = document.getElementById('createGuild');
+
+    if (guildInfoContent) {
+      guildInfoContent.style.display = 'block';
+      guildInfoContent.classList.add('active');
+    }
+    if (guildListContent) {
+      guildListContent.style.display = 'none';
+      guildListContent.classList.remove('active');
+    }
+    if (createGuildContent) {
+      createGuildContent.style.display = 'none';
+      createGuildContent.classList.remove('active');
+    }
+  } else {
+    // Если игрок не в гильдии - показываем "Список гильдий" и "Создать гильдию"
+    if (guildInfoTab) {
+      guildInfoTab.style.display = 'none';
+      guildInfoTab.classList.remove('active');
+    }
+    if (guildListTab) {
+      guildListTab.style.display = 'block';
+      guildListTab.classList.add('active');
+    }
+    if (createGuildTab) {
+      createGuildTab.style.display = 'block';
+      createGuildTab.classList.remove('active');
+    }
+
+    // Показываем контент "Список гильдий", скрываем остальное
+    const guildInfoContent = document.getElementById('guildInfo');
+    const guildListContent = document.getElementById('guildList');
+    const createGuildContent = document.getElementById('createGuild');
+
+    if (guildInfoContent) {
+      guildInfoContent.style.display = 'none';
+      guildInfoContent.classList.remove('active');
+    }
+    if (guildListContent) {
+      guildListContent.style.display = 'block';
+      guildListContent.classList.add('active');
+    }
+    if (createGuildContent) {
+      createGuildContent.style.display = 'none';
+      createGuildContent.classList.remove('active');
+    }
+  }
+}
+
+function initGuildSystem() {
+  // Инициализация вкладок гильдии
+  document.querySelectorAll('.guild-tabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const tabId = btn.dataset.tab;
+      document.querySelectorAll('.guild-tabs .tab-btn, .guild-tab').forEach(el => {
+        el.classList.remove('active');
+      });
+      btn.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+
+      if (tabId === 'guildList') {
+        loadGuildsList();
+      } else if (tabId === 'guildInfo') {
+        loadGuildInfo();
+      } else if (tabId === 'createGuild') {
+        updateCreateGuildForm();
+      }
+    });
+  });
+
+  // Кнопка создания гильдии
+  const createGuildBtn = document.getElementById('createGuildBtn');
+  if (createGuildBtn) {
+    createGuildBtn.addEventListener('click', createGuild);
+  }
+
+  // Поиск гильдий
+  const searchGuildInput = document.getElementById('searchGuild');
+  if (searchGuildInput) {
+    searchGuildInput.addEventListener('input', filterGuildsList);
+  }
+
+  // ИСПРАВЛЕНО: Обновляем видимость вкладок при инициализации
+  updateGuildTabsVisibility();
+
+  // Обновляем форму создания гильдии при открытии
+  updateCreateGuildForm();
+}
+
+function loadGuildInfo() {
+  const guildInfoContent = document.getElementById('guildInfoContent');
+  if (!guildInfoContent) return;
+
+  const state = gameState.state;
+
+  if (!state.guildId) {
+    guildInfoContent.innerHTML = `
+      <div class="empty-state">
+        <h3>🏰 Вы не состоите в гильдии</h3>
+        <p>Вступите в существующую гильдию или создайте свою!</p>
+        <button class="btn" onclick="showGuildTab('guildList')">Список гильдий</button>
+        <button class="btn" onclick="showGuildTab('createGuild')">Создать гильдию</button>
+      </div>
+    `;
+    return;
+  }
+
+  // Загружаем информацию о гильдии
+  if (window.firebaseManager) {
+    window.firebaseManager.getGuildInfo(state.guildId).then(guildInfo => {
+      if (!guildInfo) {
+        guildInfoContent.innerHTML = `
+          <div class="empty-state">
+            <h3>❌ Гильдия не найдена</h3>
+            <button class="btn" onclick="leaveGuild()">Покинуть гильдию</button>
+          </div>
+        `;
+        return;
+      }
+
+      displayGuildInfo(guildInfo);
+    });
+  }
+}
+
+function displayGuildInfo(guildInfo) {
+  const guildInfoContent = document.getElementById('guildInfoContent');
+  if (!guildInfoContent) return;
+
+  const state = gameState.state;
+  const isCreator = state.guildRole === 'creator';
+
+  // Форматируем дату создания
+  const createdAt = guildInfo.createdAt ?
+    new Date(guildInfo.createdAt.toDate ? guildInfo.createdAt.toDate() : guildInfo.createdAt).toLocaleDateString('ru-RU') :
+    'Неизвестно';
+
+  let membersHtml = '';
+  guildInfo.members.forEach(member => {
+    const isCurrentUser = member.userId === (window.firebaseManager?.currentUser?.uid);
+    const canRemove = isCreator && member.role !== 'creator' && !isCurrentUser;
+
+    membersHtml += `
+      <div class="guild-member ${isCurrentUser ? 'current-user' : ''}">
+        <div class="member-info">
+          <div class="member-name">
+            <strong>${member.username}</strong>
+            ${member.role === 'creator' ? '👑' : ''}
+            ${isCurrentUser ? ' (Вы)' : ''}
+          </div>
+          <div class="member-stats">
+            <span>Ур. ${member.level || 1}</span>
+            <span>🍯 ${formatNumber(member.honey || 0)}</span>
+            <span class="join-date">Вступил: ${member.joinDate ?
+              new Date(member.joinDate.toDate ? member.joinDate.toDate() : member.joinDate).toLocaleDateString('ru-RU') :
+              'Неизвестно'}</span>
+          </div>
+        </div>
+        ${canRemove ? `
+          <button class="remove-member-btn" data-member-id="${member.userId}">
+            🗑️ Удалить
+          </button>
+        ` : ''}
+      </div>
+    `;
+  });
+
+  guildInfoContent.innerHTML = `
+    <div class="guild-header">
+      <h2>${guildInfo.name}</h2>
+      <div class="guild-stats">
+        <div class="stat-item">⭐ Уровень: ${guildInfo.level}</div>
+        <div class="stat-item">🏆 Рейтинг: ${formatNumber(guildInfo.rating)}</div>
+        <div class="stat-item">👥 Участники: ${guildInfo.membersCount}/${guildInfo.maxMembers}</div>
+        <div class="stat-item">📅 Создана: ${createdAt}</div>
+      </div>
+      ${guildInfo.description ? `
+        <div class="guild-description">
+          <h4>Описание:</h4>
+          <p>${guildInfo.description}</p>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="guild-members">
+      <h3>Участники (${guildInfo.membersCount})</h3>
+      <div class="members-list">
+        ${membersHtml}
+      </div>
+    </div>
+
+    <div class="guild-actions">
+      ${isCreator ? `
+        <div class="creator-actions">
+          <p><strong>Вы создатель гильдии</strong></p>
+          <p>Вы можете удалять участников из гильдии</p>
+        </div>
+      ` : ''}
+      <button class="btn leave-guild-btn" onclick="leaveGuild()">
+        🚪 Покинуть гильдию
+      </button>
+    </div>
+  `;
+
+  // Добавляем обработчики для кнопок удаления
+  document.querySelectorAll('.remove-member-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+      const memberId = e.target.dataset.memberId;
+      if (confirm('Вы уверены, что хотите удалить этого участника из гильдии?')) {
+        const result = await window.firebaseManager.removeGuildMember(memberId);
+        if (result.success) {
+          showMessage('✅ Участник удален из гильдии');
+          loadGuildInfo(); // Перезагружаем информацию
+        } else {
+          showMessage('❌ ' + (result.error || 'Ошибка удаления участника'));
+        }
+      }
+    });
+  });
+}
+
+async function loadGuildsList() {
+  try {
+    if (!window.firebaseManager) {
+      showMessage('❌ Firebase не инициализирован');
+      return;
+    }
+
+    const guildsContainer = document.getElementById('guildsContainer');
+    if (!guildsContainer) return;
+
+    guildsContainer.innerHTML = '<div class="loading">Загрузка гильдий...</div>';
+
+    const guilds = await window.firebaseManager.getGuilds(50);
+    displayGuildsList(guilds);
+  } catch (error) {
+    console.error('Ошибка загрузки гильдий:', error);
+    const guildsContainer = document.getElementById('guildsContainer');
+    if (guildsContainer) {
+      guildsContainer.innerHTML = '<div class="empty-state">❌ Ошибка загрузки гильдий</div>';
+    }
+  }
+}
+
+function displayGuildsList(guilds, searchQuery = '') {
+  const guildsContainer = document.getElementById('guildsContainer');
+  if (!guildsContainer) return;
+
+  guildsContainer.innerHTML = '';
+
+  if (guilds.length === 0) {
+    if (searchQuery) {
+      guildsContainer.innerHTML = `
+        <div class="empty-state">
+          🔍 Гильдии по запросу "${searchQuery}" не найдены
+        </div>
+      `;
+    } else {
+      guildsContainer.innerHTML = `
+        <div class="empty-state">
+          🏰 Гильдии пока не созданы
+          <br>
+          <button class="btn" onclick="showGuildTab('createGuild')">
+            Создать первую гильдию!
+          </button>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  const state = gameState.state;
+
+  guilds.forEach(guild => {
+    const guildCard = document.createElement('div');
+    guildCard.className = 'guild-card';
+
+    const isMember = state.guildId === guild.id;
+    const isFull = guild.membersCount >= guild.maxMembers;
+
+    guildCard.innerHTML = `
+      <div class="guild-card-header">
+        <h3>${guild.name}</h3>
+        <span class="guild-level">⭐ ${guild.level}</span>
+      </div>
+      <div class="guild-card-info">
+        <div class="guild-stat">
+          <span>🏆 Рейтинг:</span>
+          <span>${formatNumber(guild.rating)}</span>
+        </div>
+        <div class="guild-stat">
+          <span>👥 Участники:</span>
+          <span>${guild.membersCount}/${guild.maxMembers}</span>
+        </div>
+        <div class="guild-stat">
+          <span>👑 Создатель:</span>
+          <span>${guild.creatorName}</span>
+        </div>
+        ${guild.description ? `
+          <div class="guild-description-short">
+            ${guild.description}
+          </div>
+        ` : ''}
+      </div>
+      <div class="guild-card-actions">
+        ${isMember ? `
+          <button class="btn" disabled>Вы в этой гильдии</button>
+        ` : isFull ? `
+          <button class="btn" disabled>Гильдия заполнена</button>
+        ` : `
+          <button class="btn join-guild-btn" data-guild-id="${guild.id}">
+            Вступить
+          </button>
+        `}
+      </div>
+    `;
+
+    // Добавляем обработчик для кнопки вступления
+    const joinBtn = guildCard.querySelector('.join-guild-btn');
+    if (joinBtn) {
+      joinBtn.addEventListener('click', async function() {
+        const guildId = this.dataset.guildId;
+        const result = await window.firebaseManager.joinGuild(guildId);
+        if (result.success) {
+          showMessage('✅ Вы вступили в гильдию!');
+
+          // Обновляем состояние игры
+          gameState.manager.setState({
+            guildId: result.guildId,
+            guildName: result.guildName,
+            guildRole: 'member'
+          });
+
+          // ИСПРАВЛЕНО: Обновляем видимость вкладок после вступления
+          updateGuildTabsVisibility();
+
+          // Переключаемся на вкладку информации о гильдии
+          loadGuildInfo();
+        } else {
+          showMessage('❌ ' + (result.error || 'Ошибка вступления в гильдию'));
+        }
+      });
+    }
+
+    guildsContainer.appendChild(guildCard);
+  });
+}
+
+function filterGuildsList() {
+  const searchInput = document.getElementById('searchGuild');
+  if (!searchInput) return;
+
+  const searchText = searchInput.value.trim().toLowerCase();
+  // В реальной реализации здесь был бы поиск по базе данных
+  // Пока просто перезагружаем список
+  if (!searchText) {
+    loadGuildsList();
+  }
+}
+
+function updateCreateGuildForm() {
+  const playerLevel = document.getElementById('playerLevel');
+  const playerHoney = document.getElementById('playerHoney');
+  const playerLevelReq = document.getElementById('playerLevelReq');
+  const honeyReq = document.getElementById('honeyReq');
+  const createGuildBtn = document.getElementById('createGuildBtn');
+
+  if (!gameState) return;
+
+  const state = gameState.state;
+
+  if (playerLevel) playerLevel.textContent = state.level;
+  if (playerHoney) playerHoney.textContent = formatNumber(state.honey);
+
+  const meetsLevel = state.level >= 20;
+  const meetsHoney = state.honey >= 10000;
+
+  if (playerLevelReq) {
+    playerLevelReq.style.color = meetsLevel ? '#4CAF50' : '#f44336';
+  }
+
+  if (honeyReq) {
+    honeyReq.style.color = meetsHoney ? '#4CAF50' : '#f44336';
+  }
+
+  if (createGuildBtn) {
+    createGuildBtn.disabled = !meetsLevel || !meetsHoney || state.guildId !== null;
+
+    if (state.guildId) {
+      createGuildBtn.textContent = 'Вы уже в гильдии';
+    } else if (!meetsLevel) {
+      createGuildBtn.textContent = 'Нужен 20 уровень';
+    } else if (!meetsHoney) {
+      createGuildBtn.textContent = 'Нужно 10,000 меда';
+    } else {
+      createGuildBtn.textContent = 'Создать гильдию (10,000 🍯)';
+    }
+  }
+}
+
+// ИСПРАВЛЕННАЯ: Функция создания гильдии
+async function createGuild() {
+  try {
+    const guildNameInput = document.getElementById('guildName');
+    const guildDescriptionInput = document.getElementById('guildDescription');
+
+    if (!guildNameInput || !guildDescriptionInput) {
+      showMessage('❌ Ошибка формы');
+      return;
+    }
+
+    const guildName = guildNameInput.value.trim();
+    const guildDescription = guildDescriptionInput.value.trim();
+
+    if (!guildName || guildName.length < 3) {
+      showMessage('❌ Название гильдии должно содержать минимум 3 символа');
+      guildNameInput.focus();
+      return;
+    }
+
+    if (!window.firebaseManager) {
+      showMessage('❌ Ошибка соединения с сервером');
+      return;
+    }
+
+    // Показываем индикатор загрузки
+    const createBtn = document.getElementById('createGuildBtn');
+    if (!createBtn) return;
+
+    const originalText = createBtn.textContent;
+    createBtn.textContent = 'Создание...';
+    createBtn.disabled = true;
+
+    const result = await window.firebaseManager.createGuild(guildName);
+
+    if (result.success) {
+      showMessage('✅ Гильдия успешно создана!');
+
+      // Обновляем состояние игры
+      gameState.manager.setState({
+        guildId: result.guildId,
+        guildName: result.guildName,
+        guildRole: 'creator',
+        honey: gameState.state.honey - 10000 // Вычитаем 10k меда
+      });
+
+      // ИСПРАВЛЕНО: Обновляем видимость вкладок после создания
+      updateGuildTabsVisibility();
+
+      // Обновляем UI
+      updateUI(['honey']);
+
+      // Очищаем форму
+      guildNameInput.value = '';
+      guildDescriptionInput.value = '';
+    } else {
+      showMessage('❌ ' + (result.error || 'Ошибка создания гильдии'));
+    }
+
+    createBtn.textContent = originalText;
+    createBtn.disabled = false;
+  } catch (error) {
+    console.error('Ошибка создания гильдии:', error);
+    showMessage('❌ Ошибка создания гильдии');
+
+    const createBtn = document.getElementById('createGuildBtn');
+    if (createBtn) {
+      createBtn.textContent = 'Создать гильдию (10,000 🍯)';
+      createBtn.disabled = false;
+    }
+  }
+}
+
+// ИСПРАВЛЕННАЯ: Функция выхода из гильдии
+async function leaveGuild() {
+  if (!confirm('Вы уверены, что хотите покинуть гильдию?')) {
+    return;
+  }
+
+  if (!window.firebaseManager) {
+    showMessage('❌ Ошибка соединения с сервером');
+    return;
+  }
+
+  const result = await window.firebaseManager.leaveGuild();
+  if (result.success) {
+    showMessage('✅ Вы покинули гильдию');
+
+    // Обновляем состояние игры
+    gameState.manager.setState({
+      guildId: null,
+      guildName: null,
+      guildRole: null
+    });
+
+    // ИСПРАВЛЕНО: Обновляем видимость вкладок после выхода
+    updateGuildTabsVisibility();
+  } else {
+    showMessage('❌ ' + (result.error || 'Ошибка выхода из гильдии'));
+  }
+}
+
+function showGuildTab(tabName) {
+  // Проверяем доступность вкладки
+  const tabBtn = document.querySelector(`.guild-tabs .tab-btn[data-tab="${tabName}"]`);
+  const tabContent = document.getElementById(tabName);
+
+  // Если вкладка не доступна (скрыта), выбираем первую доступную
+  if (!tabBtn || tabBtn.style.display === 'none') {
+    const availableTabs = Array.from(document.querySelectorAll('.guild-tabs .tab-btn'))
+      .filter(btn => btn.style.display !== 'none');
+
+    if (availableTabs.length > 0) {
+      tabName = availableTabs[0].dataset.tab;
+    }
+  }
+
+  document.querySelectorAll('.guild-tabs .tab-btn, .guild-tab').forEach(el => {
+    el.classList.remove('active');
+  });
+
+  const newTabBtn = document.querySelector(`.guild-tabs .tab-btn[data-tab="${tabName}"]`);
+  const newTabContent = document.getElementById(tabName);
+
+  if (newTabBtn) newTabBtn.classList.add('active');
+  if (newTabContent) newTabContent.classList.add('active');
+
+  // Загружаем контент вкладки
+  if (tabName === 'guildList') {
+    loadGuildsList();
+  } else if (tabName === 'guildInfo') {
+    loadGuildInfo();
+  } else if (tabName === 'createGuild') {
+    updateCreateGuildForm();
+  }
+}
+
 // =================== ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ ===================
 async function initGame() {
   if (isGameInitialized) {
@@ -1287,6 +1866,9 @@ function initGameSystems() {
 
   // Система друзей
   initFriendsSystem();
+
+  // Система гильдий
+  initGuildSystem();
 
   // Система фонов
   initBackgroundSystem();
@@ -3156,6 +3738,11 @@ function showPopup(popupType) {
     // Особые действия при открытии определенных попапов
     if (popupType === 'friends') {
       loadFriendsList();
+    }
+
+    // Для попапа гильдии
+    if (popupType === 'guild') {
+      loadGuildInfo();
     }
 
     // Для попапа битвы: восстановление активного боя

@@ -255,6 +255,11 @@ class FirebaseManager {
         hasPet: gameState.hasPet || false,
         isUsingSkin: gameState.isUsingSkin || false,
 
+        // ========= ГИЛЬДИЯ =========
+        guildId: gameState.guildId || null,
+        guildName: gameState.guildName || null,
+        guildRole: gameState.guildRole || null,
+
         // ========= УЛЬИ =========
         activeHive: gameState.activeHive || 'basic',
         purchasedHives: gameState.purchasedHives || ['basic'],
@@ -804,6 +809,363 @@ class FirebaseManager {
         }
       }
     });
+  }
+
+  // =================== МЕТОДЫ ДЛЯ СИСТЕМЫ ГИЛЬДИЙ ===================
+
+  // Создание гильдии
+  async createGuild(guildName) {
+    try {
+      if (!this.currentUser || !this.isOnline) {
+        return { success: false, error: 'Нет подключения к интернету' };
+      }
+
+      // Получаем данные текущего пользователя
+      const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+      if (!userDoc.exists) {
+        return { success: false, error: 'Пользователь не найден' };
+      }
+
+      const userData = userDoc.data();
+
+      // Проверяем требования для создания гильдии
+      if (userData.level < 20) {
+        return { success: false, error: 'Для создания гильдии нужен 20 уровень' };
+      }
+
+      if (userData.honey < 10000) {
+        return { success: false, error: 'Для создания гильдии нужно 10,000 меда' };
+      }
+
+      if (!guildName || guildName.trim().length < 3) {
+        return { success: false, error: 'Название гильдии должно содержать минимум 3 символа' };
+      }
+
+      // Проверяем, не состоит ли уже в гильдии
+      if (userData.guildId) {
+        return { success: false, error: 'Вы уже состоите в гильдии' };
+      }
+
+      // Проверяем уникальность названия гильдии
+      const existingGuild = await this.db.collection('guilds')
+        .where('name', '==', guildName.trim())
+        .limit(1)
+        .get();
+
+      if (!existingGuild.empty) {
+        return { success: false, error: 'Гильдия с таким названием уже существует' };
+      }
+
+      // Создаем гильдию
+      const guildRef = this.db.collection('guilds').doc();
+      const guildData = {
+        id: guildRef.id,
+        name: guildName.trim(),
+        level: 1,
+        rating: 0,
+        creatorId: this.currentUser.uid,
+        creatorName: userData.username || `Игрок ${userData.telegramId}`,
+        members: [{
+          userId: this.currentUser.uid,
+          username: userData.username || `Игрок ${userData.telegramId}`,
+          level: userData.level || 1,
+          honey: userData.honey || 0,
+          joinDate: firebase.firestore.FieldValue.serverTimestamp(),
+          role: 'creator'
+        }],
+        membersCount: 1,
+        maxMembers: 50,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await guildRef.set(guildData);
+
+      // Обновляем данные пользователя
+      await this.db.collection('users').doc(this.currentUser.uid).update({
+        guildId: guildRef.id,
+        guildName: guildName.trim(),
+        guildRole: 'creator',
+        honey: firebase.firestore.FieldValue.increment(-10000) // Вычитаем 10k меда
+      });
+
+      console.log('Гильдия создана:', guildRef.id);
+      return {
+        success: true,
+        guildId: guildRef.id,
+        guildName: guildName.trim()
+      };
+    } catch (error) {
+      console.error('Ошибка создания гильдии:', error);
+      return {
+        success: false,
+        error: 'Ошибка создания гильдии: ' + error.message
+      };
+    }
+  }
+
+  // Получение списка гильдий
+  async getGuilds(limit = 20) {
+    try {
+      if (!this.isOnline) return [];
+
+      const guildsSnapshot = await this.db.collection('guilds')
+        .orderBy('rating', 'desc')
+        .limit(limit)
+        .get();
+
+      return guildsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          level: data.level || 1,
+          rating: data.rating || 0,
+          membersCount: data.membersCount || 0,
+          maxMembers: data.maxMembers || 50,
+          creatorName: data.creatorName,
+          description: data.description || ''
+        };
+      });
+    } catch (error) {
+      console.error('Ошибка получения списка гильдий:', error);
+      return [];
+    }
+  }
+
+  // Получение информации о гильдии
+  async getGuildInfo(guildId) {
+    try {
+      if (!this.isOnline) return null;
+
+      const guildDoc = await this.db.collection('guilds').doc(guildId).get();
+      if (!guildDoc.exists) return null;
+
+      const data = guildDoc.data();
+
+      // Сортируем участников: сначала создатель, затем по уровню
+      const sortedMembers = [...(data.members || [])].sort((a, b) => {
+        if (a.role === 'creator') return -1;
+        if (b.role === 'creator') return 1;
+        return (b.level || 1) - (a.level || 1);
+      });
+
+      return {
+        id: guildDoc.id,
+        name: data.name,
+        level: data.level || 1,
+        rating: data.rating || 0,
+        members: sortedMembers,
+        membersCount: data.membersCount || 0,
+        maxMembers: data.maxMembers || 50,
+        creatorId: data.creatorId,
+        creatorName: data.creatorName,
+        description: data.description || '',
+        createdAt: data.createdAt
+      };
+    } catch (error) {
+      console.error('Ошибка получения информации о гильдии:', error);
+      return null;
+    }
+  }
+
+  // Вступление в гильдию
+  async joinGuild(guildId) {
+    try {
+      if (!this.currentUser || !this.isOnline) {
+        return { success: false, error: 'Нет подключения к интернету' };
+      }
+
+      // Получаем данные пользователя
+      const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+      if (!userDoc.exists) {
+        return { success: false, error: 'Пользователь не найден' };
+      }
+
+      const userData = userDoc.data();
+
+      // Проверяем, не состоит ли уже в гильдии
+      if (userData.guildId) {
+        return { success: false, error: 'Вы уже состоите в гильдии' };
+      }
+
+      // Получаем информацию о гильдии
+      const guildDoc = await this.db.collection('guilds').doc(guildId).get();
+      if (!guildDoc.exists) {
+        return { success: false, error: 'Гильдия не найдена' };
+      }
+
+      const guildData = guildDoc.data();
+
+      // Проверяем, есть ли место в гильдии
+      if (guildData.membersCount >= guildData.maxMembers) {
+        return { success: false, error: 'В гильдии нет свободных мест' };
+      }
+
+      // Добавляем пользователя в гильдию
+      await this.db.collection('guilds').doc(guildId).update({
+        members: firebase.firestore.FieldValue.arrayUnion({
+          userId: this.currentUser.uid,
+          username: userData.username || `Игрок ${userData.telegramId}`,
+          level: userData.level || 1,
+          honey: userData.honey || 0,
+          joinDate: firebase.firestore.FieldValue.serverTimestamp(),
+          role: 'member'
+        }),
+        membersCount: firebase.firestore.FieldValue.increment(1),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Обновляем данные пользователя
+      await this.db.collection('users').doc(this.currentUser.uid).update({
+        guildId: guildId,
+        guildName: guildData.name,
+        guildRole: 'member'
+      });
+
+      console.log('Пользователь вступил в гильдию:', guildId);
+      return {
+        success: true,
+        guildId: guildId,
+        guildName: guildData.name
+      };
+    } catch (error) {
+      console.error('Ошибка вступления в гильдию:', error);
+      return {
+        success: false,
+        error: 'Ошибка вступления в гильдию: ' + error.message
+      };
+    }
+  }
+
+  // Выход из гильдии
+  async leaveGuild() {
+    try {
+      if (!this.currentUser || !this.isOnline) {
+        return { success: false, error: 'Нет подключения к интернету' };
+      }
+
+      // Получаем данные пользователя
+      const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+      if (!userDoc.exists) {
+        return { success: false, error: 'Пользователь не найден' };
+      }
+
+      const userData = userDoc.data();
+
+      // Проверяем, состоит ли в гильдии
+      if (!userData.guildId) {
+        return { success: false, error: 'Вы не состоите в гильдии' };
+      }
+
+      // Получаем информацию о гильдии
+      const guildDoc = await this.db.collection('guilds').doc(userData.guildId).get();
+      if (!guildDoc.exists) {
+        // Если гильдия не найдена, просто очищаем данные пользователя
+        await this.db.collection('users').doc(this.currentUser.uid).update({
+          guildId: null,
+          guildName: null,
+          guildRole: null
+        });
+        return { success: true };
+      }
+
+      const guildData = guildDoc.data();
+
+      // Удаляем пользователя из списка участников
+      const memberToRemove = guildData.members.find(m => m.userId === this.currentUser.uid);
+      if (memberToRemove) {
+        await this.db.collection('guilds').doc(userData.guildId).update({
+          members: firebase.firestore.FieldValue.arrayRemove(memberToRemove),
+          membersCount: firebase.firestore.FieldValue.increment(-1),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      // Обновляем данные пользователя
+      await this.db.collection('users').doc(this.currentUser.uid).update({
+        guildId: null,
+        guildName: null,
+        guildRole: null
+      });
+
+      console.log('Пользователь покинул гильдию:', userData.guildId);
+      return { success: true };
+    } catch (error) {
+      console.error('Ошибка выхода из гильдии:', error);
+      return {
+        success: false,
+        error: 'Ошибка выхода из гильдии: ' + error.message
+      };
+    }
+  }
+
+  // Удаление участника из гильдии (только для создателя)
+  async removeGuildMember(memberId) {
+    try {
+      if (!this.currentUser || !this.isOnline) {
+        return { success: false, error: 'Нет подключения к интернету' };
+      }
+
+      // Получаем данные текущего пользователя
+      const userDoc = await this.db.collection('users').doc(this.currentUser.uid).get();
+      if (!userDoc.exists) {
+        return { success: false, error: 'Пользователь не найден' };
+      }
+
+      const userData = userDoc.data();
+
+      // Проверяем, является ли создателем гильдии
+      if (userData.guildRole !== 'creator') {
+        return { success: false, error: 'Только создатель гильдии может удалять участников' };
+      }
+
+      if (!userData.guildId) {
+        return { success: false, error: 'Вы не состоите в гильдии' };
+      }
+
+      // Получаем информацию о гильдии
+      const guildDoc = await this.db.collection('guilds').doc(userData.guildId).get();
+      if (!guildDoc.exists) {
+        return { success: false, error: 'Гильдия не найдена' };
+      }
+
+      const guildData = guildDoc.data();
+
+      // Проверяем, что удаляемый участник не является создателем
+      if (memberId === guildData.creatorId) {
+        return { success: false, error: 'Нельзя удалить создателя гильдии' };
+      }
+
+      // Находим участника для удаления
+      const memberToRemove = guildData.members.find(m => m.userId === memberId);
+      if (!memberToRemove) {
+        return { success: false, error: 'Участник не найден' };
+      }
+
+      // Удаляем участника из гильдии
+      await this.db.collection('guilds').doc(userData.guildId).update({
+        members: firebase.firestore.FieldValue.arrayRemove(memberToRemove),
+        membersCount: firebase.firestore.FieldValue.increment(-1),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Обновляем данные удаленного участника
+      await this.db.collection('users').doc(memberId).update({
+        guildId: null,
+        guildName: null,
+        guildRole: null
+      });
+
+      console.log('Участник удален из гильдии:', memberId);
+      return { success: true };
+    } catch (error) {
+      console.error('Ошибка удаления участника:', error);
+      return {
+        success: false,
+        error: 'Ошибка удаления участника: ' + error.message
+      };
+    }
   }
 }
 

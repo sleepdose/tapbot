@@ -350,6 +350,7 @@
     <button class="nav-btn" data-popup="customization">👤</button>
     <button class="nav-btn" data-popup="achievements">🏆</button>
     <button class="nav-btn" data-popup="friends">👥</button>
+    <button class="nav-btn" data-popup="guild">🏰</button>
   </nav>
 
   <!-- Попап кастомизации -->
@@ -554,6 +555,77 @@
             <div class="empty-state">
               📭 У вас нет заявок в друзья
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Попап гильдии -->
+  <div id="guildPopup" class="popup">
+    <div class="popup-scroll-wrapper">
+      <div class="popup-content">
+        <div class="popup-header">
+          <button class="close">×</button>
+        </div>
+
+        <div class="guild-tabs">
+          <!-- ИСПРАВЛЕНО: Добавлены ID для управления видимостью -->
+          <button id="guildInfoTab" class="tab-btn" data-tab="guildInfo">Моя гильдия</button>
+          <button id="guildListTab" class="tab-btn active" data-tab="guildList">Список гильдий</button>
+          <button id="createGuildTab" class="tab-btn" data-tab="createGuild">Создать гильдию</button>
+        </div>
+
+        <!-- Информация о гильдии -->
+        <div id="guildInfo" class="guild-tab">
+          <div id="guildInfoContent">
+            <!-- Будет загружаться динамически -->
+            <div class="empty-state">
+              Загрузка гильдии...
+            </div>
+          </div>
+        </div>
+
+        <!-- Список гильдий -->
+        <div id="guildList" class="guild-tab active">
+          <div class="guild-search">
+            <input type="text" id="searchGuild" placeholder="Поиск гильдии..." class="search-input">
+          </div>
+          <div id="guildsContainer" class="guilds-container">
+            <!-- Список гильдий будет здесь -->
+            <div class="empty-state">
+              Загрузка гильдий...
+            </div>
+          </div>
+        </div>
+
+        <!-- Создание гильдии -->
+        <div id="createGuild" class="guild-tab">
+          <div class="create-guild-form">
+            <h3>Создание гильдии</h3>
+
+            <div class="requirements-info">
+              <h4>Требования:</h4>
+              <ul>
+                <li>Уровень игрока: <span id="playerLevelReq">20</span>/<span id="playerLevel">1</span></li>
+                <li>Мёд: <span id="honeyReq">10,000</span>/<span id="playerHoney">0</span></li>
+                <li>Название: минимум 3 символа</li>
+              </ul>
+            </div>
+
+            <div class="form-group">
+              <label for="guildName">Название гильдии:</label>
+              <input type="text" id="guildName" placeholder="Введите название гильдии" class="form-input" maxlength="20">
+              <div class="form-hint">Максимум 20 символов</div>
+            </div>
+
+            <div class="form-group">
+              <label for="guildDescription">Описание (необязательно):</label>
+              <textarea id="guildDescription" placeholder="Опишите вашу гильдию..." class="form-textarea" rows="3" maxlength="200"></textarea>
+              <div class="form-hint">Максимум 200 символов</div>
+            </div>
+
+            <button id="createGuildBtn" class="btn" style="width: 100%;">Создать гильдию (10,000 🍯)</button>
           </div>
         </div>
       </div>
