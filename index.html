@@ -343,16 +343,6 @@
     </div>
   </div>
 
-  <!-- Нижняя навигация -->
-  <nav class="bottom-nav">
-    <button class="nav-btn" data-popup="battle">⚔️</button>
-    <button class="nav-btn" data-popup="talents">💫</button>
-    <button class="nav-btn" data-popup="customization">👤</button>
-    <button class="nav-btn" data-popup="achievements">🏆</button>
-    <button class="nav-btn" data-popup="friends">👥</button>
-    <button class="nav-btn" data-popup="guild">🏰</button>
-  </nav>
-
   <!-- Попап кастомизации -->
   <div id="customizationPopup" class="popup">
     <div class="popup-scroll-wrapper">
@@ -361,33 +351,33 @@
           <button class="close">×</button>
         </div>
         <div class="tab-buttons">
-          <button onclick="showTab('character')" class="tab-btn active">Персонаж</button>
-          <button onclick="showTab('pets')" class="tab-btn">Питомцы</button>
+          <button data-tab="characterTab" class="tab-btn active">Персонаж</button>
+          <button data-tab="petsTab" class="tab-btn">Питомцы</button>
         </div>
 
-        <div id="character" class="tab-content active">
+        <div id="characterTab" class="tab-content active">
           <div class="skin-preview">
             <img id="selected-skin" src="img/human_male.png" alt="Скин">
             <h3 id="skin-name">Базовый скин</h3>
-            <button id="select-skin" class="btn" onclick="selectSkin()">Выбрать</button>
+            <button id="select-skin" class="btn">Выбрать</button>
           </div>
           <div class="skin-list">
-            <img src="img/human_male.png" onclick="previewSkin('img/human_male.png', 'Базовый скин')">
-            <img src="img/skin2.png" onclick="previewSkin('img/skin2.png', 'Скин 2')">
-            <img src="img/skin3.png" onclick="previewSkin('img/skin3.png', 'Скин 3')">
+            <img src="img/human_male.png" alt="Базовый скин">
+            <img src="img/skin2.png" alt="Скин 2">
+            <img src="img/skin3.png" alt="Скин 3">
           </div>
         </div>
 
-        <div id="pets" class="tab-content">
+        <div id="petsTab" class="tab-content">
           <div class="pet-preview">
             <img id="selected-pet" src="img/pet1.png" alt="Питомец">
             <h3 id="pet-name">Питомец 1</h3>
-            <button id="select-pet" class="btn" onclick="selectPet()">Выбрать</button>
+            <button id="select-pet" class="btn">Выбрать</button>
           </div>
           <div class="pet-list">
-            <img src="img/pet1.png" onclick="previewPet('img/pet1.png', 'Питомец 1')">
-            <img src="img/pet2.png" onclick="previewPet('img/pet2.png', 'Питомец 2')">
-            <img src="img/pet3.png" onclick="previewPet('img/pet3.png', 'Питомец 3')">
+            <img src="img/pet1.png" alt="Питомец 1">
+            <img src="img/pet2.png" alt="Питомец 2">
+            <img src="img/pet3.png" alt="Питомец 3">
           </div>
         </div>
       </div>
@@ -434,15 +424,9 @@
               <span>🍯 1000</span>
               <span>⭐ 500</span>
             </div>
-            <button id="claimWasp1" class="claim-btn" style="display: none;" onclick="claimAchievementReward('wasp', 1)">
-              Получить награду
-            </button>
-            <button id="claimWasp2" class="claim-btn" style="display: none;" onclick="claimAchievementReward('wasp', 2)">
-              Получить награду
-            </button>
-            <button id="claimWasp3" class="claim-btn" style="display: none;" onclick="claimAchievementReward('wasp', 3)">
-              Получить награду
-            </button>
+            <button id="claimWasp1" class="claim-btn" style="display: none;">Получить награду</button>
+            <button id="claimWasp2" class="claim-btn" style="display: none;">Получить награду</button>
+            <button id="claimWasp3" class="claim-btn" style="display: none;">Получить награду</button>
           </div>
 
           <div class="achievement-card" id="bearAchievement">
@@ -459,15 +443,9 @@
               <span>🍯 2000</span>
               <span>⭐ 1000</span>
             </div>
-            <button id="claimBear1" class="claim-btn" style="display: none;" onclick="claimAchievementReward('bear', 1)">
-              Получить награду
-            </button>
-            <button id="claimBear2" class="claim-btn" style="display: none;" onclick="claimAchievementReward('bear', 2)">
-              Получить награду
-            </button>
-            <button id="claimBear3" class="claim-btn" style="display: none;" onclick="claimAchievementReward('bear', 3)">
-              Получить награду
-            </button>
+            <button id="claimBear1" class="claim-btn" style="display: none;">Получить награду</button>
+            <button id="claimBear2" class="claim-btn" style="display: none;">Получить награду</button>
+            <button id="claimBear3" class="claim-btn" style="display: none;">Получить награду</button>
           </div>
         </div>
       </div>
@@ -483,21 +461,14 @@
         </div>
 
         <div class="friends-tabs">
-          <button class="tab-btn active" data-tab="friendsList">Друзья</button>
-          <button class="tab-btn" data-tab="addFriend">Добавить друга</button>
-          <button class="tab-btn" data-tab="friendRequests">Заявки <span id="requestsCount" class="badge">0</span></button>
+          <button class="tab-btn active" data-tab="friendsListTab">Друзья</button>
+          <button class="tab-btn" data-tab="addFriendTab">Добавить друга</button>
+          <button class="tab-btn" data-tab="friendRequestsTab">Заявки <span id="requestsCount" class="badge">0</span></button>
         </div>
 
         <!-- Список друзей -->
-        <div id="friendsList" class="friends-tab active">
-          <div class="friend-limit-info" style="
-            background: rgba(139, 69, 19, 0.2);
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            text-align: center;
-            font-size: 0.9em;
-          ">
+        <div id="friendsListTab" class="friends-tab active">
+          <div class="friend-limit-info">
             🔍 Поиск работает только по Telegram ID<br>
             👥 Максимальное количество друзей: <strong>20</strong>
           </div>
@@ -515,7 +486,7 @@
         </div>
 
         <!-- Добавление друга -->
-        <div id="addFriend" class="friends-tab">
+        <div id="addFriendTab" class="friends-tab">
           <div class="add-friend-form">
             <h3>Добавить друга</h3>
             <p class="form-description">Введите Telegram ID игрока, которого хотите добавить в друзья</p>
@@ -549,7 +520,7 @@
         </div>
 
         <!-- Заявки в друзья -->
-        <div id="friendRequests" class="friends-tab">
+        <div id="friendRequestsTab" class="friends-tab">
           <div id="requestsContainer" class="requests-container">
             <!-- Заявки будут здесь -->
             <div class="empty-state">
@@ -570,53 +541,95 @@
         </div>
 
         <div class="guild-tabs">
-          <!-- ИСПРАВЛЕНО: Добавлены ID для управления видимостью -->
-          <button id="guildInfoTab" class="tab-btn" data-tab="guildInfo">Моя гильдия</button>
-          <button id="guildListTab" class="tab-btn active" data-tab="guildList">Список гильдий</button>
-          <button id="createGuildTab" class="tab-btn" data-tab="createGuild">Создать гильдию</button>
+          <button class="tab-btn active" data-tab="guildInfoTab">Моя гильдия</button>
+          <button class="tab-btn" data-tab="guildListTab">Все гильдии</button>
+          <button class="tab-btn" data-tab="createGuildTab">Создать</button>
         </div>
 
-        <!-- Информация о гильдии -->
-        <div id="guildInfo" class="guild-tab">
-          <div id="guildInfoContent">
-            <!-- Будет загружаться динамически -->
-            <div class="empty-state">
-              Загрузка гильдии...
+        <!-- Информация о моей гильдии -->
+        <div id="guildInfoTab" class="guild-tab active">
+          <div id="myGuildContainer" class="my-guild-container" style="display: none;">
+            <div class="guild-header">
+              <h2 id="guildName">Название гильдии</h2>
+              <div class="guild-level">Ур. <span id="guildLevel">1</span></div>
+            </div>
+
+            <div class="guild-stats">
+              <div class="guild-stat">
+                <span>🏆 Рейтинг:</span>
+                <span id="guildRating">0</span>
+              </div>
+              <div class="guild-stat">
+                <span>👥 Участники:</span>
+                <span id="guildMembers">1</span>/20
+              </div>
+              <div class="guild-stat">
+                <span>👑 Лидер:</span>
+                <span id="guildLeader">Вы</span>
+              </div>
+              <div class="guild-stat">
+                <span>📅 Создана:</span>
+                <span id="guildCreated">Сегодня</span>
+              </div>
+            </div>
+
+            <div class="guild-members">
+              <h3>Участники гильдии:</h3>
+              <div id="guildMembersList" class="members-list">
+                <!-- Список участников будет здесь -->
+              </div>
+            </div>
+
+            <div class="guild-actions">
+              <button id="leaveGuildBtn" class="btn btn-danger" style="display: none;">Покинуть гильдию</button>
+              <button id="disbandGuildBtn" class="btn btn-danger" style="display: none;">Распустить гильдию</button>
             </div>
           </div>
+
+          <div id="noGuildMessage" class="no-guild-message">
+            <div class="empty-state">
+              🏰 Вы не состоите в гильдии
+            </div>
+            <p>Присоединитесь к существующей или создайте свою!</p>
+            <button class="btn guild-tab-switch" data-tab="guildListTab">Найти гильдию</button>
+            <button class="btn guild-tab-switch" data-tab="createGuildTab">Создать гильдию</button>
+          </div>
         </div>
 
-        <!-- Список гильдий -->
-        <div id="guildList" class="guild-tab active">
-          <div class="guild-search">
-            <input type="text" id="searchGuild" placeholder="Поиск гильдии..." class="search-input">
+        <!-- Список всех гильдий -->
+        <div id="guildListTab" class="guild-tab">
+          <div class="guild-list-header">
+            <h3>Список гильдий</h3>
+            <div class="sort-controls">
+              <select id="guildSort" class="sort-select">
+                <option value="rating">По рейтингу</option>
+                <option value="level">По уровню</option>
+                <option value="members">По участникам</option>
+                <option value="created">По дате</option>
+              </select>
+            </div>
           </div>
+
+          <div class="guild-search">
+            <input type="text" id="guildSearch" placeholder="Поиск по названию..." class="search-input">
+          </div>
+
           <div id="guildsContainer" class="guilds-container">
             <!-- Список гильдий будет здесь -->
-            <div class="empty-state">
-              Загрузка гильдий...
-            </div>
+            <div class="loading">Загрузка гильдий...</div>
           </div>
         </div>
 
         <!-- Создание гильдии -->
-        <div id="createGuild" class="guild-tab">
+        <div id="createGuildTab" class="guild-tab">
           <div class="create-guild-form">
             <h3>Создание гильдии</h3>
-
-            <div class="requirements-info">
-              <h4>Требования:</h4>
-              <ul>
-                <li>Уровень игрока: <span id="playerLevelReq">20</span>/<span id="playerLevel">1</span></li>
-                <li>Мёд: <span id="honeyReq">10,000</span>/<span id="playerHoney">0</span></li>
-                <li>Название: минимум 3 символа</li>
-              </ul>
-            </div>
+            <p class="form-description">Создайте свою гильдию и приглашайте друзей!</p>
 
             <div class="form-group">
-              <label for="guildName">Название гильдии:</label>
-              <input type="text" id="guildName" placeholder="Введите название гильдии" class="form-input" maxlength="20">
-              <div class="form-hint">Максимум 20 символов</div>
+              <label for="guildNameInput">Название гильдии:</label>
+              <input type="text" id="guildNameInput" placeholder="Введите название" class="form-input" maxlength="30">
+              <div class="form-hint">Максимум 30 символов</div>
             </div>
 
             <div class="form-group">
@@ -625,17 +638,37 @@
               <div class="form-hint">Максимум 200 символов</div>
             </div>
 
-            <button id="createGuildBtn" class="btn" style="width: 100%;">Создать гильдию (10,000 🍯)</button>
+            <div class="create-rules">
+              <h4>Правила создания:</h4>
+              <ul>
+                <li>• Максимум 20 участников в гильдии</li>
+                <li>• Название должно быть уникальным</li>
+                <li>• Стоимость создания: 5000 🍯</li>
+                <li>• Вы становитесь лидером гильдии</li>
+                <li>• Вы можете покинуть гильдию в любой момент</li>
+              </ul>
+            </div>
+
+            <button id="createGuildBtn" class="btn" style="width: 100%;">Создать за 5000 🍯</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Нижняя навигация -->
+  <nav class="bottom-nav">
+    <button class="nav-btn" data-popup="battle">⚔️</button>
+    <button class="nav-btn" data-popup="talents">💫</button>
+    <button class="nav-btn" data-popup="customization">👤</button>
+    <button class="nav-btn" data-popup="achievements">🏆</button>
+    <button class="nav-btn" data-popup="friends">👥</button>
+    <button class="nav-btn" data-popup="guild">🏰</button>
+  </nav>
+
   <!-- Подключаем наши скрипты -->
   <script src="firebase.js"></script>
   <script src="script.js"></script>
-
 </body>
 
 </html>

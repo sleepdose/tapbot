@@ -2622,38 +2622,148 @@ body {
     opacity: 0;
     visibility: hidden;
 }
-
-/* =================== СТИЛИ ДЛЯ ГИЛЬДИЙ =================== */
-
+/* Стили для гильдии */
 .guild-tabs {
   display: flex;
-  justify-content: space-around;
+  gap: 5px;
   margin-bottom: 15px;
   border-bottom: 1px solid rgba(139, 69, 19, 0.3);
-  padding-bottom: 10px;
+  padding-bottom: 5px;
 }
 
 .guild-tab {
   display: none;
-  padding: 15px;
 }
 
 .guild-tab.active {
   display: block;
 }
 
-.guild-card {
+.my-guild-container {
   background: rgba(139, 69, 19, 0.15);
-  border: 1px solid rgba(139, 69, 19, 0.3);
-  border-radius: 10px;
+  border-radius: 15px;
   padding: 15px;
   margin-bottom: 15px;
+}
+
+.guild-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--accent);
+}
+
+.guild-header h2 {
+  margin: 0;
+  font-size: 1.4em;
+  color: var(--accent);
+}
+
+.guild-level {
+  background: rgba(255, 215, 0, 0.2);
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+.guild-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.guild-stat {
+  background: rgba(139, 69, 19, 0.1);
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.guild-members h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.members-list {
+  max-height: 200px;
+  overflow-y: auto;
+  background: rgba(139, 69, 19, 0.05);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.member-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid rgba(139, 69, 19, 0.1);
+}
+
+.member-item:last-child {
+  border-bottom: none;
+}
+
+.member-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.member-level {
+  background: rgba(139, 69, 19, 0.2);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.8em;
+}
+
+.member-leader {
+  color: gold;
+  font-weight: bold;
+}
+
+.guild-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ff4757, #ff3838);
+}
+
+/* Список гильдий */
+.guild-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.sort-select {
+  background: rgba(139, 69, 19, 0.2);
+  border: 1px solid var(--accent);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+
+.guild-card {
+  background: rgba(139, 69, 19, 0.1);
+  border-radius: 15px;
+  padding: 15px;
+  margin-bottom: 10px;
   transition: transform 0.2s;
 }
 
 .guild-card:hover {
   transform: translateY(-2px);
-  background: rgba(139, 69, 19, 0.25);
+  background: rgba(139, 69, 19, 0.2);
 }
 
 .guild-card-header {
@@ -2663,233 +2773,72 @@ body {
   margin-bottom: 10px;
 }
 
-.guild-card-header h3 {
-  margin: 0;
-  color: #ffd700;
+.guild-card-name {
   font-size: 1.2em;
-}
-
-.guild-level {
-  background: rgba(139, 69, 19, 0.5);
-  padding: 3px 10px;
-  border-radius: 15px;
   font-weight: bold;
+  color: var(--accent);
 }
 
-.guild-card-info {
+.guild-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   margin-bottom: 15px;
 }
 
-.guild-stat {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 5px;
+.guild-card-stat {
+  text-align: center;
+  background: rgba(139, 69, 19, 0.05);
+  padding: 8px;
+  border-radius: 8px;
   font-size: 0.9em;
-}
-
-.guild-description-short {
-  margin-top: 10px;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 5px;
-  font-size: 0.9em;
-  font-style: italic;
 }
 
 .guild-card-actions {
   display: flex;
-  justify-content: center;
+  gap: 10px;
 }
 
-/* Форма создания гильдии */
-.create-guild-form {
-  max-width: 500px;
-  margin: 0 auto;
+.guild-card-full {
+  opacity: 0.7;
+  position: relative;
 }
 
-.requirements-info {
-  background: rgba(139, 69, 19, 0.2);
-  padding: 15px;
+.guild-card-full::after {
+  content: "Полная";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 0, 0, 0.8);
+  color: white;
+  padding: 2px 8px;
   border-radius: 10px;
+  font-size: 0.8em;
+}
+
+.no-guild-message {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.no-guild-message .empty-state {
+  font-size: 2em;
   margin-bottom: 20px;
 }
 
-.requirements-info h4 {
-  margin-top: 0;
-  color: #ffd700;
+.create-rules {
+  background: rgba(139, 69, 19, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+  margin: 20px 0;
 }
 
-.requirements-info ul {
-  margin: 10px 0;
+.create-rules ul {
+  margin: 10px 0 0 0;
   padding-left: 20px;
 }
 
-.requirements-info li {
+.create-rules li {
   margin-bottom: 5px;
-}
-
-/* Информация о гильдии */
-.guild-header {
-  background: rgba(139, 69, 19, 0.2);
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-
-.guild-header h2 {
-  margin-top: 0;
-  color: #ffd700;
-  text-align: center;
-}
-
-.guild-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-  margin: 15px 0;
-}
-
-.stat-item {
-  background: rgba(139, 69, 19, 0.3);
-  padding: 10px;
-  border-radius: 8px;
-  text-align: center;
-  font-weight: bold;
-}
-
-.guild-description {
-  margin-top: 15px;
-  padding: 15px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-}
-
-.guild-description h4 {
-  margin-top: 0;
-  color: #ffd700;
-}
-
-/* Список участников гильдии */
-.guild-members {
-  margin-bottom: 20px;
-}
-
-.guild-members h3 {
-  color: #ffd700;
-  margin-bottom: 15px;
-}
-
-.members-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.guild-member {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px;
-  margin-bottom: 10px;
-  background: rgba(139, 69, 19, 0.15);
-  border-radius: 8px;
-  border: 1px solid rgba(139, 69, 19, 0.3);
-}
-
-.guild-member.current-user {
-  background: rgba(76, 175, 80, 0.2);
-  border-color: rgba(76, 175, 80, 0.5);
-}
-
-.member-info {
-  flex-grow: 1;
-}
-
-.member-name {
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #ffd700;
-}
-
-.member-stats {
-  display: flex;
-  gap: 15px;
   font-size: 0.9em;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.join-date {
-  font-size: 0.8em;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.remove-member-btn {
-  background: rgba(244, 67, 54, 0.3);
-  border: 1px solid rgba(244, 67, 54, 0.5);
-  color: #ff6b6b;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.remove-member-btn:hover {
-  background: rgba(244, 67, 54, 0.5);
-}
-
-/* Действия гильдии */
-.guild-actions {
-  text-align: center;
-  padding-top: 20px;
-  border-top: 1px solid rgba(139, 69, 19, 0.3);
-}
-
-.creator-actions {
-  background: rgba(255, 215, 0, 0.1);
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  border: 1px solid rgba(255, 215, 0, 0.3);
-}
-
-.leave-guild-btn {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: rgba(244, 67, 54, 0.5);
-  color: #ff6b6b;
-}
-
-.leave-guild-btn:hover {
-  background: rgba(244, 67, 54, 0.3);
-}
-
-/* Поиск гильдий */
-.guild-search {
-  margin-bottom: 15px;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .guild-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .guild-member {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .remove-member-btn {
-    margin-top: 10px;
-    width: 100%;
-    text-align: center;
-  }
-
-  .member-stats {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  /* Стили для скрытия вкладок гильдии */
-.guild-tabs .tab-btn[style*="none"] {
-  display: none !important;
-}
 }
