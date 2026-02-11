@@ -16,7 +16,7 @@
             </div>
             <div id="character-area">
                 <div id="character-container">
-                    <img id="base-character" src="img/character.png" alt="Персонаж">
+                    <img id="base-character" src="img/human_male.png" alt="Персонаж">
                     <div id="equipment-layer"></div>
                     <div id="pet-layer"></div>
                 </div>
@@ -30,19 +30,39 @@
                 <button class="tab-button" data-tab="pets">🐾 Питомцы</button>
                 <button class="tab-button" data-tab="talents">✨ Таланты</button>
             </div>
-            <div id="tab-character" class="tab-content active"></div>
+
+            <!-- Вкладка ПЕРСОНАЖ (экипировка + предпросмотр) -->
+            <div id="tab-character" class="tab-content active">
+                <div class="customization-preview">
+                    <div id="char-preview-container" class="character-preview">
+                        <img id="preview-base" src="img/human_male.png" alt="Персонаж">
+                        <div id="preview-equipment"></div>
+                        <div id="preview-pet"></div>
+                    </div>
+                </div>
+                <div class="slot-selector">
+                    <button class="slot-btn active" data-slot="hat">🎩 Голова</button>
+                    <button class="slot-btn" data-slot="shirt">👕 Туловище</button>
+                    <button class="slot-btn" data-slot="legs">👖 Ноги</button>
+                </div>
+                <div id="slot-items" class="items-grid"></div>
+            </div>
+
+            <!-- Вкладка ПИТОМЦЫ -->
             <div id="tab-pets" class="tab-content">
-                <h3>Магазин питомцев</h3>
+                <h3>🛒 Магазин питомцев</h3>
                 <div class="shop-grid" id="shop-pets"></div>
-                <h3>Мои питомцы</h3>
+                <h3>📦 Мои питомцы</h3>
                 <div class="inventory-grid" id="inventory-pets"></div>
             </div>
+
+            <!-- Вкладка ТАЛАНТЫ -->
             <div id="tab-talents" class="tab-content">
-                <h3>Магазин талантов</h3>
+                <h3>🛒 Магазин талантов</h3>
                 <div class="shop-grid" id="shop-talents"></div>
-                <h3>Крафт талантов</h3>
+                <h3>⚒️ Крафт талантов</h3>
                 <div id="craft-section"></div>
-                <h3>Мои таланты</h3>
+                <h3>✨ Мои таланты</h3>
                 <div id="my-talents"></div>
             </div>
         </div>
