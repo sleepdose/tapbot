@@ -1,674 +1,83 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AIKO TAPBOT</title>
-
-  <!-- Мета-теги для PWA и улучшения UX -->
-  <meta name="theme-color" content="#8B4513">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="AIKO TAPBOT - увлекательная мобильная игра в Telegram">
-
-  <!-- Предзагрузка критичных ресурсов -->
-  <link rel="preload" href="img/human_male.png" as="image">
-  <link rel="preload" href="img/background1.png" as="image">
-  <link rel="preload" href="audio/background.mp3" as="audio">
-
-  <link rel="stylesheet" href="style.css">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Подключаем Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Рик и Морти · Гильдии</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <!-- Прелоадер -->
-  <div id="preloader" class="preloader">
-    <div class="preloader-content">
-      <div class="preloader-spinner"></div>
-      <div class="preloader-text">Загрузка AIKO TAPBOT...</div>
-      <div class="preloader-subtext" id="preloaderStatus">Подключение к серверу</div>
-      <div class="preloader-progress">
-        <div class="preloader-progress-bar" id="preloaderProgress"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Панель статуса Firebase -->
-  <div id="firebaseStatus" class="firebase-status" style="display: none;">
-    <span class="status-dot" id="statusDot"></span>
-    <span id="statusText">Подключение...</span>
-  </div>
-
-  <div class="effect-indicators"></div>
-  <div id="gameScreen" style="display: none;">
-    <div class="stats">
-      <div class="stat"><span id="energy">100</span>/<span id="maxEnergy">100</span></div>
-      <div class="stat">Ур. <span id="level">1</span></div>
-      <div class="stat"><span id="honey">0</span></div>
-    </div>
-
-    <div class="level-container">
-      <div class="level-progress">
-        <div class="level-progress-bar" id="levelProgress"></div>
-      </div>
-      <div class="stat xp-stat">
-        📈 <span id="xp">0</span>/<span id="xpToNextLevel">100</span>
-      </div>
-    </div>
-
-    <div class="click-area" id="hive" style="position: relative;">
-      <div class="hive-img" role="img" aria-label="Активный скин"></div>
-    </div>
-  </div>
-  <div class="pet-container">
-    <img id="pet-img" src="img/pet1.png" class="pet" alt="Питомец">
-  </div>
-
-  <!-- Попап битвы -->
-  <div id="battlePopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
-        <div class="battle-container">
-          <div id="bossSelection">
-            <div class="boss-container">
-              <div id="allBosses" class="boss-selection active">
-                <div class="boss-card" data-boss="wasp">
-                  <div class="boss-image-container">
-                    <img src="img/wasp.jpg" class="boss-img" alt="Оса">
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">500 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">60 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      1000<br>
-                      +200 XP
-                    </div>
-                  </div>
+    <div id="app">
+        <!-- ЭКРАНЫ -->
+        <div id="screen-main" class="screen active">
+            <div id="energy-bar" class="progress-bar">
+                <div id="energy-fill" class="progress-fill" style="width: 100%;"></div>
+            </div>
+            <div id="stats">
+                <span id="money">0</span> 🪙
+            </div>
+            <div id="character-area">
+                <div id="character-container">
+                    <img id="base-character" src="img/character.png" alt="Персонаж">
+                    <div id="equipment-layer"></div>
+                    <div id="pet-layer"></div>
                 </div>
-
-                <div class="boss-card" data-boss="bear">
-                  <div class="boss-image-container">
-                    <img src="img/bear.jpg" class="boss-img" alt="Медведь">
-                  </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="bear">0</span>/3
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">1000 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">90 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      2000<br>
-                      +500 XP
-                    </div>
-                  </div>
-                </div>
-
-                <div class="boss-card" data-boss="dragon">
-                  <div class="boss-image-container">
-                    <img src="img/dragon.jpg" class="boss-img" alt="Дракон">
-                  </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="dragon">0</span>/3
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">2500 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">120 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      5000<br>
-                      +1500 XP
-                    </div>
-                  </div>
-                </div>
-                <div class="boss-card" data-boss="hydra">
-                  <div class="boss-image-container">
-                    <img src="img/hydra.jpg" class="boss-img" alt="Гидра">
-                  </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="hydra">0</span>/3
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">4000 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">150 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      7500<br>
-                      +2500 XP
-                    </div>
-                  </div>
-                </div>
-
-                <div class="boss-card" data-boss="kraken">
-                  <div class="boss-image-container">
-                    <img src="img/kraken.jpg" class="boss-img" alt="Кракен">
-                  </div>
-                  <div class="boss-requirements">
-                    🔑 <span class="current-keys" data-boss="kraken">0</span>/3
-                  </div>
-                  <div class="boss-stats">
-                    <div class="stat-item">❤️ <span class="stat-value">6000 HP</span></div>
-                    <div class="stat-item">⏳ <span class="stat-value">180 сек</span></div>
-                  </div>
-                  <div class="boss-reward">
-                    <div class="reward-title">Награда:</div>
-                    <div class="reward-content">
-                      10000<br>
-                      +4000 XP
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <button id="click-button" class="glow-button">💰 Заработать!</button>
             </div>
-          </div>
         </div>
-        <div id="combatScreen" class="combat-screen" style="display: none;">
-          <div class="combat-header">
-            <img id="bossCombatImage" src="" class="boss-image" alt="Босс">
-            <div class="boss-health">
-              <div class="health-bar" id="bossHealth"></div>
-              <div class="health-text">
-                <span id="currentHealth">500</span> /
-                <span id="maxHealth">500</span> HP
-              </div>
+
+        <div id="screen-workshop" class="screen">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="character">👤 Персонаж</button>
+                <button class="tab-button" data-tab="pets">🐾 Питомцы</button>
+                <button class="tab-button" data-tab="talents">✨ Таланты</button>
             </div>
-            <div class="timer" id="combatTimer">60</div>
-          </div>
-          <div class="combat-actions">
-            <div class="combat-talents" id="combatTalents"></div>
-          </div>
-          <div id="poisonTimersContainer" class="poison-timers"></div>
-          <div id="battleReward" class="battle-reward"></div>
+            <div id="tab-character" class="tab-content active">
+                <h3>Магазин одежды</h3>
+                <div class="shop-grid" id="shop-clothes"></div>
+                <h3>Инвентарь</h3>
+                <div class="inventory-grid" id="inventory-clothes"></div>
+            </div>
+            <div id="tab-pets" class="tab-content">
+                <h3>Магазин питомцев</h3>
+                <div class="shop-grid" id="shop-pets"></div>
+                <h3>Мои питомцы</h3>
+                <div class="inventory-grid" id="inventory-pets"></div>
+            </div>
+            <div id="tab-talents" class="tab-content">
+                <h3>Магазин талантов</h3>
+                <div class="shop-grid" id="shop-talents"></div>
+                <h3>Крафт талантов</h3>
+                <div id="craft-section"></div>
+                <h3>Мои таланты</h3>
+                <div id="my-talents"></div>
+            </div>
         </div>
-      </div>
+
+        <div id="screen-guild" class="screen">
+            <div id="guild-view"></div>
+        </div>
+
+        <div id="screen-friends" class="screen">
+            <div id="friends-view"></div>
+        </div>
+
+        <!-- НАВИГАЦИЯ -->
+        <nav id="bottom-nav">
+            <button data-screen="main" class="nav-btn active">👤</button>
+            <button data-screen="workshop" class="nav-btn">🔧</button>
+            <button data-screen="guild" class="nav-btn">🏰</button>
+            <button data-screen="friends" class="nav-btn">👥</button>
+        </nav>
     </div>
-  </div>
 
-  <!-- Попап результатов боя -->
-  <div id="battleResultPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <h2 id="resultTitle">Результат боя</h2>
-          <button class="close">×</button>
-        </div>
-        <div class="result-body">
-          <img id="resultBossImage" src="" class="result-boss-img" alt="Босс">
-
-          <!-- Сюда будет добавлена статистика урона динамически -->
-
-          <div id="victoryReward" class="reward-section">
-            <div class="reward-item">
-              <span>🍯</span>
-              <span id="rewardHoney">0</span>
-            </div>
-            <div class="reward-item">
-              <span>⭐</span>
-              <span id="rewardXP">0</span>
-            </div>
-            <div class="reward-item">
-              <span>🔑</span>
-              <span id="rewardKeys">0</span>
-            </div>
-          </div>
-          <div class="result-actions">
-            <button id="claimRewardButton" class="btn victory-btn">Получить награду</button>
-            <button id="closeResultButton" class="btn defeat-btn">Выйти</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Попап талантов -->
-  <div id="talentsPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
-
-        <!-- Вкладки -->
-        <div class="talent-tabs">
-          <button data-tab="buyCharges" class="tab-btn active">Купить</button>
-          <button data-tab="upgradeTalents" class="tab-btn">Улучшить</button>
-          <button data-tab="crafting" class="tab-btn">Крафтинг</button>
-        </div>
-
-        <!-- Контейнеры контента -->
-        <div id="buyCharges" class="shop-tab active">
-          <div class="attack-charge-item" data-type="basic">
-            <div>
-              <h3>Базовый удар</h3>
-              <span class="charge-counter">15 шт</span>
-            </div>
-            <button class="btn" data-type="basic">50</button>
-          </div>
-          <div class="attack-charge-item" data-type="critical">
-            <div>
-              <h3>Критический удар</h3>
-              <span class="charge-counter">15 шт</span>
-            </div>
-            <button class="btn" data-type="critical">75</button>
-          </div>
-          <div class="attack-charge-item" data-type="poison">
-            <div>
-              <h3>Ядовитый удар</h3>
-              <span class="charge-counter">15 шт</span>
-            </div>
-            <button class="btn" data-type="poison">100</button>
-          </div>
-        </div>
-
-        <div id="upgradeTalents" class="shop-tab">
-          <div class="talent" data-talent="basic">
-            <h3>🗡️ Базовый удар (Ур. <span id="basicLevel">1</span>)</h3>
-            <div class="talent-info">
-              <span class="stat">📈 Урон: <span id="basicDmg">10</span></span>
-            </div>
-            <div class="button-wrapper">
-              <button class="btn">75</button>
-            </div>
-          </div>
-
-          <div class="talent" data-talent="critical">
-            <h3>💥 Критический удар (Ур. <span id="critLevel">1</span>)</h3>
-            <div class="talent-info">
-              <span class="stat">📈 Шанс: <span id="critChanceUpgrade">20</span>%</span>
-            </div>
-            <div class="button-wrapper">
-              <button class="btn">150</button>
-            </div>
-          </div>
-
-          <div class="talent" data-talent="poison">
-            <h3>☠️ Ядовитый удар (Ур. <span id="poisonLevel">1</span>)</h3>
-            <div class="talent-info">
-              <span class="stat">📈 Урон: <span id="poisonDmgUpgrade">3</span>/сек</span>
-            </div>
-            <div class="button-wrapper">
-              <button class="btn">200</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Вкладка крафтинга -->
-        <div id="crafting" class="shop-tab">
-          <div class="talents-grid">
-            <div class="talent-card" data-talent="basic">
-              🗡️ Базовый
-            </div>
-            <div class="talent-card" data-talent="critical">
-              💥 Критический
-            </div>
-            <div class="talent-card" data-talent="poison">
-              ☠️ Ядовитый
-            </div>
-          </div>
-          <div class="craft-slots">
-            <div class="craft-slot" id="slot1"></div>
-            <div class="craft-slot" id="slot2"></div>
-          </div>
-          <div id="craftResult">
-            <button id="sonicButton" class="craft-result-btn" style="display: none;">
-              🔊 Звуковой
-            </button>
-            <button id="fireButton" class="craft-result-btn" style="display: none;">
-              🔥 Огненный
-            </button>
-            <button id="iceButton" class="craft-result-btn" style="display: none;">
-              ❄️ Ледяной
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Попап кастомизации -->
-  <div id="customizationPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
-        <div class="tab-buttons">
-          <button data-tab="characterTab" class="tab-btn active">Персонаж</button>
-          <button data-tab="petsTab" class="tab-btn">Питомцы</button>
-        </div>
-
-        <div id="characterTab" class="tab-content active">
-          <div class="skin-preview">
-            <img id="selected-skin" src="img/human_male.png" alt="Скин">
-            <h3 id="skin-name">Базовый скин</h3>
-            <button id="select-skin" class="btn">Выбрать</button>
-          </div>
-          <div class="skin-list">
-            <img src="img/human_male.png" alt="Базовый скин">
-            <img src="img/skin2.png" alt="Скин 2">
-            <img src="img/skin3.png" alt="Скин 3">
-          </div>
-        </div>
-
-        <div id="petsTab" class="tab-content">
-          <div class="pet-preview">
-            <img id="selected-pet" src="img/pet1.png" alt="Питомец">
-            <h3 id="pet-name">Питомец 1</h3>
-            <button id="select-pet" class="btn">Выбрать</button>
-          </div>
-          <div class="pet-list">
-            <img src="img/pet1.png" alt="Питомец 1">
-            <img src="img/pet2.png" alt="Питомец 2">
-            <img src="img/pet3.png" alt="Питомец 3">
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Селектор фона -->
-  <div id="backgroundSelector" class="background-selector">
-      <button id="bgCloseBtn" class="bg-close-btn">×</button>
-      <div class="bg-controls">
-          <button id="bgPrevBtn" class="bg-arrow">←</button>
-          <button id="bgNextBtn" class="bg-arrow">→</button>
-      </div>
-      <button id="bgActionBtn" class="bg-action-btn">Выбрать</button>
-  </div>
-  <button id="bgMenuBtn" class="bg-menu-btn">Фон</button>
-  <audio id="backgroundMusic" loop>
-    <source src="audio/background.mp3" type="audio/mpeg">
-    Ваш браузер не поддерживает аудио элемент.
-  </audio>
-
-  <!-- Кнопка музыки -->
-  <button id="musicToggle" class="music-btn">♪</button>
-
-  <!-- Попап достижений -->
-  <div id="achievementsPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
-        <div id="achievementsList">
-          <div class="achievement-card" id="waspAchievement">
-            <div class="achievement-info">
-              <h3>Король ОС <span id="waspLevel">Уровень 1</span></h3>
-            </div>
-            <div class="achievement-progress">
-              <div class="progress-bar">
-                <div class="progress" id="waspKillProgress"></div>
-              </div>
-              <span class="progress-text" id="waspKillCount">0/10</span>
-            </div>
-            <div class="achievement-rewards">
-              <span>🍯 1000</span>
-              <span>⭐ 500</span>
-            </div>
-            <button id="claimWasp1" class="claim-btn" style="display: none;">Получить награду</button>
-            <button id="claimWasp2" class="claim-btn" style="display: none;">Получить награду</button>
-            <button id="claimWasp3" class="claim-btn" style="display: none;">Получить награду</button>
-          </div>
-
-          <div class="achievement-card" id="bearAchievement">
-            <div class="achievement-info">
-              <h3>Король Медведей <span id="bearLevel">Уровень 1</span></h3>
-            </div>
-            <div class="achievement-progress">
-              <div class="progress-bar">
-                <div class="progress" id="bearKillProgress"></div>
-              </div>
-              <span class="progress-text" id="bearKillCount">0/10</span>
-            </div>
-            <div class="achievement-rewards">
-              <span>🍯 2000</span>
-              <span>⭐ 1000</span>
-            </div>
-            <button id="claimBear1" class="claim-btn" style="display: none;">Получить награду</button>
-            <button id="claimBear2" class="claim-btn" style="display: none;">Получить награду</button>
-            <button id="claimBear3" class="claim-btn" style="display: none;">Получить награду</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Попап друзей -->
-  <div id="friendsPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
-
-        <div class="friends-tabs">
-          <button class="tab-btn active" data-tab="friendsListTab">Друзья</button>
-          <button class="tab-btn" data-tab="addFriendTab">Добавить друга</button>
-          <button class="tab-btn" data-tab="friendRequestsTab">Заявки <span id="requestsCount" class="badge">0</span></button>
-        </div>
-
-        <!-- Список друзей -->
-        <div id="friendsListTab" class="friends-tab active">
-          <div class="friend-limit-info">
-            🔍 Поиск работает только по Telegram ID<br>
-            👥 Максимальное количество друзей: <strong>20</strong>
-          </div>
-
-          <div class="friends-search">
-            <input type="text" id="searchFriend" placeholder="Поиск по Telegram ID..." class="search-input">
-          </div>
-
-          <div id="friendsContainer" class="friends-container">
-            <!-- Друзья будут здесь -->
-            <div class="empty-state">
-              👥 У вас пока нет друзей
-            </div>
-          </div>
-        </div>
-
-        <!-- Добавление друга -->
-        <div id="addFriendTab" class="friends-tab">
-          <div class="add-friend-form">
-            <h3>Добавить друга</h3>
-            <p class="form-description">Введите Telegram ID игрока, которого хотите добавить в друзья</p>
-
-            <div class="form-group">
-              <label for="friendTelegramId">Telegram ID:</label>
-              <input type="number" id="friendTelegramId" placeholder="123456789" class="form-input">
-              <div class="form-hint">ID должен содержать только цифры</div>
-            </div>
-
-            <div class="form-group">
-              <label for="friendMessage">Сообщение (необязательно):</label>
-              <textarea id="friendMessage" placeholder="Привет! Давай дружить и играть вместе!" class="form-textarea" rows="3"></textarea>
-            </div>
-
-            <button id="sendFriendRequestBtn" class="btn" style="width: 100%;">Отправить заявку</button>
-
-            <div class="my-id-section">
-              <h4>Ваш ID для добавления:</h4>
-              <div class="my-id-display">
-                <span id="myTelegramId">Загрузка...</span>
-                <button id="copyMyIdBtn" class="copy-btn">📋</button>
-              </div>
-              <div class="id-hint">
-                • Максимальное количество друзей: <strong>20</strong><br>
-                • Дайте этот ID другим игрокам для добавления в друзья<br>
-                • Можно найти друзей в Telegram-группах игры
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Заявки в друзья -->
-        <div id="friendRequestsTab" class="friends-tab">
-          <div id="requestsContainer" class="requests-container">
-            <!-- Заявки будут здесь -->
-            <div class="empty-state">
-              📭 У вас нет заявок в друзья
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Попап гильдии -->
-  <div id="guildPopup" class="popup">
-    <div class="popup-scroll-wrapper">
-      <div class="popup-content">
-        <div class="popup-header">
-          <button class="close">×</button>
-        </div>
-
-        <div class="guild-tabs">
-          <button class="tab-btn active" data-tab="guildInfoTab">Моя гильдия</button>
-          <button class="tab-btn" data-tab="guildListTab">Все гильдии</button>
-          <button class="tab-btn" data-tab="createGuildTab">Создать</button>
-        </div>
-
-        <!-- Информация о моей гильдии -->
-        <div id="guildInfoTab" class="guild-tab active">
-          <div id="myGuildContainer" class="my-guild-container" style="display: none;">
-            <div class="guild-header">
-              <h2 id="guildName">Название гильдии</h2>
-              <div class="guild-level">Ур. <span id="guildLevel">1</span></div>
-            </div>
-
-            <div class="guild-stats">
-              <div class="guild-stat">
-                <span>🏆 Рейтинг:</span>
-                <span id="guildRating">0</span>
-              </div>
-              <div class="guild-stat">
-                <span>👥 Участники:</span>
-                <span id="guildMembers">1</span>/20
-              </div>
-              <div class="guild-stat">
-                <span>👑 Лидер:</span>
-                <span id="guildLeader">Вы</span>
-              </div>
-              <div class="guild-stat">
-                <span>📅 Создана:</span>
-                <span id="guildCreated">Сегодня</span>
-              </div>
-            </div>
-
-            <div class="guild-members">
-              <h3>Участники гильдии:</h3>
-              <div id="guildMembersList" class="members-list">
-                <!-- Список участников будет здесь -->
-              </div>
-            </div>
-
-            <div class="guild-actions">
-              <button id="leaveGuildBtn" class="btn btn-danger" style="display: none;">Покинуть гильдию</button>
-              <button id="disbandGuildBtn" class="btn btn-danger" style="display: none;">Распустить гильдию</button>
-            </div>
-          </div>
-
-          <div id="noGuildMessage" class="no-guild-message">
-            <div class="empty-state">
-              🏰 Вы не состоите в гильдии
-            </div>
-            <p>Присоединитесь к существующей или создайте свою!</p>
-            <button class="btn guild-tab-switch" data-tab="guildListTab">Найти гильдию</button>
-            <button class="btn guild-tab-switch" data-tab="createGuildTab">Создать гильдию</button>
-          </div>
-        </div>
-
-        <!-- Список всех гильдий -->
-        <div id="guildListTab" class="guild-tab">
-          <div class="guild-list-header">
-            <h3>Список гильдий</h3>
-            <div class="sort-controls">
-              <select id="guildSort" class="sort-select">
-                <option value="rating">По рейтингу</option>
-                <option value="level">По уровню</option>
-                <option value="members">По участникам</option>
-                <option value="created">По дате</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="guild-search">
-            <input type="text" id="guildSearch" placeholder="Поиск по названию..." class="search-input">
-          </div>
-
-          <div id="guildsContainer" class="guilds-container">
-            <!-- Список гильдий будет здесь -->
-            <div class="loading">Загрузка гильдий...</div>
-          </div>
-        </div>
-
-        <!-- Создание гильдии -->
-        <div id="createGuildTab" class="guild-tab">
-          <div class="create-guild-form">
-            <h3>Создание гильдии</h3>
-            <p class="form-description">Создайте свою гильдию и приглашайте друзей!</p>
-
-            <div class="form-group">
-              <label for="guildNameInput">Название гильдии:</label>
-              <input type="text" id="guildNameInput" placeholder="Введите название" class="form-input" maxlength="30">
-              <div class="form-hint">Максимум 30 символов</div>
-            </div>
-
-            <div class="form-group">
-              <label for="guildDescription">Описание (необязательно):</label>
-              <textarea id="guildDescription" placeholder="Опишите вашу гильдию..." class="form-textarea" rows="3" maxlength="200"></textarea>
-              <div class="form-hint">Максимум 200 символов</div>
-            </div>
-
-            <div class="create-rules">
-              <h4>Правила создания:</h4>
-              <ul>
-                <li>• Максимум 20 участников в гильдии</li>
-                <li>• Название должно быть уникальным</li>
-                <li>• Стоимость создания: 5000 🍯</li>
-                <li>• Вы становитесь лидером гильдии</li>
-                <li>• Вы можете покинуть гильдию в любой момент</li>
-              </ul>
-            </div>
-
-            <button id="createGuildBtn" class="btn" style="width: 100%;">Создать за 5000 🍯</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Нижняя навигация -->
-  <nav class="bottom-nav">
-    <button class="nav-btn" data-popup="battle">⚔️</button>
-    <button class="nav-btn" data-popup="talents">💫</button>
-    <button class="nav-btn" data-popup="customization">👤</button>
-    <button class="nav-btn" data-popup="achievements">🏆</button>
-    <button class="nav-btn" data-popup="friends">👥</button>
-    <button class="nav-btn" data-popup="guild">🏰</button>
-  </nav>
-
-  <!-- Подключаем наши скрипты -->
-  <script src="firebase.js"></script>
-  <script src="script.js"></script>
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <!-- Main script -->
+    <script src="script.js"></script>
 </body>
-
 </html>

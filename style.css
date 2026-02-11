@@ -1,2844 +1,490 @@
-:root {
-  --primary: #8B4513;
-  --secondary: #CD853F;
-  --accent: #FFD700;
-  --combat: #DC143C;
-  --dark: #4a2b1f;
-  --poison: #32CD32;
-  --vampire: #8B0000;
-  --xp-color: #4CAF50;
-}
+/* ============================================
+   СТРОГИЙ КЛАССИЧЕСКИЙ СТИЛЬ
+   Основа: тёмная палитра, плоские элементы,
+   минимум скруглений, акцент — глубокий синий
+   ============================================ */
 
 * {
-  box-sizing: border-box;
-  touch-action: manipulation;
-  margin: 0;
-  padding: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', 'Arial', 'Helvetica', sans-serif;
 }
 
 body {
-  font-family: 'Arial', sans-serif;
-  background-color: burlywood;
-  background-size: 400px 800px;
-  color: white;
-  min-height: 100vh;
-  overflow-x: hidden;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-}
-
-/* =================== ПРЕЛОАДЕР =================== */
-
-.preloader {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #8B4513 0%, #CD853F 100%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  transition: opacity 0.5s ease, visibility 0.5s ease;
-}
-
-.preloader.hidden {
-  opacity: 0;
-  visibility: hidden;
-}
-
-.preloader-content {
-  text-align: center;
-  max-width: 300px;
-  width: 90%;
-  padding: 30px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.preloader-spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid rgba(255, 215, 0, 0.3);
-  border-top: 4px solid var(--accent);
-  border-radius: 50%;
-  margin: 0 auto 20px;
-  animation: preloaderSpin 1s linear infinite;
-}
-
-@keyframes preloaderSpin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.preloader-text {
-  color: var(--accent);
-  font-size: 1.4em;
-  font-weight: bold;
-  margin-bottom: 10px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.preloader-subtext {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.9em;
-  margin-bottom: 20px;
-  min-height: 20px;
-}
-
-.preloader-progress {
-  width: 100%;
-  height: 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 10px;
-}
-
-.preloader-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, var(--accent), #ffaa00);
-  border-radius: 4px;
-  width: 0%;
-  transition: width 0.3s ease;
-}
-
-/* =================== ОСНОВНЫЕ СТИЛИ =================== */
-
-.boss-requirements {
-  margin-top: 10px;
-  color: var(--accent);
-  font-size: 1.2em;
-}
-
-.shop-item.disabled button {
-  opacity: 0.6;
-  cursor: not-allowed;
-  filter: grayscale(1);
-  pointer-events: none;
-}
-
-.boss-card[data-boss="wasp"] .boss-requirements {
-  display: none;
-}
-
-/* Основной контейнер */
-.boss-card {
-  transition: transform 0.3s, box-shadow 0.3s;
-  border: 2px solid var(--color-accent);
-  padding: 15px;
-  margin: 1rem 0;
-  position: relative;
-}
-
-.boss-card[data-boss="wasp"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
-  background-size: cover;
-  background-position: center;
-}
-
-.boss-card[data-boss="bear"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
-  background-size: cover;
-  background-position: center;
-}
-
-.boss-card[data-boss="dragon"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
-  background-size: cover;
-  background-position: center;
-}
-
-.boss-card[data-boss="hydra"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
-  background-size: cover;
-  background-position: center;
-}
-
-.boss-card[data-boss="kraken"] {
-  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('img/prison.jpg');
-  background-size: cover;
-  background-position: center;
-}
-
-.boss-card.locked {
-  opacity: 0.6;
-  cursor: not-allowed;
-  filter: grayscale(1);
-  pointer-events: none;
-}
-
-.boss-card.locked::after {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 24px;
-}
-
-.boss-card:active {
-  transform: scale(0.98);
-  box-shadow: 0 0 15px var(--accent);
-}
-
-/* Горизонтальное выравнивание элементов */
-.boss-flex-container {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-  margin-bottom: 1.5rem;
-}
-
-/* Изображение */
-.boss-image-container {
-  flex: 0 0 150px;
-}
-
-.boss-img {
-  width: 60%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-  border-radius: 12px;
-}
-
-/* Характеристики */
-.boss-stats {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  padding-right: 2rem;
-  border-right: 2px solid rgba(255, 255, 255, 0.2);
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.1em;
-}
-
-.damage-effect {
-  position: absolute;
-  color: #ff4444;
-  font-weight: bold;
-  font-size: 2em;
-  animation: floatAndFade 0.8s ease-out forwards;
-  pointer-events: none;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
-  z-index: 1000;
-  transform: translate(-50%, -50%);
-}
-
-@keyframes floatAndFade {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(-50%, -200%) scale(1.5);
-    opacity: 0;
-  }
-}
-
-.poison-timers {
-  position: fixed;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 10px;
-  z-index: 1001;
-}
-
-.critical-effect {
-  position: fixed;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #ff0000;
-  font-size: 2.5em;
-  font-weight: bold;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-  animation: criticalAnimation 0.8s ease-out forwards;
-  z-index: 1002;
-}
-
-@keyframes criticalAnimation {
-  0% {
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 0;
-  }
-
-  50% {
-    transform: translate(-50%, -50%) scale(1.2);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(-50%, -150%) scale(1);
-    opacity: 0;
-  }
-}
-
-.stat-value {
-  color: var(--accent);
-}
-
-/* Награда */
-.boss-reward {
-  flex: 0 0 200px;
-  padding: 1rem;
-  text-align: center;
-}
-
-.reward-title {
-  color: var(--accent);
-  margin-bottom: 0.5rem;
-}
-
-/* Адаптив для мобилок */
-@media (max-width: 768px) {
-  .boss-flex-container {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1.5rem;
-  }
-
-  .boss-image-container {
-    flex: none;
-    max-width: 200px;
-    margin: 0 auto;
-  }
-
-  .boss-stats {
-    border-right: none;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 1.5rem;
-    padding-right: 0;
-  }
-}
-
-.effect-indicators {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  z-index: 1000;
-  max-width: 90vw;
-}
-
-.effect-indicator {
-  background: rgba(0, 0, 0, 0.7);
-  padding: 8px 12px;
-  border-radius: 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  animation: slideIn 0.3s ease-out;
-  white-space: nowrap;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-
-  to {
-    transform: translateX(0);
-  }
-}
-
-.bottom-nav {
-  position: fixed;
-  bottom: -5px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 15px;
-  background: rgba(225, 210, 210, 0.9);
-  padding: 15px;
-  border-radius: 30px;
-  z-index: 1000;
-}
-
-.nav-btn {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(225, 210, 210, 0.9);
-  color: white;
-  font-size: 1.5em;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.nav-btn.active {
-  background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-  box-shadow: 0 0 15px rgba(255, 107, 107, 0.4);
-}
-
-.nav-btn:active {
-  transform: scale(0.9);
-  background: rgba(255, 215, 0, 0.2);
-}
-
-.popup {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  transform: translateY(100%);
-  background: rgba(0, 0, 0, 0.8);
-  border-radius: 0;
-  max-height: 100vh;
-  z-index: 3000;
-  box-shadow: none;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.popup.active {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.popup::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.popup.active::before {
-  opacity: 1;
-}
-
-.popup-content {
-  padding: 25px;
-  max-height: calc(100vh - 50px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  flex-grow: 1;
-  width: 100%;
-}
-
-.popup-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.popup-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
-
-.popup-content::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 4px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-}
-
-.popup-header {
-  position: relative;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.1);
-  margin: -25px -15px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.popup-header h2 {
-  margin: 0;
-  font-size: 1.4em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.popup::after {
-  content: "";
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
-}
-
-#gameScreen {
-  overflow: hidden !important;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 1rem;
-  padding-bottom: 60px;
-  width: 100%;
-  flex-grow: 1;
-  position: fixed;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-body {
-  overflow: hidden;
-}
-
-.stats,
-.level-progress {
-  flex-shrink: 0;
-}
-
-.level-container {
-  display: inline-block;
-  width: 80%;
-  margin: 1rem;
-  padding: 0.5rem 1rem;
-  text-align: center;
-}
-
-.xp-stat {
-  margin-top: -2px;
-  font-size: 0.9em;
-  padding: 0.5rem 1rem;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
-  display: inline-block;
-}
-
-/* Адаптивность для мобильных */
-@media (max-width: 768px) {
-  .level-container {
-    width: 90%;
-  }
-
-  .xp-stat {
-    font-size: 0.8em;
-    padding: 0.4rem 0.8rem;
-  }
-}
-
-.stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1rem;
-  padding: 20px;
-}
-
-.stat {
-  padding: 0.2rem;
-  border-radius: 10px;
-  min-width: 100px;
-  font-size: 0.9rem;
-  box-sizing: border-box;
-}
-
-.level-progress {
-  width: 80%;
-  height: 10px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 5px;
-  margin: 1rem auto;
-}
-
-.level-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #D565E6, #D58CDB);
-  transition: width 0.5s ease-in-out;
-  border-radius: 5px;
-  transition: width 0.5s ease-in-out;
-}
-
-.click-area {
-  width: min(420px, 95vw);
-  flex-grow: 1;
-  margin-bottom: 0;
-  height: min(420px, 95vw);
-  margin: 1rem auto 30px;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.1s, opacity 0.3s;
-  overflow: hidden;
-}
-
-.click-area .damage-effect {
-  position: absolute;
-  color: #ff4444;
-  font-weight: bold;
-  font-size: 1.5em;
-  animation: clickDamageFloat 0.8s ease-out forwards;
-  pointer-events: none;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
-  z-index: 1000;
-}
-
-@keyframes clickDamageFloat {
-  0% {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(0, -50px) scale(1.2);
-    opacity: 0;
-  }
-}
-
-.click-area:active {
-  transform: scale(0.95);
-  opacity: 0.8;
-}
-
-.hive-img {
-  transform: translateZ(0);
-  will-change: transform;
-  width: 100%;
-  height: 100%;
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  transition: background-image 0.3s ease-in-out;
-  will-change: transform;
-}
-
-.hive-change-animation {
-  animation: hivePulse 0.5s ease-out;
-}
-
-@keyframes hivePulse {
-  0% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.1);
-  }
-
-  100% {
-    transform: scale(1);
-  }
-}
-
-.boss-card,
-.shop-item,
-.talent,
-.attack-charge-item {
-  background: rgba(0, 0, 0, 0.5);
-  padding: 15px;
-  margin: 10px 0;
-  border-radius: 12px;
-  border: 2px solid var(--secondary);
-  cursor: pointer;
-  transition: transform 0.3s;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.boss-card img {
-  border-radius: 100px;
-  box-sizing: border-box;
-}
-
-#bossCombatImage {
-  transition: transform 0.1s ease;
-  border-radius: 55px;
-  box-sizing: border-box;
-  width: 350px;
-  height: 330px;
-}
-
-#bossCombatImage:active {
-  transform: scale(0.95);
-}
-
-.boss-card:hover,
-.shop-item:hover,
-.talent:hover {
-  transform: scale(1.02);
-}
-
-.boss-image {
-  width: 120px;
-  height: 120px;
-  object-fit: contain;
-  margin-bottom: 10px;
-}
-
-.battle-reward {
-  position: fixed;
-  top: 20%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.9);
-  color: #fff;
-  padding: 15px 25px;
-  border-radius: 15px;
-  text-align: center;
-  z-index: 1000;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-  animation: rewardFloat 2.5s ease-out forwards;
-  white-space: nowrap;
-}
-
-@keyframes rewardFloat {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -20px);
-  }
-
-  20% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  80% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50px);
-  }
-}
-
-.button-wrapper {
-  display: flex;
-  justify-content: center;
-  margin: 8px 0;
-}
-
-.shop-item button,
-.talent button,
-.btn {
-  background: linear-gradient(145deg, #ffd700, #ffaa00);
-  color: #000;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 20px;
-  font-size: 1.1em;
-  transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
-  min-width: 160px;
-  position: relative;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.shop-item button:hover,
-.talent button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(255, 204, 0, 0.5);
-}
-
-.shop-item button::before,
-.talent button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(120deg,
-      transparent,
-      rgba(255, 255, 255, 0.3),
-      transparent);
-  transition: 0.5s;
-}
-
-.shop-item button:hover::before,
-.talent button:hover::before {
-  left: 100%;
-}
-
-.shop-item.disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.talent button:disabled {
-  opacity: 0.7;
-  background: #666 !important;
-  cursor: not-allowed;
-  color: #ccc;
-  box-shadow: none;
-  transform: none !important;
-}
-
-.talent button:disabled:hover {
-  transform: none !important;
-  box-shadow: none;
-}
-
-.combat-screen {
-  padding: 1rem;
-  border-radius: 15px;
-  display: none;
-  margin: 1rem;
-  position: relative;
-  width: calc(100% - 2rem);
-  box-sizing: border-box;
-
-}
-
-.combat-header {
-  position: fixed;
-  left: 20px;
-  right: 20px;
-  padding: 10px 15px;
-  width: auto;
-  max-width: none;
-}
-
-.boss-health {
-  height: 30px;
-  background: #333;
-  border-radius: 15px;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-#bossCombatImage {
-  width: 100%;
-  max-width: 350px;
-  height: auto;
-  object-fit: contain;
-}
-
-.health-bar {
-  height: 100%;
-  background: #F00;
-  transition: width 0.3s ease;
-}
-
-.health-text {
-  position: absolute;
-  width: 100%;
-  text-align: center;
-  top: 50%;
-  transform: translateY(-50%);
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
-/* Кнопки атак */
-.attack-btn {
-  background: linear-gradient(145deg, #404040, #333);
-  padding: 12px;
-  border-radius: 12px;
-  color: white;
-  width: 100px;
-  min-width: 100px;
-  margin: 0 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-
-.attack-btn:active {
-  transform: scale(0.98);
-}
-
-.attack-btn.selected {
-  background: linear-gradient(145deg, #4CAF50, #45a049);
-  transform: scale(1.05);
-}
-
-.talent-icon {
-  font-size: 24px;
-  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.2));
-}
-
-.shop-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.shop-tab {
-  display: none;
-  width: 100%;
-}
-
-.shop-tab.active {
-  display: block;
-  animation: fadeIn 0.3s ease;
-  gap: 15px;
-}
-
-.tab-btn {
-  background: linear-gradient(145deg, var(--secondary), var(--primary));
-  color: white;
-  border: none;
-  padding: 12px 25px;
-  border-radius: 30px;
-  font-size: 1.1em;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-.tab-btn.active {
-  background: linear-gradient(145deg, var(--accent), #ffaa00);
-  transform: scale(1.05);
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
-}
-
-.tab-btn:hover:not(.active) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-}
-
-.tab-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(120deg,
-      transparent,
-      rgba(255, 255, 255, 0.2),
-      transparent);
-  transition: 0.5s;
-}
-
-.tab-btn:hover::after {
-  left: 100%;
-}
-
-.hive-selector {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  padding: 1rem 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 60vh;
-}
-
-.hive-option {
-  padding: 1rem;
-  border: 2px solid var(--secondary);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s;
-  opacity: 0.7;
-  background: rgba(0, 0, 0, 0.3);
-  min-width: 0;
-}
-
-.hive-option.active {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.hive-option p {
-  color: var(--accent);
-  margin: 5px 0;
-  font-size: 0.9em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.combat-talents {
-  display: flex;
-  position: fixed;
-  left: 20px;
-  right: 20px;
-  bottom: 10px;
-  gap: 0.5rem;
-  margin: 1rem 0;
-  padding: 10px 15px;
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  scrollbar-width: thin;
-  transform: none;
-  width: auto;
-  max-width: none;
-  justify-content: flex-start;
-}
-
-.combat-talents::-webkit-scrollbar {
-  height: 8px;
-}
-
-.combat-talents::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
-
-.combat-talents::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 4px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-}
-
-#backToBossSelection {
-  display: none;
-  background: var(--secondary);
-  color: white;
-  border: none;
-  padding: 0.8rem;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 1rem;
-  margin-top: 15px;
-  width: 100%;
-}
-
-#backToBossSelection:hover {
-  background: var(--primary);
-}
-
-.attack-btn.attacking {
-  transform: scale(0.95);
-  filter: brightness(1.2);
-  transition: all 0.2s ease;
-  flex: 0 0 auto;
-  min-width: 120px;
-  margin-bottom: 0;
-}
-
-.heal-effect {
-  position: absolute;
-  color: #00ff00;
-  font-size: 1.2em;
-  text-shadow: 0 0 3px #000;
-  animation: floatUp 1s ease-out forwards;
-}
-
-@keyframes floatUp {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translateY(-50px);
-    opacity: 0;
-  }
-}
-
-.battle-result {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 20px 40px;
-  border-radius: 15px;
-  font-size: 1.5em;
-  z-index: 3000;
-  animation: fade 3s forwards;
-}
-
-.battle-result.victory {
-  background: #4CAF50;
-  border: 3px solid #2E7D32;
-  animation: victoryPulse 2s;
-}
-
-.battle-result.defeat {
-  background: #f44336;
-  border: 3px solid #b71c1c;
-  animation: defeatShake 0.5s;
-}
-
-@keyframes victoryPulse {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes defeatShake {
-  0%,
-  100% {
-    transform: translate(-50%, -50%);
-  }
-
-  25% {
-    transform: translate(-55%, -50%);
-  }
-
-  75% {
-    transform: translate(-45%, -50%);
-  }
-}
-
-.game-message {
-  position: fixed;
-  top: 20%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 25px;
-  animation: messageFloat 2s ease-out forwards;
-  z-index: 4000;
-}
-
-@keyframes messageFloat {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -20px);
-  }
-
-  20% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  80% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(-50%, 20px);
-  }
-}
-
-.shake {
-  animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
-}
-
-@keyframes shake {
-  10%,
-  90% {
-    transform: translateX(-1px);
-  }
-
-  20%,
-  80% {
-    transform: translateX(2px);
-  }
-
-  30%,
-  50%,
-  70% {
-    transform: translateX(-4px);
-  }
-
-  40%,
-  60% {
-    transform: translateX(4px);
-  }
-
-}
-
-.talent-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.cooldown-bar {
-  width: 100%;
-  height: 3px;
-  background: rgba(0, 0, 0, 0.3);
-  margin-top: 5px;
-  position: relative;
-}
-
-.cooldown-bar::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.3s linear;
-}
-
-/* Адаптив для мобильных */
-@media (max-width: 768px) {
-  .stats {
-    flex-direction: row;
+    background: #0a0c0e;
+    display: flex;
+    justify-content: center;
     align-items: center;
-  }
-
-  .popup {
-    border-radius: 30px;
-  }
-
-  .hive-selector {
-    grid-template-columns: 1fr;
-  }
+    min-height: 100vh;
 }
 
-@media (max-width: 480px) {
-  #gameScreen {
-    padding: 0.5rem;
-    padding-bottom: 60px;
-  }
-
-  .stats {
-    flex-wrap: nowrap;
-    padding-bottom: 2px;
-  }
-
-  .popup-content {
-    padding: 15px 10px;
-  }
-
-  .combat-screen {
-    border-radius: 0;
-    height: calc(100vh - 100px);
-  }
-
-  .attack-btn {
-    font-size: 0.8rem;
-    padding: 0.1rem;
-  }
-
-  /* Боевой экран */
-  .combat-header {
-    position: fixed;
-    left: 20px;
-    right: 20px;
-    padding: 10px 15px;
-    width: auto;
-    max-width: none;
-  }
-
-  .health-bar {
-    height: 12px;
-    background: #333;
-    border-radius: 6px;
+#app {
+    max-width: 480px;
+    width: 100%;
+    height: 100vh;
+    background: #1e1e1e;
+    border: 1px solid #3a3a3a;
+    display: flex;
+    flex-direction: column;
+    position: relative;
     overflow: hidden;
-    margin: 10px 0;
-  }
+    color: #d4d4d4;
+}
 
-  .health-bar>div {
+/* Экраны */
+.screen {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+    overflow-y: auto;
+    background: #1e1e1e;
+}
+
+.screen.active {
+    display: flex;
+}
+
+/* Прогресс-бар энергии */
+.progress-bar {
+    width: 100%;
+    height: 18px;
+    background: #2a2a2a;
+    border: 1px solid #4a4a4a;
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+.progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #ff6b6b, #ff4757);
-    transition: width 0.3s ease;
-  }
-
-  .timer {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: #8a63d2;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 18px;
-    box-shadow: 0 0 10px rgba(138, 99, 210, 0.3);
-    animation: timerPulse 1s ease-in-out infinite;
-  }
-
-  @keyframes timerPulse {
-    0%,
-    100% {
-      transform: scale(1);
-    }
-
-    50% {
-      transform: scale(1.05);
-    }
-  }
-
-  .hive-option {
-    padding: 0.8rem;
-  }
-
-  /* Центрирование характеристик боссов */
-  .boss-stats {
-    text-align: center;
-    align-items: center;
-    border-right: none !important;
-    padding-right: 0 !important;
-  }
-
-  .stat-item {
-    justify-content: center;
-  }
-
-  /* Центрирование талантов */
-  .talent {
-    text-align: center;
-  }
-
-  .talent h3,
-  .talent p {
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-  }
-
-  /* Центрирование содержимого магазина */
-  .shop-item {
-    text-align: center;
-  }
-
-  /* Центрирование заголовков попапов */
-  .popup-header h2 {
-    text-align: center;
-    width: 100%;
-  }
-
-  /* Адаптация для мобильных */
-  @media (max-width: 480px) {
-    .nav-btn {
-      font-size: 45px;
-      width: 65px;
-      height: 65px;
-    }
-
-    .nav-btn::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at 50% 0%,
-          rgba(255, 255, 255, 0.15),
-          transparent);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .nav-btn:hover {
-      transform: scale(1.15) rotate(12deg);
-      box-shadow: 0 5px 20px rgba(45, 52, 54, 0.3);
-    }
-
-    .shop-item button,
-    .talent button {
-      padding: 10px;
-      font-size: 1em;
-    }
-
-    .talent-tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-
-    .charge-counter {
-      margin: 10px 0;
-      cursor: pointer;
-      transition: transform 0.3s;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    /* Вкладки талантов */
-    .talent-tabs {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 15px;
-      justify-content: center;
-    }
-
-    .achievement-card {
-      background: rgba(0, 0, 0, 0.5);
-      border: 2px solid var(--accent);
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 15px;
-    }
-
-    .achievement-info h3 {
-      color: var(--accent);
-      margin-bottom: 5px;
-    }
-
-    .achievement-progress {
-      margin: 10px 0;
-    }
-
-    .progress-bar {
-      background: rgba(0, 0, 0, 0.3);
-      height: 10px;
-      border-radius: 5px;
-      overflow: hidden;
-      margin: 5px 0;
-    }
-
-    .progress {
-      background: linear-gradient(90deg, var(--accent), #ffaa00);
-      height: 100%;
-      width: 0%;
-      transition: width 0.3s ease;
-    }
-
-    .achievement-rewards {
-      display: flex;
-      gap: 15px;
-      justify-content: flex-end;
-      color: var(--accent);
-      justify-content: center;
-    }
-
-    .achievement-complete {
-      border-color: #4CAF50;
-      opacity: 0.7;
-    }
-
-    /* Заголовок атаки */
-
-    /* Добавить в конец style.css */
-    .attack-btn.disabled {
-      opacity: 0.5 !important;
-      filter: grayscale(1) brightness(0.6);
-      cursor: not-allowed;
-      transform: none !important;
-      background: linear-gradient(145deg, #444, #333) !important;
-      pointer-events: none !important;
-    }
-
-    .attack-btn.disabled .talent-icon {
-      filter: brightness(0.5);
-      opacity: 0.7;
-    }
-
-    /* Добавить в конец файла */
-    .health-critical {
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.3;
-      }
-
-      100% {
-        opacity: 1;
-      }
-    }
-
-    .combat-screen {
-      transition: opacity 0.3s;
-    }
-
-    /* Стили для попапа результатов */
-    #battleResultPopup .popup-content {
-      max-width: 400px;
-      margin: auto;
-    }
-
-    .result-boss-img {
-      width: 200px;
-      height: 200px;
-      object-fit: cover;
-      border-radius: 50%;
-      margin: 15px auto;
-      border: 3px solid #6A6A6A30;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-      animation: defeat-pulse 2s infinite;
-    }
-
-    .reward-section {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
-      margin: 20px 0;
-    }
-
-    .reward-item {
-      text-align: center;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 15px;
-      border-radius: 10px;
-    }
-
-    .reward-icon {
-      font-size: 24px;
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .reward-value {
-      color: var(--accent);
-    }
-
-    .battle-stats {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 10px;
-      padding: 15px;
-      margin: 15px 0;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .stats-grid .stat-item {
-      background: rgba(0, 0, 0, 0.2);
-      padding: 8px;
-      border-radius: 5px;
-      text-align: left;
-    }
-
-    .stats-grid .stat-item.total {
-      grid-column: 1 / -1;
-      background: rgba(255, 215, 0, 0.1);
-      font-weight: bold;
-    }
-
-    .result-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .defeat-btn {
-      background: linear-gradient(45deg, #f44336, #b71c1c);
-    }
-
-    #combatScreen {
-      transition:
-        opacity 0.3s ease,
-        transform 0.3s ease;
-      transform-origin: center;
-      position: fixed;
-    }
-
-    /* Стили для изображения при поражении */
-    .defeat-image {
-      filter: grayscale(80%) brightness(0.6);
-      border: 3px solid #ff0000;
-      box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
-      animation: defeat-pulse 2s infinite;
-    }
-
-    /* Анимация пульсации */
-    @keyframes defeat-pulse {
-      0% {
-        transform: scale(1);
-      }
-
-      50% {
-        transform: scale(0.98);
-      }
-
-      100% {
-        transform: scale(1);
-      }
-    }
-
-    /* Стиль для текста поражения */
-    #battleResultPopup .defeat-title {
-      text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
-    }
-
-    /* Добавьте в ваш CSS файл */
-    .poison-timers {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 10px;
-      z-index: 1000;
-    }
-
-    .poison-timer {
-      background: rgba(0, 0, 0, 0.7);
-      padding: 8px 15px;
-      border-radius: 15px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    }
-
-    /* Добавить в конец style.css */
-    .talents-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin: 20px 0;
-    }
-
-    .talent-card {
-      padding: 15px;
-      border: 2px solid #4CAF50;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
-      text-align: center;
-    }
-
-    .talent-card.selected {
-      background: #4CAF50;
-      transform: scale(0.95);
-    }
-
-    #craftButton {
-      background: #8B4513;
-      color: white;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 1.1em;
-      margin-top: 15px;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    /* Стили для кнопок фильтрации */
-    .difficulty-tabs {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
-
-    .difficulty-tabs .tab-btn {
-      padding: 10px 20px;
-      margin: 0 5px;
-      border-radius: 30px;
-      cursor: pointer;
-      background-color: #f9f9f9;
-      transition: background-color 0.3s;
-    }
-
-    .difficulty-tabs .tab-btn.active {
-      background-color: #4CAF50;
-      color: white;
-      border-color: #4CAF50;
-    }
-
-    /* Стили для контейнеров боссов */
-    .boss-selection {
-      display: none;
-    }
-
-    .boss-selection.active {
-      display: block;
-    }
-
-    .click-area {
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-
-    .close {
-      background-color: #535252;
-      color: white;
-      border: 1px solid transparent;
-      padding: .375rem .75rem;
-      font-size: 1rem;
-      line-height: 1.5;
-      border-radius: .25rem;
-      position: fixed;
-      top: 5px;
-      z-index: 999;
-    }
-
-    /* Стили для кастомизации */
-    .tab-buttons {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .skin-preview,
-    .pet-preview {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-
-    .skin-preview img,
-    .pet-preview img {
-      width: 200px;
-      height: 200px;
-      object-fit: contain;
-      margin-bottom: 1rem;
-    }
-
-    .skin-list,
-    .pet-list {
-      display: flex;
-      justify-content: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .skin-list img,
-    .pet-list img {
-      width: 100px;
-      height: 100px;
-      object-fit: contain;
-      cursor: pointer;
-      border: 2px solid transparent;
-      border-radius: 10px;
-      transition: all 0.3s;
-    }
-
-    .skin-list img:hover,
-    .pet-list img:hover {
-      border-color: var(--accent);
-      transform: scale(1.1);
-    }
-
-    /* Контейнер для питомца */
-    .pet-container {
-      position: absolute;
-      bottom: -50px;
-      left: 70%;
-      transform: translateX(-50%);
-      width: 180px;
-      height: 180px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border-radius: 50%;
-      top: 380px;
-    }
-
-    .pet {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      position: fixed;
-    }
-
-    /* Контейнер для фона */
-    .background-selector {
-      width: 350px;
-      height: 450px;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px;
-      z-index: 5000;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 15px;
-    }
-
-    /* Активное состояние фона */
-    .background-selector.active {
-      display: flex;
-    }
-
-    .bg-controls {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    /* Стиль стрелок */
-    .bg-arrow {
-      position: fixed;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--primary);
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      cursor: pointer;
-      transition: transform 0.2s;
-      z-index: 1001;
-    }
-
-    /* Левый стрелка */
-    #bgPrevBtn {
-      left: 10px;
-      text-align: center;
-    }
-
-    /* Правая стрелка */
-    #bgNextBtn {
-      right: 10px;
-      text-align: center;
-    }
-
-    /* Кнопка действия */
-    .bg-action-btn {
-      position: fixed;
-      top: 90%;
-      padding: 10px 25px;
-      border-radius: 20px;
-      border: none;
-      border: 2px solid var(--accent);
-      background: var(--primary);
-      color: white;
-      cursor: pointer;
-      font-size: 1.1em;
-      transition: transform 0.2s;
-    }
-
-    .bg-action-btn:disabled {
-      background: #666;
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    /* Кнопка меню */
-    .bg-menu-btn {
-      position: fixed;
-      top: 250px;
-      left: 20px;
-      padding: 10px 20px;
-      border-radius: 25px;
-      background: linear-gradient(145deg, #8B4513, #6B3410);
-      color: white;
-      border: 2px;
-      cursor: pointer;
-      z-index: 1000;
-      font-size: 1.1em;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Кнопка закрытия */
-    .bg-close-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: none;
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      cursor: pointer;
-      padding: 5px;
-    }
-
-    #select-skin:disabled,
-    #select-pet:disabled {
-      background: #666;
-      cursor: not-allowed;
-      opacity: 0.7;
-      transform: none;
-    }
-  }
-}
-
-.music-btn {
-  position: fixed;
-  top: 75px;
-  right: 15px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid var(--primary);
-  color: var(--primary);
-  font-size: 1.2em;
-  cursor: pointer;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s;
-}
-
-.music-btn.muted {
-  background: rgba(255, 0, 0, 0.2);
-  color: #ff0000;
-}
-
-.music-btn:active {
-  transform: scale(0.9);
-}
-
-/* Стили для крафтинга */
-.talents-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin: 20px 0;
-}
-
-.talent-card {
-  padding: 15px;
-  border: 2px solid var(--secondary);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.3s;
-  text-align: center;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.craft-slots {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin: 20px 0;
-}
-
-.craft-slot {
-  width: 80px;
-  height: 80px;
-  border: 2px dashed var(--secondary);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.2);
-  font-size: 1.5em;
-}
-
-.craft-slot.filled {
-  border-style: solid;
-  background: rgba(139, 69, 19, 0.3);
-}
-
-.craft-slot.filled:hover::after {
-  content: '❌';
-  position: absolute;
-  font-size: 0.8em;
-  color: red;
-  opacity: 0.8;
-}
-
-#craftButton {
-  background: var(--primary);
-  color: white;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 1.1em;
-  margin-top: 15px;
-  width: 100%;
-}
-
-#craftButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.sonic-effect {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #00ffff;
-  font-size: 2.5em;
-  font-weight: bold;
-  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-  animation: sonicWave 1s ease-out forwards;
-  z-index: 1002;
-}
-
-@keyframes sonicWave {
-  0% {
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 0;
-  }
-
-  50% {
-    transform: translate(-50%, -50%) scale(1.2);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(-50%, -50%) scale(2);
-    opacity: 0;
-  }
-}
-
-.basic-effect,
-.poison-attack-effect {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 2.5em;
-  font-weight: bold;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  animation: damageEffect 1s ease-out forwards;
-  z-index: 1002;
-}
-
-/* Стили для эффекта урона ядом */
-.poison-damage-effect {
-  animation: poisonDamageFloat 1s ease-out forwards;
-}
-
-@keyframes poisonDamageFloat {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: translate(-50%, -80%) scale(1.2);
-    opacity: 0.8;
-  }
-  100% {
-    transform: translate(-50%, -120%) scale(1);
-    opacity: 0;
-  }
-}
-
-.poison-attack-effect {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #32CD32;
-  font-size: 2.5em;
-  font-weight: bold;
-  text-shadow: 0 0 10px rgba(50, 205, 50, 0.5);
-  animation: poisonAttack 1s ease-out forwards;
-  z-index: 1002;
-}
-
-@keyframes poisonAttack {
-  0% {
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.2);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -80%) scale(1);
-    opacity: 0;
-  }
-}
-
-@keyframes damageEffect {
-  0% {
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 0;
-  }
-
-  25% {
-    transform: translate(-50%, -50%) scale(1.2);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(-50%, -80%) scale(1);
-    opacity: 0;
-  }
-}
-
-/* Контейнер для питомца */
-.craft-result-btn {
-  background: linear-gradient(145deg, #4CAF50, #45a049);
-  color: white;
-  padding: 12px 24px;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 1.1em;
-  margin-top: 15px;
-  position: fixed;
-  right: 125px;
-  transition: all 0.3s ease;
-}
-
-.craft-result-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-}
-
-.craft-result-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-  background: #666;
-}
-
-.achievement-card {
-  background: rgba(0, 0, 0, 0.5);
-  border: 2px solid var(--accent);
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 15px;
-  position: relative;
-  overflow: hidden;
-}
-
-/* Добавить в конец файла */
-.heart-effect {
-  position: absolute;
-  font-size: 24px;
-  pointer-events: none;
-  animation: heartFloat 1s ease-out forwards;
-  z-index: 999;
-  opacity: 0.9;
-  transform: translate(-50%, -50%);
-}
-
-@keyframes heartFloat {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-
-  50% {
-    transform: translate(-50%, -100%) scale(1.2);
-  }
-
-  100% {
-    transform: translate(-50%, -150%) scale(0.5);
-    opacity: 0;
-  }
-}
-
-/* =================== СТИЛИ ДЛЯ FIREBASE =================== */
-
-.firebase-status {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  z-index: 9999;
-  transition: opacity 0.3s;
-  backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.status-dot.online {
-  background: #4CAF50;
-  animation: pulse 2s infinite;
-  box-shadow: 0 0 10px #4CAF50;
-}
-
-.status-dot.offline {
-  background: #f44336;
-  animation: none;
-  box-shadow: 0 0 5px #f44336;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.1); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-/* =================== СТИЛИ ДЛЯ СИСТЕМЫ ДРУЗЕЙ =================== */
-
-.friends-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 2px solid rgba(139, 69, 19, 0.3);
-  padding-bottom: 10px;
-}
-
-.friends-tab {
-  display: none;
-  animation: fadeIn 0.3s ease;
-}
-
-.friends-tab.active {
-  display: block;
-}
-
-.friends-container, .requests-container {
-  max-height: 400px;
-  overflow-y: auto;
-  margin-top: 15px;
-}
-
-.friend-card, .request-card {
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 12px;
-  padding: 15px;
-  margin-bottom: 10px;
-  border: 1px solid rgba(139, 69, 19, 0.3);
-  transition: all 0.3s ease;
-}
-
-.friend-card:hover, .request-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-}
-
-.friend-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.friend-info h4 {
-  color: var(--accent);
-  margin-bottom: 5px;
-}
-
-.friend-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.9em;
-}
-
-.friend-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-top: 10px;
-  font-size: 0.9em;
-}
-
-.stat-item-small {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 5px 8px;
-  border-radius: 6px;
-  text-align: center;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 1.1em;
-}
-
-.search-input {
-  width: 100%;
-  padding: 12px 15px;
-  border-radius: 10px;
-  border: 2px solid var(--secondary);
-  background: rgba(0, 0, 0, 0.3);
-  color: white;
-  font-size: 1em;
-  margin-bottom: 15px;
-  font-family: monospace;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1);
-}
-
-.add-friend-form {
-  padding: 10px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--accent);
-  font-weight: bold;
-}
-
-.form-input, .form-textarea {
-  width: 100%;
-  padding: 12px;
-  border-radius: 10px;
-  border: 2px solid var(--secondary);
-  background: rgba(0, 0, 0, 0.3);
-  color: white;
-  font-size: 1em;
-  font-family: 'Arial', sans-serif;
-}
-
-.form-input:focus, .form-textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.form-hint, .id-hint {
-  font-size: 0.85em;
-  color: rgba(255, 255, 255, 0.6);
-  margin-top: 5px;
-  line-height: 1.4;
-}
-
-.form-description {
-  margin-bottom: 20px;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.my-id-section {
-  margin-top: 25px;
-  padding: 15px;
-  background: rgba(139, 69, 19, 0.1);
-  border-radius: 10px;
-}
-
-.my-id-display {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  font-family: 'Courier New', monospace;
-  font-weight: bold;
-  letter-spacing: 1px;
-  font-size: 1.1em;
-}
-
-.copy-btn {
-  background: var(--primary);
-  border: none;
-  color: white;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.copy-btn:hover {
-  background: var(--secondary);
-}
-
-.request-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.request-info {
-  flex: 1;
-}
-
-.request-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.accept-btn, .reject-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 15px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.3s;
-  font-size: 0.9em;
-}
-
-.accept-btn {
-  background: #4CAF50;
-  color: white;
-}
-
-.accept-btn:hover {
-  background: #45a049;
-  transform: translateY(-2px);
-}
-
-.reject-btn {
-  background: #f44336;
-  color: white;
-}
-
-.reject-btn:hover {
-  background: #d32f2f;
-  transform: translateY(-2px);
-}
-
-.badge {
-  background: #f44336;
-  color: white;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8em;
-  margin-left: 5px;
-}
-
-.friend-actions {
-  margin-top: 10px;
-  display: flex;
-  gap: 8px;
-}
-
-.remove-friend-btn {
-  background: #f44336;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  justify-content: center;
-  width: 100%;
-}
-
-.remove-friend-btn:hover {
-  background: #d32f2f;
-  transform: translateY(-2px);
-}
-
-/* Стили для счетчика друзей */
-.friends-counter {
-  background: rgba(139, 69, 19, 0.2);
-  padding: 10px;
-  border-radius: 10px;
-  margin-bottom: 15px;
-  text-align: center;
-  font-weight: bold;
-  border: 2px solid rgba(139, 69, 19, 0.5);
-}
-
-/* Анимации */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideInDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.game-message {
-  animation: slideInDown 0.3s ease-out;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .request-actions {
+    background: #4caf50;
+    width: 0%;
+    transition: width 0.2s ease;
+}
+
+/* Статистика (монеты) */
+#stats {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 20px;
+    font-weight: 600;
+    color: #ffd966;
+    margin-bottom: 10px;
+}
+
+/* Область персонажа */
+#character-area {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-  }
-
-  .accept-btn, .reject-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .friend-stats {
-    grid-template-columns: 1fr;
-  }
-
-  /* Адаптивность прелоадера */
-  .preloader-content {
-    padding: 20px;
-  }
-
-  .preloader-spinner {
-    width: 50px;
-    height: 50px;
-  }
-
-  .preloader-text {
-    font-size: 1.2em;
-  }
-
-  /* Адаптивность для Firebase статуса */
-  .firebase-status {
-    top: 5px;
-    left: 5px;
-    font-size: 10px;
-    padding: 4px 8px;
-  }
-}
-
-/* Цвета для статусов */
-.status-online {
-  color: #4CAF50;
-}
-
-.status-away {
-  color: #ff9800;
-}
-
-.status-offline {
-  color: #f44336;
-}
-
-/* Лимит друзей предупреждение */
-.friend-limit-warning {
-  background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-  padding: 10px;
-  border-radius: 10px;
-  margin: 10px 0;
-  text-align: center;
-  font-weight: bold;
-  animation: pulse 2s infinite;
-}
-
-@media (max-width: 480px) {
-  .firebase-status {
-    font-size: 8px;
-    padding: 3px 6px;
-    max-width: 80%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-/* Адаптивность для прелоадера */
-@media (max-width: 480px) {
-  .preloader-content {
-    padding: 20px;
-  }
-
-  .preloader-spinner {
-    width: 50px;
-    height: 50px;
-  }
-
-  .preloader-text {
-    font-size: 1.2em;
-  }
-}
-/* ДОБАВЬ в конец файла */
-.bg-close-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: rgba(255, 0, 0, 0.7);
-    color: white;
-    border: none;
-    font-size: 1.2em;
-    cursor: pointer;
-    z-index: 1001;
-    display: flex;
     align-items: center;
     justify-content: center;
+    flex: 1;
 }
 
-.bg-close-btn:hover {
-    background: rgba(255, 0, 0, 0.9);
+#character-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin-bottom: 25px;
+    background: #252525;
+    border: 1px solid #3f3f3f;
 }
 
-.preloader {
-    position: fixed;
+#base-character {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#equipment-layer, #pet-layer {
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #8B4513 0%, #CD853F 100%);
+    pointer-events: none;
+}
+
+#equipment-layer img, #pet-layer img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+#pet-layer img {
+    width: 70px;
+    bottom: -20px;
+    right: -20px;
+    left: auto;
+    top: auto;
+}
+
+/* Кнопка заработка */
+.glow-button {
+    background: #2d2d2d;
+    border: 2px solid #4a6c8f;
+    color: #e0e0e0;
+    font-size: 22px;
+    font-weight: 600;
+    padding: 12px 30px;
+    cursor: pointer;
+    transition: all 0.1s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.glow-button:hover {
+    background: #3a3a3a;
+    border-color: #6b8cae;
+}
+
+.glow-button:active {
+    background: #1e1e1e;
+    border-color: #2e4a6a;
+}
+
+/* Нижняя навигация */
+#bottom-nav {
     display: flex;
-    justify-content: center;
+    justify-content: space-around;
+    padding: 10px 0;
+    background: #141414;
+    border-top: 1px solid #3a3a3a;
+}
+
+.nav-btn {
+    background: transparent;
+    border: 1px solid #4a4a4a;
+    border-radius: 0;
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+    color: #b0b0b0;
+    cursor: pointer;
+    transition: 0.15s;
+    display: flex;
     align-items: center;
-    z-index: 9999;
-    opacity: 1;
-    visibility: visible;
-    transition: opacity 0.5s ease, visibility 0.5s ease;
+    justify-content: center;
 }
 
-.preloader.hidden {
-    opacity: 0;
-    visibility: hidden;
-}
-/* Стили для гильдии */
-.guild-tabs {
-  display: flex;
-  gap: 5px;
-  margin-bottom: 15px;
-  border-bottom: 1px solid rgba(139, 69, 19, 0.3);
-  padding-bottom: 5px;
+.nav-btn.active {
+    background: #2a4a6a;
+    border-color: #8ab3ff;
+    color: #ffffff;
 }
 
-.guild-tab {
-  display: none;
+/* Вкладки мастерской */
+.tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #3a3a3a;
 }
 
-.guild-tab.active {
-  display: block;
+.tab-button {
+    flex: 1;
+    padding: 12px 5px;
+    background: #252525;
+    color: #c0c0c0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.1s;
 }
 
-.my-guild-container {
-  background: rgba(139, 69, 19, 0.15);
-  border-radius: 15px;
-  padding: 15px;
-  margin-bottom: 15px;
+.tab-button.active {
+    background: #1e1e1e;
+    color: #ffffff;
+    border-bottom: 2px solid #4a6c8f;
 }
 
-.guild-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid var(--accent);
+.tab-content {
+    display: none;
+    background: #1a1a1a;
+    padding: 15px;
+    border: 1px solid #3a3a3a;
 }
 
-.guild-header h2 {
-  margin: 0;
-  font-size: 1.4em;
-  color: var(--accent);
+.tab-content.active {
+    display: block;
 }
 
-.guild-level {
-  background: rgba(255, 215, 0, 0.2);
-  padding: 5px 15px;
-  border-radius: 20px;
-  font-weight: bold;
+/* Сетки магазина и инвентаря */
+.shop-grid, .inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 25px;
 }
 
-.guild-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 20px;
+.item-card {
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #d0d0d0;
 }
 
-.guild-stat {
-  background: rgba(139, 69, 19, 0.1);
-  padding: 10px;
-  border-radius: 10px;
-  display: flex;
-  justify-content: space-between;
+.item-card img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 8px;
 }
 
-.guild-members h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
+.item-card span {
+    font-size: 14px;
+    margin-bottom: 4px;
 }
 
-.members-list {
-  max-height: 200px;
-  overflow-y: auto;
-  background: rgba(139, 69, 19, 0.05);
-  border-radius: 10px;
-  padding: 10px;
+.item-card button {
+    margin-top: 8px;
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #f0f0f0;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.1s;
 }
 
-.member-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  border-bottom: 1px solid rgba(139, 69, 19, 0.1);
+.item-card button:hover {
+    background: #3a3a3a;
+    border-color: #7a7a7a;
 }
 
-.member-item:last-child {
-  border-bottom: none;
-}
-
-.member-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.member-level {
-  background: rgba(139, 69, 19, 0.2);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.8em;
-}
-
-.member-leader {
-  color: gold;
-  font-weight: bold;
-}
-
-.guild-actions {
-  margin-top: 20px;
-  display: flex;
-  gap: 10px;
-}
-
-.btn-danger {
-  background: linear-gradient(135deg, #ff4757, #ff3838);
-}
-
-/* Список гильдий */
-.guild-list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.sort-select {
-  background: rgba(139, 69, 19, 0.2);
-  border: 1px solid var(--accent);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 0.9em;
-}
-
+/* Гильдия и босс */
 .guild-card {
-  background: rgba(139, 69, 19, 0.1);
-  border-radius: 15px;
-  padding: 15px;
-  margin-bottom: 10px;
-  transition: transform 0.2s;
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    padding: 15px;
+    margin-bottom: 12px;
 }
 
-.guild-card:hover {
-  transform: translateY(-2px);
-  background: rgba(139, 69, 19, 0.2);
+.guild-card h3 {
+    font-size: 18px;
+    color: #e0e0e0;
+    margin-bottom: 6px;
 }
 
-.guild-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+.guild-card p {
+    font-size: 14px;
+    color: #b0b0b0;
+    margin-bottom: 4px;
 }
 
-.guild-card-name {
-  font-size: 1.2em;
-  font-weight: bold;
-  color: var(--accent);
+.guild-card button {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #fff;
+    padding: 6px 16px;
+    margin-top: 8px;
+    cursor: pointer;
 }
 
-.guild-card-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 15px;
+.boss-selector {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 15px 0;
 }
 
-.guild-card-stat {
-  text-align: center;
-  background: rgba(139, 69, 19, 0.05);
-  padding: 8px;
-  border-radius: 8px;
-  font-size: 0.9em;
+.boss-selector button {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
 }
 
-.guild-card-actions {
-  display: flex;
-  gap: 10px;
+.boss-container {
+    background: #1a1a1a;
+    border: 1px solid #4a4a4a;
+    padding: 20px;
+    text-align: center;
 }
 
-.guild-card-full {
-  opacity: 0.7;
-  position: relative;
+.boss-image {
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+    cursor: pointer;
+    border: 1px solid #3a3a3a;
 }
 
-.guild-card-full::after {
-  content: "Полная";
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(255, 0, 0, 0.8);
-  color: white;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.8em;
+.boss-hp-bar {
+    width: 100%;
+    height: 20px;
+    background: #2a2a2a;
+    border: 1px solid #4a4a4a;
+    margin: 15px 0;
+    overflow: hidden;
 }
 
-.no-guild-message {
-  text-align: center;
-  padding: 40px 20px;
+.boss-hp-fill {
+    height: 100%;
+    background: #b33e3e;
+    width: 100%;
 }
 
-.no-guild-message .empty-state {
-  font-size: 2em;
-  margin-bottom: 20px;
+#battle-timer {
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffd966;
+    margin: 10px 0;
 }
 
-.create-rules {
-  background: rgba(139, 69, 19, 0.1);
-  padding: 15px;
-  border-radius: 10px;
-  margin: 20px 0;
+.talent-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 15px;
 }
 
-.create-rules ul {
-  margin: 10px 0 0 0;
-  padding-left: 20px;
+.talent-btn {
+    background: #2a3a4a;
+    border: 1px solid #5a7a9a;
+    color: #fff;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
 }
 
-.create-rules li {
-  margin-bottom: 5px;
-  font-size: 0.9em;
+.talent-btn:hover {
+    background: #3a5a7a;
+}
+
+/* Друзья */
+.my-id-card {
+    background: #242424;
+    border: 1px solid #4a6c8f;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #d0d0d0;
+}
+
+.my-id-card strong {
+    font-size: 16px;
+    color: #ffd966;
+    margin-left: 8px;
+}
+
+.copy-btn {
+    background: #2d2d2d;
+    border: 1px solid #6b8cae;
+    color: #fff;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.friend-item, .friend-request {
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.online {
+    color: #6ab04c;
+    font-weight: 500;
+}
+
+.offline {
+    color: #b0b0b0;
+}
+
+#search-friend {
+    background: #1a1a1a;
+    border: 1px solid #4a4a4a;
+    color: #e0e0e0;
+    padding: 10px 12px;
+    width: 100%;
+    margin-bottom: 12px;
+    font-size: 15px;
+}
+
+#search-btn {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #fff;
+    padding: 10px 20px;
+    cursor: pointer;
+    width: 100%;
+}
+
+#search-result {
+    margin-top: 15px;
+}
+
+/* Крафт талантов */
+.craft-card {
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    padding: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.craft-card.available {
+    border-left: 4px solid #4caf50;
+}
+
+.craft-card.locked {
+    border-left: 4px solid #b33e3e;
+    opacity: 0.8;
+}
+
+.craft-card button {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #fff;
+    padding: 6px 12px;
+    margin-top: 8px;
+    align-self: flex-start;
+    cursor: pointer;
+}
+
+.talent-badge {
+    display: inline-block;
+    background: #2a3a4a;
+    border: 1px solid #5a7a9a;
+    padding: 6px 14px;
+    margin: 4px;
+    font-size: 14px;
+    color: #fff;
+}
+
+/* Адаптация для маленьких экранов */
+@media (max-width: 400px) {
+    .nav-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+    .glow-button {
+        font-size: 18px;
+        padding: 10px 20px;
+    }
 }
