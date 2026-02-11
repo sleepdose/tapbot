@@ -8,7 +8,7 @@
 </head>
 <body>
     <div id="app">
-        <!-- ЭКРАН MAIN -->
+        <!-- ГЛАВНЫЙ ЭКРАН -->
         <div id="screen-main" class="screen active">
             <div id="stats">
                 <span id="energy-display">⚡ 100/100</span>
@@ -23,7 +23,7 @@
             </div>
         </div>
 
-        <!-- ЭКРАН МАСТЕРСКАЯ -->
+        <!-- МАСТЕРСКАЯ -->
         <div id="screen-workshop" class="screen">
             <div class="tabs">
                 <button class="tab-button active" data-tab="character">👤 Персонаж</button>
@@ -31,7 +31,7 @@
                 <button class="tab-button" data-tab="talents">✨ Таланты</button>
             </div>
 
-            <!-- Вкладка ПЕРСОНАЖ (экипировка + предпросмотр) -->
+            <!-- Вкладка ПЕРСОНАЖ (экипировка) -->
             <div id="tab-character" class="tab-content active">
                 <div class="customization-preview">
                     <div id="char-preview-container" class="character-preview">
@@ -48,31 +48,27 @@
                 <div id="slot-items" class="items-grid"></div>
             </div>
 
-            <!-- Вкладка ПИТОМЦЫ -->
+            <!-- Вкладка ПИТОМЦЫ (единая сетка) -->
             <div id="tab-pets" class="tab-content">
-                <h3>🛒 Магазин питомцев</h3>
-                <div class="shop-grid" id="shop-pets"></div>
-                <h3>📦 Мои питомцы</h3>
-                <div class="inventory-grid" id="inventory-pets"></div>
+                <h3>🐾 Доступные питомцы</h3>
+                <div id="pets-grid" class="items-grid"></div>
             </div>
 
-            <!-- Вкладка ТАЛАНТЫ -->
+            <!-- Вкладка ТАЛАНТЫ (сетка + крафт) -->
             <div id="tab-talents" class="tab-content">
-                <h3>🛒 Магазин талантов</h3>
-                <div class="shop-grid" id="shop-talents"></div>
+                <h3>✨ Все таланты</h3>
+                <div id="talents-grid" class="items-grid"></div>
                 <h3>⚒️ Крафт талантов</h3>
                 <div id="craft-section"></div>
-                <h3>✨ Мои таланты</h3>
-                <div id="my-talents"></div>
             </div>
         </div>
 
-        <!-- ЭКРАН ГИЛЬДИЯ -->
+        <!-- ГИЛЬДИЯ -->
         <div id="screen-guild" class="screen">
             <div id="guild-view"></div>
         </div>
 
-        <!-- ЭКРАН ДРУЗЬЯ -->
+        <!-- ДРУЗЬЯ -->
         <div id="screen-friends" class="screen">
             <div id="friends-view"></div>
         </div>
