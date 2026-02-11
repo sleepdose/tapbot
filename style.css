@@ -77,7 +77,7 @@ body {
     color: #6ab04c;
 }
 
-/* Область персонажа */
+/* ========== ПЕРСОНАЖ В ГЛАВНОМ МЕНЮ ========== */
 #character-area {
     display: flex;
     flex-direction: column;
@@ -88,13 +88,10 @@ body {
 }
 #character-container {
     position: relative;
-    width: 200px;
-    height: 200px;
+    width: 300px;
+    height: 300px;
     margin-bottom: 25px;
-    background: #252525;
-    border: 2px solid #4a6c8f;
-    border-radius: 12px;
-    box-shadow: 0 8px 0 #2a3a4a, 0 10px 20px black;
+    background: transparent;   /* прозрачный фон */
     transition: transform 0.05s;
 }
 #character-container:active {
@@ -261,7 +258,7 @@ body {
     font-style: italic;
 }
 
-/* Карточки предметов */
+/* Карточки предметов (универсально) */
 .item-card {
     background: #242424;
     border: 1px solid #3f3f3f;
@@ -300,6 +297,10 @@ body {
 .item-card button:hover {
     background: #3a3a3a;
     border-color: #7a7a7a;
+}
+.item-card button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* Гильдия */
@@ -598,5 +599,9 @@ body {
     .slot-btn {
         padding: 8px 16px;
         font-size: 14px;
+    }
+    #character-container {
+        width: 260px;
+        height: 260px;
     }
 }
