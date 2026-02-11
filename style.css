@@ -1,7 +1,7 @@
 /* ============================================
    СТРОГИЙ КЛАССИЧЕСКИЙ СТИЛЬ
    Основа: тёмная палитра, плоские элементы,
-   минимум скруглений, акцент — глубокий синий
+   акцент — глубокий синий
    ============================================ */
 
 * {
@@ -29,7 +29,8 @@ body {
     flex-direction: column;
     position: relative;
     overflow: hidden;
-    color: #d4d4d4;
+    color: #e6e6e6;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
 }
 
 /* Экраны */
@@ -40,37 +41,40 @@ body {
     padding: 20px;
     overflow-y: auto;
     background: #1e1e1e;
+    scrollbar-width: thin;
+    scrollbar-color: #4a6c8f #1a1a1a;
 }
-
+.screen::-webkit-scrollbar {
+    width: 6px;
+}
+.screen::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+.screen::-webkit-scrollbar-thumb {
+    background: #4a6c8f;
+    border-radius: 3px;
+}
 .screen.active {
     display: flex;
 }
 
-/* Прогресс-бар энергии */
-.progress-bar {
-    width: 100%;
-    height: 18px;
-    background: #2a2a2a;
-    border: 1px solid #4a4a4a;
-    margin-bottom: 15px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: #4caf50;
-    width: 0%;
-    transition: width 0.2s ease;
-}
-
-/* Статистика (монеты) */
+/* Статистика: энергия слева, монеты справа */
 #stats {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     font-size: 20px;
     font-weight: 600;
     color: #ffd966;
     margin-bottom: 10px;
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border: 1px solid #3f3f3f;
+    border-radius: 8px;
+    box-shadow: inset 0 0 5px #00000033;
+}
+#energy-display {
+    color: #6ab04c;
 }
 
 /* Область персонажа */
@@ -80,17 +84,22 @@ body {
     align-items: center;
     justify-content: center;
     flex: 1;
+    cursor: pointer;
 }
-
 #character-container {
     position: relative;
     width: 200px;
     height: 200px;
     margin-bottom: 25px;
     background: #252525;
-    border: 1px solid #3f3f3f;
+    border: 2px solid #4a6c8f;
+    border-radius: 12px;
+    box-shadow: 0 8px 0 #2a3a4a, 0 10px 20px black;
+    transition: transform 0.05s;
 }
-
+#character-container:active {
+    transform: scale(0.98);
+}
 #base-character {
     width: 100%;
     height: 100%;
@@ -100,7 +109,6 @@ body {
     left: 0;
     z-index: 1;
 }
-
 #equipment-layer, #pet-layer {
     position: absolute;
     top: 0;
@@ -109,14 +117,12 @@ body {
     height: 100%;
     pointer-events: none;
 }
-
 #equipment-layer img, #pet-layer img {
     position: absolute;
     width: 100%;
     height: 100%;
     object-fit: contain;
 }
-
 #pet-layer img {
     width: 70px;
     bottom: -20px;
@@ -125,128 +131,161 @@ body {
     top: auto;
 }
 
-/* Кнопка заработка */
-.glow-button {
-    background: #2d2d2d;
-    border: 2px solid #4a6c8f;
-    color: #e0e0e0;
-    font-size: 22px;
-    font-weight: 600;
-    padding: 12px 30px;
-    cursor: pointer;
-    transition: all 0.1s;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-}
-
-.glow-button:hover {
-    background: #3a3a3a;
-    border-color: #6b8cae;
-}
-
-.glow-button:active {
-    background: #1e1e1e;
-    border-color: #2e4a6a;
-}
-
 /* Нижняя навигация */
 #bottom-nav {
     display: flex;
     justify-content: space-around;
     padding: 10px 0;
     background: #141414;
-    border-top: 1px solid #3a3a3a;
+    border-top: 2px solid #3a3a3a;
+    box-shadow: 0 -2px 10px #00000055;
 }
-
 .nav-btn {
     background: transparent;
     border: 1px solid #4a4a4a;
-    border-radius: 0;
+    border-radius: 12px;
     width: 60px;
     height: 60px;
     font-size: 28px;
     color: #b0b0b0;
     cursor: pointer;
-    transition: 0.15s;
+    transition: all 0.15s;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 2px 0 #2a2a2a;
 }
-
 .nav-btn.active {
     background: #2a4a6a;
     border-color: #8ab3ff;
     color: #ffffff;
+    box-shadow: 0 0 10px #4a6c8f;
+    transform: translateY(-2px);
 }
 
 /* Вкладки мастерской */
 .tabs {
     display: flex;
-    gap: 2px;
+    gap: 4px;
     margin-bottom: 15px;
     border-bottom: 1px solid #3a3a3a;
 }
-
 .tab-button {
     flex: 1;
     padding: 12px 5px;
     background: #252525;
     color: #c0c0c0;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-bottom: 3px solid transparent;
     font-size: 16px;
     font-weight: 500;
     cursor: pointer;
     transition: 0.1s;
+    border-radius: 8px 8px 0 0;
 }
-
 .tab-button.active {
     background: #1e1e1e;
     color: #ffffff;
-    border-bottom: 2px solid #4a6c8f;
+    border-bottom: 3px solid #4a6c8f;
+    font-weight: 600;
 }
-
 .tab-content {
     display: none;
     background: #1a1a1a;
     padding: 15px;
     border: 1px solid #3a3a3a;
+    border-radius: 0 0 12px 12px;
 }
-
 .tab-content.active {
     display: block;
 }
 
-/* Сетки магазина и инвентаря */
-.shop-grid, .inventory-grid {
+/* ========== КАСТОМИЗАЦИЯ ПЕРСОНАЖА ========== */
+.customization-preview {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+.character-preview {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    background: #252525;
+    border: 2px solid #4a6c8f;
+    border-radius: 12px;
+    box-shadow: 0 6px 0 #2a3a4a;
+}
+.character-preview img {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+#preview-equipment img {
+    z-index: 2;
+}
+.slot-selector {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+.slot-btn {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #ddd;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 3px 0 #1a1a1a;
+    font-weight: 500;
+}
+.slot-btn.active {
+    background: #4a6c8f;
+    border-color: #8ab3ff;
+    color: white;
+    box-shadow: 0 0 10px #4a6c8f;
+}
+.items-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 12px;
-    margin-bottom: 25px;
+    margin-top: 10px;
+}
+.empty-msg {
+    text-align: center;
+    color: #888;
+    padding: 20px;
+    font-style: italic;
 }
 
+/* Карточки предметов */
 .item-card {
     background: #242424;
     border: 1px solid #3f3f3f;
+    border-radius: 12px;
     padding: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
     color: #d0d0d0;
+    transition: all 0.1s;
+    box-shadow: 0 4px 0 #2a2a2a;
 }
-
+.item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #2a2a2a, 0 0 8px #4a6c8f;
+}
 .item-card img {
     width: 80px;
     height: 80px;
     object-fit: contain;
     margin-bottom: 8px;
+    border-radius: 8px;
+    background: #1e1e1e;
 }
-
-.item-card span {
-    font-size: 14px;
-    margin-bottom: 4px;
-}
-
 .item-card button {
     margin-top: 8px;
     background: #2d2d2d;
@@ -254,98 +293,129 @@ body {
     color: #f0f0f0;
     padding: 6px 12px;
     font-size: 13px;
+    border-radius: 20px;
     cursor: pointer;
     transition: 0.1s;
 }
-
 .item-card button:hover {
     background: #3a3a3a;
     border-color: #7a7a7a;
 }
 
-/* Гильдия и босс */
+/* Гильдия */
 .guild-card {
     background: #242424;
     border: 1px solid #3f3f3f;
+    border-radius: 16px;
     padding: 15px;
     margin-bottom: 12px;
+    box-shadow: 0 4px 0 #2a2a2a;
 }
-
 .guild-card h3 {
     font-size: 18px;
     color: #e0e0e0;
     margin-bottom: 6px;
 }
-
 .guild-card p {
     font-size: 14px;
     color: #b0b0b0;
     margin-bottom: 4px;
 }
-
 .guild-card button {
     background: #2d2d2d;
     border: 1px solid #5a5a5a;
     color: #fff;
     padding: 6px 16px;
     margin-top: 8px;
+    border-radius: 30px;
     cursor: pointer;
+    transition: 0.1s;
 }
-
+.guild-card button:hover {
+    background: #3a5a7a;
+}
 .boss-selector {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin: 15px 0;
+    background: #1a1a1a;
+    border-radius: 40px;
+    padding: 5px;
+    border: 1px solid #4a4a4a;
 }
-
 .boss-selector button {
     background: #2d2d2d;
     border: 1px solid #5a5a5a;
     color: #fff;
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    border-radius: 50%;
     cursor: pointer;
+    transition: 0.1s;
 }
-
+.boss-selector button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.boss-selector span {
+    font-weight: 600;
+    color: #ffd966;
+}
+.boss-keys {
+    text-align: center;
+    background: #2a3a4a;
+    padding: 6px;
+    border-radius: 30px;
+    color: #ffd966;
+    font-weight: 600;
+    margin-bottom: 10px;
+    border: 1px solid #4a6c8f;
+}
 .boss-container {
     background: #1a1a1a;
     border: 1px solid #4a4a4a;
+    border-radius: 20px;
     padding: 20px;
     text-align: center;
+    box-shadow: inset 0 0 15px #00000077;
 }
-
 .boss-image {
     width: 140px;
     height: 140px;
     object-fit: contain;
     cursor: pointer;
-    border: 1px solid #3a3a3a;
+    border: 2px solid #b33e3e;
+    border-radius: 50%;
+    padding: 10px;
+    background: #2a2a2a;
+    transition: 0.1s;
 }
-
+.boss-image:active {
+    transform: scale(0.95);
+}
 .boss-hp-bar {
     width: 100%;
     height: 20px;
     background: #2a2a2a;
     border: 1px solid #4a4a4a;
     margin: 15px 0;
+    border-radius: 10px;
     overflow: hidden;
 }
-
 .boss-hp-fill {
     height: 100%;
-    background: #b33e3e;
+    background: linear-gradient(90deg, #b33e3e, #e66a6a);
     width: 100%;
+    transition: width 0.2s;
 }
-
 #battle-timer {
     font-size: 18px;
     font-weight: 600;
     color: #ffd966;
     margin: 10px 0;
 }
-
 .talent-buttons {
     display: flex;
     gap: 8px;
@@ -353,109 +423,137 @@ body {
     flex-wrap: wrap;
     margin-top: 15px;
 }
-
 .talent-btn {
     background: #2a3a4a;
     border: 1px solid #5a7a9a;
     color: #fff;
     padding: 8px 16px;
     font-size: 14px;
+    border-radius: 30px;
     cursor: pointer;
+    transition: 0.1s;
 }
-
 .talent-btn:hover {
     background: #3a5a7a;
+    box-shadow: 0 0 8px #5a7a9a;
+}
+
+/* Информационная панель гильдии */
+.guild-info-panel {
+    background: #1a1a1a;
+    border: 1px solid #4a6c8f;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 6px 0 #2a3a4a;
+    transition: all 0.2s;
+}
+.guild-info-panel.hidden {
+    display: none;
+}
+.member-list {
+    list-style: none;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.member-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #242424;
+    border-radius: 30px;
+    margin-bottom: 6px;
+    border: 1px solid #3f3f3f;
+}
+.remove-member-btn {
+    background: #b33e3e;
+    border: none;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.remove-member-btn:hover {
+    background: #c44a4a;
+}
+#leave-guild-btn {
+    width: 100%;
+    background: #b33e3e;
+    border-color: #8f4a4a;
+}
+#leave-guild-btn:hover {
+    background: #c44a4a;
 }
 
 /* Друзья */
 .my-id-card {
     background: #242424;
     border: 1px solid #4a6c8f;
+    border-radius: 16px;
     padding: 12px 16px;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     color: #d0d0d0;
+    box-shadow: 0 4px 0 #2a3a4a;
 }
-
-.my-id-card strong {
-    font-size: 16px;
-    color: #ffd966;
-    margin-left: 8px;
-}
-
 .copy-btn {
     background: #2d2d2d;
     border: 1px solid #6b8cae;
     color: #fff;
     padding: 6px 12px;
-    font-size: 13px;
+    border-radius: 30px;
     cursor: pointer;
-    margin-left: 10px;
 }
-
 .friend-item, .friend-request {
     background: #242424;
     border: 1px solid #3f3f3f;
+    border-radius: 16px;
     padding: 12px 16px;
     margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
-
-.online {
-    color: #6ab04c;
-    font-weight: 500;
-}
-
-.offline {
-    color: #b0b0b0;
-}
-
+.online { color: #6ab04c; }
+.offline { color: #b0b0b0; }
 #search-friend {
     background: #1a1a1a;
     border: 1px solid #4a4a4a;
     color: #e0e0e0;
-    padding: 10px 12px;
+    padding: 12px 16px;
     width: 100%;
     margin-bottom: 12px;
+    border-radius: 40px;
     font-size: 15px;
 }
-
 #search-btn {
     background: #2d2d2d;
     border: 1px solid #5a5a5a;
     color: #fff;
-    padding: 10px 20px;
-    cursor: pointer;
+    padding: 12px 20px;
+    border-radius: 40px;
     width: 100%;
+    font-weight: 600;
+    cursor: pointer;
 }
 
-#search-result {
-    margin-top: 15px;
-}
-
-/* Крафт талантов */
+/* Крафт */
 .craft-card {
     background: #242424;
     border: 1px solid #3f3f3f;
+    border-radius: 16px;
     padding: 12px;
     margin-bottom: 10px;
     display: flex;
     flex-direction: column;
 }
-
-.craft-card.available {
-    border-left: 4px solid #4caf50;
-}
-
-.craft-card.locked {
-    border-left: 4px solid #b33e3e;
-    opacity: 0.8;
-}
-
+.craft-card.available { border-left: 6px solid #4caf50; }
+.craft-card.locked { border-left: 6px solid #b33e3e; opacity: 0.8; }
 .craft-card button {
     background: #2d2d2d;
     border: 1px solid #5a5a5a;
@@ -463,28 +561,30 @@ body {
     padding: 6px 12px;
     margin-top: 8px;
     align-self: flex-start;
+    border-radius: 30px;
     cursor: pointer;
 }
-
 .talent-badge {
     display: inline-block;
     background: #2a3a4a;
     border: 1px solid #5a7a9a;
     padding: 6px 14px;
     margin: 4px;
+    border-radius: 30px;
     font-size: 14px;
     color: #fff;
+    box-shadow: 0 2px 0 #1e2a36;
 }
 
-/* Адаптация для маленьких экранов */
+/* Адаптация */
 @media (max-width: 400px) {
     .nav-btn {
         width: 50px;
         height: 50px;
         font-size: 24px;
     }
-    .glow-button {
-        font-size: 18px;
-        padding: 10px 20px;
+    .slot-btn {
+        padding: 8px 16px;
+        font-size: 14px;
     }
 }

@@ -5,15 +5,15 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
-// 🔧 ТВОИ ДАННЫЕ FIREBASE (можно оставить как есть)
+// 🔧 ТВОИ ДАННЫЕ FIREBASE
 const firebaseConfig = {
-  apiKey: "AIzaSyAhzdARqvqC4a6zCaXUVoO9Ij94mtoNha0",
-  authDomain: "hiko-ca02d.firebaseapp.com",
-  projectId: "hiko-ca02d",
-  storageBucket: "hiko-ca02d.firebasestorage.app",
-  messagingSenderId: "100480722325",
-  appId: "1:100480722325:web:781a1fb54807b047e1829c",
-  measurementId: "G-3E97NRDJTD"
+    apiKey: "AIzaSyAhzdARqvqC4a6zCaXUVoO9Ij94mtoNha0",
+    authDomain: "hiko-ca02d.firebaseapp.com",
+    projectId: "hiko-ca02d",
+    storageBucket: "hiko-ca02d.firebasestorage.app",
+    messagingSenderId: "100480722325",
+    appId: "1:100480722325:web:781a1fb54807b047e1829c",
+    measurementId: "G-3E97NRDJTD"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -32,14 +32,11 @@ let guildListener = null;
 let battleListener = null;
 let battleTimerInterval = null;
 let selectedTalent = null;
+let currentCustomizationSlot = 'hat'; // выбранный слот во вкладке персонажа
 
 // ============================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ============================
-/**
- * Получить данные пользователя.
- * @param {boolean} forceRefresh - если true, принудительно читаем из Firestore
- */
 async function getUserData(forceRefresh = false) {
     if (currentUser && !forceRefresh) return currentUser;
     const userRef = db.collection('users').doc(userId);
@@ -64,7 +61,6 @@ async function getUserData(forceRefresh = false) {
         currentUser = newUser;
     } else {
         currentUser = doc.data();
-        // Восстанавливаем энергию
         const now = Date.now();
         const delta = Math.floor((now - currentUser.lastEnergyUpdate) / 1000);
         currentUser.energy = Math.min(currentUser.maxEnergy, currentUser.energy + delta);
@@ -87,10 +83,8 @@ async function updateUser(updates) {
 function updateMainUI() {
     if (!currentUser) return;
     document.getElementById('money').innerText = currentUser.money;
-    const energyPercent = (currentUser.energy / currentUser.maxEnergy) * 100;
-    document.getElementById('energy-fill').style.width = energyPercent + '%';
+    document.getElementById('energy-display').innerText = `⚡ ${currentUser.energy}/${currentUser.maxEnergy}`;
 
-    // Одежда
     const eqLayer = document.getElementById('equipment-layer');
     eqLayer.innerHTML = '';
     const slots = ['hat', 'shirt', 'jeans', 'boots'];
@@ -104,7 +98,6 @@ function updateMainUI() {
         }
     });
 
-    // Питомцы
     const petLayer = document.getElementById('pet-layer');
     petLayer.innerHTML = '';
     if (currentUser.pets.length > 0) {
@@ -116,16 +109,14 @@ function updateMainUI() {
 }
 
 // ============================
-// МАСТЕРСКАЯ (ПОКУПКА, ЭКИПИРОВКА, ПИТОМЦЫ)
+// МАСТЕРСКАЯ – ПОКУПКИ, ПИТОМЦЫ, ТАЛАНТЫ
 // ============================
 async function loadShop() {
     try {
         const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').get();
         renderClothesShop(clothesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
         const petsSnap = await db.collection('shop_items').where('type', '==', 'pet').get();
         renderPetsShop(petsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
         const talentsSnap = await db.collection('shop_items').where('type', '==', 'talent').get();
         renderTalentsShop(talentsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
@@ -184,69 +175,131 @@ async function buyItem(itemId) {
         tg.showPopup({ title: 'Ошибка', message: 'Недостаточно денег!' });
         return;
     }
-
-    // Проверка уникальности таланта
     if (item.type === 'talent') {
         if (user.talents.some(t => t.id === item.id)) {
             tg.showPopup({ title: 'Уже есть', message: 'Этот талант уже изучен' });
             return;
         }
     }
-
     const newMoney = user.money - item.price;
-
     if (item.type === 'talent') {
-        // Талант идёт в отдельный массив
         user.talents.push({ id: item.id, name: item.name, damage: item.damage || 10 });
         await updateUser({ money: newMoney, talents: user.talents });
     } else {
-        // Одежда/питомцы в инвентарь
         const inventoryItem = {
             id: item.id,
             ...item,
-            instanceId: Date.now() + Math.random() // уникальный ID экземпляра
+            instanceId: Date.now() + Math.random()
         };
         user.inventory.push(inventoryItem);
         await updateUser({ money: newMoney, inventory: user.inventory });
     }
-    loadShop(); // обновить магазин
+    loadShop();
     tg.showPopup({ title: 'Успех', message: 'Покупка совершена!' });
 }
 
-// Экипировка одежды
-window.equipItem = async function(instanceId) {
+// ============================
+// КАСТОМИЗАЦИЯ ПЕРСОНАЖА (ВКЛАДКА "ПЕРСОНАЖ")
+// ============================
+async function loadCharacterCustomization() {
     const user = await getUserData();
-    const item = user.inventory.find(i => i.instanceId === instanceId);
-    if (!item) {
-        tg.showPopup({ title: 'Ошибка', message: 'Предмет не найден' });
-        return;
-    }
-    if (!item.slot) {
-        tg.showPopup({ title: 'Ошибка', message: 'У предмета нет слота' });
-        return;
-    }
-    const updates = {};
-    updates.equipped = { ...user.equipped, [item.slot]: item };
-    await updateUser(updates);
-    updateMainUI();
-};
-
-// Загрузка инвентаря одежды
-async function loadInventoryClothes() {
-    const user = await getUserData();
-    const clothesInInventory = user.inventory.filter(i => i.type === 'clothes');
-    const container = document.getElementById('inventory-clothes');
+    const container = document.getElementById('tab-character');
     if (!container) return;
-    container.innerHTML = clothesInInventory.map(item => `
+
+    container.innerHTML = `
+        <div class="customization-preview">
+            <div id="char-preview-container" class="character-preview">
+                <img id="preview-base" src="img/character.png" alt="Персонаж">
+                <div id="preview-equipment"></div>
+                <div id="preview-pet"></div>
+            </div>
+        </div>
+        <div class="slot-selector">
+            <button class="slot-btn ${currentCustomizationSlot === 'hat' ? 'active' : ''}" data-slot="hat">🎩 Голова</button>
+            <button class="slot-btn ${currentCustomizationSlot === 'shirt' ? 'active' : ''}" data-slot="shirt">👕 Туловище</button>
+            <button class="slot-btn ${currentCustomizationSlot === 'jeans' || currentCustomizationSlot === 'boots' ? 'active' : ''}" data-slot="legs">👖 Ноги</button>
+        </div>
+        <div id="slot-items" class="items-grid"></div>
+    `;
+
+    updatePreviewCharacter(user);
+
+    document.querySelectorAll('.slot-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            const slot = e.target.dataset.slot;
+            if (slot === 'legs') {
+                currentCustomizationSlot = 'legs';
+                renderItemsForSlot('legs');
+            } else {
+                currentCustomizationSlot = slot;
+                renderItemsForSlot(slot);
+            }
+        });
+    });
+
+    renderItemsForSlot('hat');
+}
+
+function updatePreviewCharacter(user) {
+    const eqLayer = document.getElementById('preview-equipment');
+    if (!eqLayer) return;
+    eqLayer.innerHTML = '';
+    const slots = ['hat', 'shirt', 'jeans', 'boots'];
+    slots.forEach(slot => {
+        if (user.equipped[slot]) {
+            const img = document.createElement('img');
+            img.src = user.equipped[slot].imageUrl;
+            img.classList.add(slot);
+            eqLayer.appendChild(img);
+        }
+    });
+}
+
+async function renderItemsForSlot(slot) {
+    const user = await getUserData();
+    const container = document.getElementById('slot-items');
+    if (!container) return;
+
+    let items = [];
+    if (slot === 'legs') {
+        items = user.inventory.filter(i => i.type === 'clothes' && (i.slot === 'jeans' || i.slot === 'boots'));
+    } else {
+        items = user.inventory.filter(i => i.type === 'clothes' && i.slot === slot);
+    }
+
+    if (items.length === 0) {
+        container.innerHTML = '<p class="empty-msg">Нет предметов для этого слота</p>';
+        return;
+    }
+
+    container.innerHTML = items.map(item => `
         <div class="item-card">
             <img src="${item.imageUrl}" alt="${item.name}">
             <span>${item.name}</span>
-            <button onclick="equipItem('${item.instanceId}')">Экипировать</button>
+            <button onclick="equipFromCustomization('${item.instanceId}', '${item.slot}')">Экипировать</button>
         </div>
     `).join('');
 }
 
-// Загрузка инвентаря питомцев
+window.equipFromCustomization = async function(instanceId, slot) {
+    const user = await getUserData();
+    const item = user.inventory.find(i => i.instanceId === instanceId);
+    if (!item) return;
+
+    const updates = {};
+    updates.equipped = { ...user.equipped, [slot]: item };
+    await updateUser(updates);
+
+    updatePreviewCharacter(user);
+    updateMainUI();
+    renderItemsForSlot(currentCustomizationSlot);
+};
+
+// ============================
+// ПИТОМЦЫ
+// ============================
 async function loadInventoryPets() {
     const user = await getUserData();
     const petsInInventory = user.inventory.filter(i => i.type === 'pet');
@@ -261,14 +314,14 @@ async function loadInventoryPets() {
     `).join('');
 }
 
-// Активация питомца
 window.activatePet = async function(instanceId) {
     const user = await getUserData();
     const pet = user.inventory.find(i => i.instanceId === instanceId);
     if (!pet) return;
-    user.pets = [pet]; // только один активный
+    user.pets = [pet];
     await updateUser({ pets: user.pets });
     updateMainUI();
+    updatePreviewCharacter(user);
 };
 
 // ============================
@@ -322,15 +375,14 @@ window.craftTalent = async function(recipeId) {
 };
 
 // ============================
-// ГИЛЬДИИ (ПОЛНОСТЬЮ ИСПРАВЛЕНО)
+// ГИЛЬДИИ
 // ============================
 async function loadGuildScreen() {
-    const user = await getUserData(true); // принудительно свежие данные
+    const user = await getUserData(true);
     const container = document.getElementById('guild-view');
     if (!container) return;
 
     if (!user.guildId) {
-        // Список гильдий
         const guildsSnap = await db.collection('guilds').get();
         const guilds = guildsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         container.innerHTML = `
@@ -354,7 +406,6 @@ async function loadGuildScreen() {
             if (name && desc) createGuild(name, desc);
         };
     } else {
-        // Страница гильдии
         const guildDoc = await db.collection('guilds').doc(user.guildId).get();
         if (!guildDoc.exists) {
             await updateUser({ guildId: null });
@@ -364,7 +415,6 @@ async function loadGuildScreen() {
         const guild = { id: guildDoc.id, ...guildDoc.data() };
         currentGuild = guild;
         renderGuildPage(guild);
-        // Подписка на изменения
         if (guildListener) guildListener();
         guildListener = db.collection('guilds').doc(user.guildId).onSnapshot(doc => {
             if (doc.exists) {
@@ -394,7 +444,7 @@ async function createGuild(name, description) {
     try {
         const docRef = await db.collection('guilds').add(newGuild);
         await updateUser({ guildId: docRef.id });
-        await getUserData(true); // принудительное обновление кэша
+        await getUserData(true);
         loadGuildScreen();
         tg.showPopup({ title: 'Гильдия создана', message: `Добро пожаловать в ${name}!` });
     } catch (e) {
@@ -431,9 +481,32 @@ function renderGuildPage(guild) {
     const nextBoss = bosses[(currentBossIndex + 1) % bosses.length];
     const prevBoss = bosses[(currentBossIndex - 1 + bosses.length) % bosses.length];
 
+    const keysDisplay = guild.bossId === 'boss2'
+        ? `<div class="boss-keys">🔑 Ключи: ${guild.keys?.boss2 || 0} / 3</div>`
+        : '';
+
     container.innerHTML = `
-        <h1>🏰 ${guild.name} (ур. ${guild.level})</h1>
-        <p>👥 Участников: ${guild.members?.length || 1} | 🔑 Ключи boss2: ${guild.keys?.boss2 || 0}</p>
+        <h1 id="guild-title" style="cursor: pointer;">🏰 ${guild.name} (ур. ${guild.level})</h1>
+        <div id="guild-info-panel" class="guild-info-panel hidden">
+            <h3>📋 Информация о гильдии</h3>
+            <p><strong>Название:</strong> ${guild.name}</p>
+            <p><strong>Уровень:</strong> ${guild.level}</p>
+            <p><strong>Описание:</strong> ${guild.description || '—'}</p>
+            <p><strong>Лидер:</strong> ${guild.leaderId}</p>
+            <h4>Участники (${guild.members?.length || 0})</h4>
+            <ul class="member-list">
+                ${guild.members?.map(memberId => `
+                    <li>
+                        <span>${memberId === userId ? '⭐ ' : ''}${memberId}</span>
+                        ${isLeader && memberId !== userId ?
+                            `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${memberId}')">❌ Удалить</button>`
+                            : ''}
+                    </li>
+                `).join('') || '<li>Нет участников</li>'}
+            </ul>
+            <button id="leave-guild-btn" class="glow-button" style="margin-top:15px;">🚪 Покинуть гильдию</button>
+        </div>
+        <p>👥 Участников: ${guild.members?.length || 1}</p>
         <div class="boss-selector">
             <button onclick="changeBoss('${prevBoss}')" ${guild.battleActive ? 'disabled' : ''}>◀</button>
             <span>Текущий босс: ${guild.bossId}</span>
@@ -442,12 +515,20 @@ function renderGuildPage(guild) {
         <div id="boss-battle-area">
             ${renderBossBattle(guild)}
         </div>
+        ${keysDisplay}
         <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button onclick="showGuildRating()">🏆 Рейтинг</button>
             <button onclick="showInviteMenu()">📨 Пригласить</button>
             ${isLeader && !guild.battleActive ? `<button id="start-battle-btn" class="glow-button">⚔️ Начать сражение</button>` : ''}
         </div>
     `;
+
+    document.getElementById('guild-title').onclick = (e) => {
+        e.stopPropagation();
+        document.getElementById('guild-info-panel').classList.toggle('hidden');
+    };
+
+    document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
 
     if (isLeader && !guild.battleActive) {
         document.getElementById('start-battle-btn').onclick = () => startBattle(guild.id);
@@ -486,11 +567,6 @@ window.changeBoss = async function(bossId) {
     if (!currentGuild) return;
     if (currentGuild.battleActive) {
         tg.showPopup({ title: 'Ошибка', message: 'Нельзя сменить босса во время битвы' });
-        return;
-    }
-    const user = await getUserData();
-    if (currentGuild.leaderId !== userId) {
-        tg.showPopup({ title: 'Ошибка', message: 'Только лидер может менять босса' });
         return;
     }
     if (bossId === 'boss2' && (!currentGuild.keys?.boss2 || currentGuild.keys.boss2 < 3)) {
@@ -671,8 +747,61 @@ window.showInviteMenu = function() {
     });
 };
 
+async function leaveGuild(guildId) {
+    const user = await getUserData();
+    const guildRef = db.collection('guilds').doc(guildId);
+    const guild = (await guildRef.get()).data();
+
+    if (!guild.members.includes(userId)) return;
+
+    if (guild.leaderId === userId) {
+        const otherMembers = guild.members.filter(id => id !== userId);
+        if (otherMembers.length === 0) {
+            await guildRef.delete();
+        } else {
+            await guildRef.update({
+                leaderId: otherMembers[0],
+                members: otherMembers
+            });
+        }
+    } else {
+        await guildRef.update({
+            members: guild.members.filter(id => id !== userId)
+        });
+    }
+
+    await updateUser({ guildId: null });
+    await getUserData(true);
+    loadGuildScreen();
+    tg.showPopup({ title: 'Успех', message: 'Вы покинули гильдию.' });
+}
+
+window.removeFromGuild = async function(guildId, memberId) {
+    const user = await getUserData();
+    const guildRef = db.collection('guilds').doc(guildId);
+    const guild = (await guildRef.get()).data();
+
+    if (guild.leaderId !== userId) {
+        tg.showPopup({ title: 'Ошибка', message: 'Только лидер может удалять участников.' });
+        return;
+    }
+    if (memberId === userId) {
+        tg.showPopup({ title: 'Ошибка', message: 'Нельзя удалить самого себя. Используйте "Покинуть гильдию".' });
+        return;
+    }
+
+    await guildRef.update({
+        members: guild.members.filter(id => id !== memberId)
+    });
+
+    const memberRef = db.collection('users').doc(memberId);
+    await memberRef.update({ guildId: null });
+
+    tg.showPopup({ title: 'Успех', message: 'Участник удалён.' });
+};
+
 // ============================
-// ДРУЗЬЯ (С ВАШИМ ID И КОПИРОВАНИЕМ)
+// ДРУЗЬЯ
 // ============================
 async function loadFriendsScreen() {
     const user = await getUserData();
@@ -809,10 +938,10 @@ function showScreen(screenId) {
 
     if (screenId === 'workshop') {
         loadShop();
-        loadInventoryClothes();
         loadInventoryPets();
         loadTalentsUI();
         loadCraftUI();
+        loadCharacterCustomization();
     }
     if (screenId === 'guild') loadGuildScreen();
     if (screenId === 'friends') loadFriendsScreen();
@@ -827,10 +956,29 @@ window.onload = async () => {
         return;
     }
 
+    // Добавление тестового предмета (шляпа), если магазин пуст
+    async function initTestItems() {
+        const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').limit(1).get();
+        if (clothesSnap.empty) {
+            const hat = {
+                name: 'Ковбойская шляпа',
+                type: 'clothes',
+                slot: 'hat',
+                price: 100,
+                imageUrl: 'https://via.placeholder.com/80?text=🎩',
+                damage: 0
+            };
+            await db.collection('shop_items').add(hat);
+            console.log('➕ Тестовая шляпа добавлена');
+        }
+    }
+    await initTestItems();
+
     await getUserData();
     updateMainUI();
 
-    document.getElementById('click-button').onclick = async () => {
+    // Клик по персонажу для заработка
+    document.getElementById('character-container').onclick = async () => {
         const user = await getUserData();
         if (user.energy >= 1) {
             user.energy -= 1;
@@ -870,6 +1018,10 @@ window.onload = async () => {
             this.classList.add('active');
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
+
+            if (tab === 'character') {
+                loadCharacterCustomization();
+            }
         });
     });
 };
