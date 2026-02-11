@@ -110,18 +110,16 @@ function updateMainUI() {
 }
 
 // ============================
-// КАСТОМИЗАЦИЯ ПЕРСОНАЖА (ПОЛНОСТЬЮ ПЕРЕРАБОТАНО)
+// КАСТОМИЗАЦИЯ ПЕРСОНАЖА
 // ============================
 async function loadCharacterCustomization() {
     const user = await getUserData();
     const container = document.getElementById('tab-character');
     if (!container) return;
 
-    // Сброс предпросмотра
     previewItemId = null;
     updatePreviewCharacter(user);
 
-    // Обработчики кнопок слотов
     document.querySelectorAll('.slot-btn').forEach(btn => {
         btn.removeEventListener('click', slotClickHandler);
         btn.addEventListener('click', slotClickHandler);
@@ -138,13 +136,11 @@ function slotClickHandler(e) {
     renderItemsForSlot(slot);
 }
 
-// Обновление превью: экипированные предметы + предпросмотр
 function updatePreviewCharacter(user) {
     const eqLayer = document.getElementById('preview-equipment');
     if (!eqLayer) return;
     eqLayer.innerHTML = '';
 
-    // Реально экипированные предметы
     const slots = ['hat', 'shirt', 'jeans', 'boots'];
     slots.forEach(slot => {
         if (user.equipped[slot]) {
@@ -157,7 +153,6 @@ function updatePreviewCharacter(user) {
         }
     });
 
-    // Предпросмотр (поверх)
     if (previewItemId) {
         const previewCard = document.querySelector(`.item-card[data-item-id="${previewItemId}"]`);
         if (previewCard) {
@@ -173,7 +168,6 @@ function updatePreviewCharacter(user) {
     }
 }
 
-// Загрузка предметов для выбранного слота
 async function renderItemsForSlot(slot) {
     const user = await getUserData();
     const container = document.getElementById('slot-items');
@@ -220,13 +214,11 @@ async function renderItemsForSlot(slot) {
     }).join('');
 }
 
-// Предпросмотр предмета
 window.previewItem = function(itemId) {
     previewItemId = itemId;
     updatePreviewCharacter(currentUser);
 };
 
-// Покупка предмета из кастомизации
 window.buyItemFromCustomization = async function(itemId, slot) {
     const user = await getUserData();
     const itemDoc = await db.collection('shop_items').doc(itemId).get();
@@ -237,6 +229,10 @@ window.buyItemFromCustomization = async function(itemId, slot) {
     const item = itemDoc.data();
     if (user.money < item.price) {
         tg.showPopup({ title: 'Ошибка', message: 'Недостаточно денег!' });
+        return;
+    }
+    if (user.inventory.some(inv => inv.id === itemId)) {
+        tg.showPopup({ title: 'Уже есть', message: 'Этот предмет уже в инвентаре' });
         return;
     }
 
@@ -255,7 +251,6 @@ window.buyItemFromCustomization = async function(itemId, slot) {
     tg.showPopup({ title: 'Успех', message: 'Предмет куплен!' });
 };
 
-// Экипировка предмета
 window.equipItem = async function(itemId, slot) {
     const user = await getUserData();
     const inventoryItem = user.inventory.find(inv => inv.id === itemId);
@@ -263,7 +258,7 @@ window.equipItem = async function(itemId, slot) {
 
     let targetSlot = slot;
     if (currentCustomizationSlot === 'legs') {
-        targetSlot = inventoryItem.slot; // jeans или boots
+        targetSlot = inventoryItem.slot;
     }
 
     const updates = {};
@@ -277,117 +272,156 @@ window.equipItem = async function(itemId, slot) {
 };
 
 // ============================
-// МАСТЕРСКАЯ – ПИТОМЦЫ, ТАЛАНТЫ, КРАФТ
+// ПИТОМЦЫ — ЕДИНАЯ СЕТКА
 // ============================
-async function loadShop() {
-    try {
-        const petsSnap = await db.collection('shop_items').where('type', '==', 'pet').get();
-        renderPetsShop(petsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        const talentsSnap = await db.collection('shop_items').where('type', '==', 'talent').get();
-        renderTalentsShop(talentsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) {
-        tg.showPopup({ title: 'Ошибка', message: 'Не удалось загрузить магазин' });
-    }
-}
-
-function renderPetsShop(items) {
-    const container = document.getElementById('shop-pets');
-    if (!container) return;
-    container.innerHTML = items.map(item => `
-        <div class="item-card">
-            <img src="${item.imageUrl}" alt="${item.name}">
-            <span>${item.name}</span>
-            <span>${item.price} 🪙</span>
-            <button onclick="buyItem('${item.id}')">Купить</button>
-        </div>
-    `).join('');
-}
-
-function renderTalentsShop(items) {
-    const container = document.getElementById('shop-talents');
-    if (!container) return;
-    container.innerHTML = items.map(item => `
-        <div class="item-card">
-            <img src="${item.imageUrl}" alt="${item.name}">
-            <span>${item.name}</span>
-            <span>${item.price} 🪙</span>
-            <button onclick="buyItem('${item.id}')">Купить</button>
-        </div>
-    `).join('');
-}
-
-async function buyItem(itemId) {
+async function loadPetsGrid() {
     const user = await getUserData();
-    const itemDoc = await db.collection('shop_items').doc(itemId).get();
-    if (!itemDoc.exists) {
-        tg.showPopup({ title: 'Ошибка', message: 'Товар не найден' });
+    const container = document.getElementById('pets-grid');
+    if (!container) return;
+
+    const snapshot = await db.collection('shop_items').where('type', '==', 'pet').get();
+    const pets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (pets.length === 0) {
+        container.innerHTML = '<p class="empty-msg">Питомцы пока не доступны</p>';
         return;
     }
-    const item = itemDoc.data();
-    if (user.money < item.price) {
+
+    container.innerHTML = pets.map(pet => {
+        const ownedItem = user.inventory.find(inv => inv.id === pet.id);
+        const isActive = user.pets[0]?.id === pet.id;
+        let button = '';
+        if (!ownedItem) {
+            button = `<button onclick="buyPet('${pet.id}')">Купить ${pet.price} 🪙</button>`;
+        } else {
+            if (isActive) {
+                button = `<button disabled>✅ Активен</button>`;
+            } else {
+                button = `<button onclick="activatePet('${pet.id}')">🐾 Активировать</button>`;
+            }
+        }
+
+        return `
+            <div class="item-card">
+                <img src="${pet.imageUrl}" alt="${pet.name}">
+                <span>${pet.name}</span>
+                <span>${pet.price} 🪙</span>
+                ${button}
+            </div>
+        `;
+    }).join('');
+}
+
+window.buyPet = async function(petId) {
+    const user = await getUserData();
+    const petDoc = await db.collection('shop_items').doc(petId).get();
+    if (!petDoc.exists) {
+        tg.showPopup({ title: 'Ошибка', message: 'Питомец не найден' });
+        return;
+    }
+    const pet = petDoc.data();
+    if (user.money < pet.price) {
         tg.showPopup({ title: 'Ошибка', message: 'Недостаточно денег!' });
         return;
     }
-    if (item.type === 'talent') {
-        if (user.talents.some(t => t.id === item.id)) {
-            tg.showPopup({ title: 'Уже есть', message: 'Этот талант уже изучен' });
-            return;
-        }
-        user.talents.push({
-            id: item.id,
-            name: item.name,
-            damage: item.damage || 10
-        });
-        await updateUser({ money: user.money - item.price, talents: user.talents });
-        loadTalentsUI();
-        loadCraftUI();
-    } else if (item.type === 'pet') {
-        const inventoryItem = {
-            id: item.id,
-            ...item,
-            instanceId: Date.now() + Math.random()
-        };
-        user.inventory.push(inventoryItem);
-        await updateUser({ money: user.money - item.price, inventory: user.inventory });
-        loadInventoryPets();
+    if (user.inventory.some(inv => inv.id === petId)) {
+        tg.showPopup({ title: 'Уже есть', message: 'Этот питомец уже в инвентаре' });
+        return;
     }
-    tg.showPopup({ title: 'Успех', message: 'Покупка совершена!' });
-}
 
-async function loadInventoryPets() {
-    const user = await getUserData();
-    const petsInInventory = user.inventory.filter(i => i.type === 'pet');
-    const container = document.getElementById('inventory-pets');
-    if (!container) return;
-    container.innerHTML = petsInInventory.map(item => `
-        <div class="item-card">
-            <img src="${item.imageUrl}" alt="${item.name}">
-            <span>${item.name}</span>
-            <button onclick="activatePet('${item.instanceId}')">Сделать активным</button>
-        </div>
-    `).join('');
-}
+    const inventoryItem = {
+        id: pet.id,
+        ...pet,
+        instanceId: Date.now() + Math.random()
+    };
+    user.inventory.push(inventoryItem);
+    await updateUser({
+        money: user.money - pet.price,
+        inventory: user.inventory
+    });
 
-window.activatePet = async function(instanceId) {
+    await loadPetsGrid();
+    tg.showPopup({ title: 'Успех', message: 'Питомец куплен!' });
+};
+
+window.activatePet = async function(petId) {
     const user = await getUserData();
-    const pet = user.inventory.find(i => i.instanceId === instanceId);
-    if (!pet) return;
-    user.pets = [pet];
+    const petItem = user.inventory.find(inv => inv.id === petId);
+    if (!petItem) return;
+
+    user.pets = [petItem];
     await updateUser({ pets: user.pets });
+    await loadPetsGrid();
     updateMainUI();
     updatePreviewCharacter(user);
 };
 
-async function loadTalentsUI() {
+// ============================
+// ТАЛАНТЫ — ЕДИНАЯ СЕТКА + КРАФТ
+// ============================
+async function loadTalentsGrid() {
     const user = await getUserData();
-    const container = document.getElementById('my-talents');
+    const container = document.getElementById('talents-grid');
     if (!container) return;
-    container.innerHTML = user.talents.map(t => `
-        <div class="talent-badge">
-            <span>✨ ${t.name || t.id} (${t.damage || 0} урона)</span>
-        </div>
-    `).join('') || '<p>У вас пока нет талантов</p>';
+
+    const snapshot = await db.collection('shop_items').where('type', '==', 'talent').get();
+    const talents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (talents.length === 0) {
+        container.innerHTML = '<p class="empty-msg">Таланты пока не доступны</p>';
+        return;
+    }
+
+    container.innerHTML = talents.map(talent => {
+        const isLearned = user.talents.some(t => t.id === talent.id);
+        const button = isLearned
+            ? `<button disabled>✅ Изучен</button>`
+            : `<button onclick="buyTalent('${talent.id}')">Изучить ${talent.price} 🪙</button>`;
+
+        return `
+            <div class="item-card">
+                <img src="${talent.imageUrl}" alt="${talent.name}">
+                <span>${talent.name}</span>
+                <span>${talent.price} 🪙</span>
+                <span>⚔️ ${talent.damage || 0} урона</span>
+                ${button}
+            </div>
+        `;
+    }).join('');
 }
+
+window.buyTalent = async function(talentId) {
+    const user = await getUserData();
+    const talentDoc = await db.collection('shop_items').doc(talentId).get();
+    if (!talentDoc.exists) {
+        tg.showPopup({ title: 'Ошибка', message: 'Талант не найден' });
+        return;
+    }
+    const talent = talentDoc.data();
+    if (user.money < talent.price) {
+        tg.showPopup({ title: 'Ошибка', message: 'Недостаточно денег!' });
+        return;
+    }
+    if (user.talents.some(t => t.id === talentId)) {
+        tg.showPopup({ title: 'Уже есть', message: 'Этот талант уже изучен' });
+        return;
+    }
+
+    const newTalent = {
+        id: talent.id,
+        name: talent.name,
+        damage: talent.damage || 10
+    };
+    user.talents.push(newTalent);
+    await updateUser({
+        money: user.money - talent.price,
+        talents: user.talents
+    });
+
+    await loadTalentsGrid();
+    await loadCraftUI();
+    tg.showPopup({ title: 'Успех', message: 'Талант изучен!' });
+};
 
 async function loadCraftUI() {
     const user = await getUserData();
@@ -417,8 +451,8 @@ window.craftTalent = async function(recipeId) {
         const newTalent = { id: recipe.result, name: recipe.name || recipe.result, damage: recipe.damage || 15 };
         user.talents.push(newTalent);
         await updateUser({ talents: user.talents });
-        loadTalentsUI();
-        loadCraftUI();
+        await loadTalentsGrid();
+        await loadCraftUI();
         tg.showPopup({ title: 'Успех', message: `Вы скрафтили ${recipe.name || recipe.result}!` });
     } else {
         tg.showPopup({ title: 'Ошибка', message: 'Не хватает талантов или уже есть.' });
@@ -545,9 +579,7 @@ function renderGuildPage(guild) {
     const nextBoss = bosses[(currentBossIndex + 1) % bosses.length];
     const prevBoss = bosses[(currentBossIndex - 1 + bosses.length) % bosses.length];
 
-    const keysDisplay = guild.bossId === 'boss2'
-        ? `<div class="boss-keys">🔑 Ключи: ${guild.keys?.boss2 || 0} / 3</div>`
-        : '';
+    const keysDisplay = `<div class="boss-keys">🔑 Ключи для босса 2: ${guild.keys?.boss2 || 0} / 3</div>`;
 
     container.innerHTML = `
         <h1 id="guild-title" style="cursor: pointer;">🏰 ${guild.name} (ур. ${guild.level})</h1>
@@ -576,10 +608,10 @@ function renderGuildPage(guild) {
             <span>Текущий босс: ${guild.bossId}</span>
             <button onclick="changeBoss('${nextBoss}')" ${guild.battleActive ? 'disabled' : ''}>▶</button>
         </div>
+        ${keysDisplay}
         <div id="boss-battle-area">
             ${renderBossBattle(guild)}
         </div>
-        ${keysDisplay}
         <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button onclick="showGuildRating()">🏆 Рейтинг</button>
             <button onclick="showInviteMenu()">📨 Пригласить</button>
@@ -633,21 +665,15 @@ window.changeBoss = async function(bossId) {
         tg.showPopup({ title: 'Ошибка', message: 'Нельзя сменить босса во время битвы' });
         return;
     }
-    if (bossId === 'boss2' && (!currentGuild.keys?.boss2 || currentGuild.keys.boss2 < 3)) {
-        tg.showPopup({ title: 'Нет ключей', message: 'Нужно 3 ключа для босса 2' });
-        return;
-    }
-
+    // Смена босса всегда разрешена, ключи не тратятся
     const updates = { bossId };
     if (bossId === 'boss2') {
-        updates.keys = { boss2: (currentGuild.keys?.boss2 || 0) - 3 };
         updates.maxBossHp = 2000;
         updates.bossHp = 2000;
     } else {
         updates.maxBossHp = 1000;
         updates.bossHp = 1000;
     }
-
     await db.collection('guilds').doc(currentGuild.id).update(updates);
 };
 
@@ -655,6 +681,20 @@ async function startBattle(guildId) {
     const guildRef = db.collection('guilds').doc(guildId);
     const guild = (await guildRef.get()).data();
     if (guild.battleActive) return;
+
+    // Проверка ключей для босса 2
+    if (guild.bossId === 'boss2') {
+        const keys = guild.keys?.boss2 || 0;
+        if (keys < 3) {
+            tg.showPopup({ title: 'Недостаточно ключей', message: 'Нужно 3 ключа для босса 2' });
+            return;
+        }
+        // Списываем 3 ключа
+        await guildRef.update({
+            keys: { boss2: keys - 3 }
+        });
+    }
+
     const battleEndTime = Date.now() + 120000;
     await guildRef.update({
         battleActive: true,
@@ -738,7 +778,7 @@ async function endBattle(victory, guildId) {
     if (victory) {
         const rewardMoney = 500;
         const rewardRating = 100;
-        const rewardKeys = guild.bossId === 'boss1' ? 1 : 2;
+        const rewardKeys = guild.bossId === 'boss1' ? 1 : 2; // босс 2 даёт 2 ключа
 
         const newRating = (guild.rating || 0) + rewardRating;
         const newLevel = Math.floor(newRating / 100) + 1;
@@ -1001,11 +1041,13 @@ function showScreen(screenId) {
     document.querySelector(`.nav-btn[data-screen="${screenId}"]`).classList.add('active');
 
     if (screenId === 'workshop') {
-        loadShop();
-        loadInventoryPets();
-        loadTalentsUI();
-        loadCraftUI();
-        loadCharacterCustomization();
+        const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'character';
+        if (activeTab === 'character') loadCharacterCustomization();
+        if (activeTab === 'pets') loadPetsGrid();
+        if (activeTab === 'talents') {
+            loadTalentsGrid();
+            loadCraftUI();
+        }
     }
     if (screenId === 'guild') loadGuildScreen();
     if (screenId === 'friends') loadFriendsScreen();
@@ -1020,7 +1062,7 @@ window.onload = async () => {
         return;
     }
 
-    // Инициализация тестовых предметов
+    // Инициализация тестовых предметов (Firestore)
     async function initTestItems() {
         // ОДЕЖДА
         const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').limit(1).get();
@@ -1129,10 +1171,10 @@ window.onload = async () => {
                 loadCharacterCustomization();
             }
             if (tab === 'pets') {
-                loadInventoryPets();
+                loadPetsGrid();
             }
             if (tab === 'talents') {
-                loadTalentsUI();
+                loadTalentsGrid();
                 loadCraftUI();
             }
         });
@@ -1142,7 +1184,11 @@ window.onload = async () => {
 // ============================
 // ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ
 // ============================
-window.buyItem = buyItem;
+window.buyItemFromCustomization = buyItemFromCustomization;
+window.equipItem = equipItem;
+window.buyPet = buyPet;
+window.activatePet = activatePet;
+window.buyTalent = buyTalent;
 window.craftTalent = craftTalent;
 window.joinGuild = joinGuild;
 window.startBattle = startBattle;
@@ -1150,3 +1196,9 @@ window.attackBoss = attackBoss;
 window.changeBoss = changeBoss;
 window.showGuildRating = showGuildRating;
 window.removeFriend = removeFriend;
+window.sendFriendRequest = sendFriendRequest;
+window.acceptFriendRequest = acceptFriendRequest;
+window.declineFriendRequest = declineFriendRequest;
+window.copyToClipboard = copyToClipboard;
+window.removeFromGuild = removeFromGuild;
+window.previewItem = previewItem;
