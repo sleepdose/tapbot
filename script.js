@@ -1177,7 +1177,7 @@ function renderBossBattle(guild, prevBoss, nextBoss) {
     let stage = 1;
     if (hpPercent <= 33) stage = 3;
     else if (hpPercent <= 66) stage = 2;
-    const bossImageUrl = `https://via.placeholder.com/150/8B0000/FFFFFF?text=${guild.bossId}_${stage}`;
+    const bossImageUrl = `img/boss1.png`;
 
     let remainingSeconds = 0;
     if (isBattleActive && guild.battleEndTime) {
@@ -1759,7 +1759,7 @@ async function initTestData() {
     if (clothesSnap.empty) {
         const items = [
             { name: 'Ковбойская шляпа', type: 'clothes', slot: 'hat', price: 100, imageUrl: 'img/skin1.png', damage: 0 },
-            { name: 'Бейсболка', type: 'clothes', slot: 'hat', price: 80, imageUrl: 'https://via.placeholder.com/80/2E8B57/FFFFFF?text=Cap', damage: 0 },
+            { name: 'Бейсболка', type: 'clothes', slot: 'hat', price: 80, imageUrl: 'img/skin2.png', damage: 0 },
             { name: 'Кожаная куртка', type: 'clothes', slot: 'shirt', price: 200, imageUrl: 'https://via.placeholder.com/80/8B4513/FFFFFF?text=Jacket', damage: 0 },
             { name: 'Джинсы', type: 'clothes', slot: 'jeans', price: 150, imageUrl: 'https://via.placeholder.com/80/4169E1/FFFFFF?text=Jeans', damage: 0 },
             { name: 'Ботинки', type: 'clothes', slot: 'boots', price: 120, imageUrl: 'https://via.placeholder.com/80/8B4513/FFFFFF?text=Boots', damage: 0 }

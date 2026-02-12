@@ -88,9 +88,9 @@ body {
 }
 #character-container {
     position: relative;
-    width: 300px;
-    height: 300px;
-    margin-bottom: 25px;
+    width: 450px;
+    height: 450px;
+    margin-bottom: 15px;
     background: transparent;
     transition: transform 0.05s;
 }
