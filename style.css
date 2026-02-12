@@ -1,5 +1,5 @@
 /* ============================================
-   СТРОГИЙ КЛАССИЧЕСКИЙ СТИЛЬ
+   СТРОГИЙ КЛАССИЧЕСКИЙ СТИЛЬ — ФИНАЛЬНАЯ ВЕРСИЯ
    Основа: тёмная палитра, плоские элементы,
    акцент — глубокий синий
    ============================================ */
@@ -91,7 +91,7 @@ body {
     width: 300px;
     height: 300px;
     margin-bottom: 25px;
-    background: transparent;   /* прозрачный фон */
+    background: transparent;
     transition: transform 0.05s;
 }
 #character-container:active {
@@ -587,6 +587,21 @@ body {
     font-size: 14px;
     color: #fff;
     box-shadow: 0 2px 0 #1e2a36;
+}
+
+/* Лоадер (добавлено) */
+.loader {
+    border: 4px solid #3a3a3a;
+    border-top: 4px solid #4a6c8f;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* Адаптация */
