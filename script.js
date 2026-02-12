@@ -126,7 +126,7 @@ async function loadUserFromFirestore() {
         const newUser = {
             id: uid,
             name: tg.initDataUnsafe.user?.first_name || 'Игрок',
-            telegramId: tg.initDataUnsafe.user?.id || null,   // ← ИСПРАВЛЕНО: сохраняем Telegram ID
+            telegramId: tg.initDataUnsafe.user?.id || null,
             energy: 100,
             maxEnergy: 100,
             lastEnergyUpdate: Date.now(),
@@ -145,7 +145,6 @@ async function loadUserFromFirestore() {
         const data = doc.data();
         let needsUpdate = false;
 
-        // Добавляем недостающие поля (включая telegramId)
         if (!data.telegramId) {
             data.telegramId = tg.initDataUnsafe.user?.id || null;
             needsUpdate = true;
@@ -165,7 +164,6 @@ async function loadUserFromFirestore() {
             });
         }
 
-        // Пересчёт энергии на лету
         const now = Date.now();
         const deltaSeconds = Math.floor((now - (data.lastEnergyUpdate || now)) / 1000);
         data.energy = Math.min(data.maxEnergy, (data.energy || 0) + deltaSeconds);
@@ -252,7 +250,7 @@ async function onCharacterClick() {
 }
 
 // =======================================================
-// МАСТЕРСКАЯ — КАСТОМИЗАЦИЯ (без изменений, см. исходник)
+// МАСТЕРСКАЯ — КАСТОМИЗАЦИЯ (без изменений)
 // =======================================================
 let currentCustomizationSlot = 'hat';
 let previewItemId = null;
@@ -352,7 +350,7 @@ window.previewItem = function(itemId) {
 };
 
 // =======================================================
-// ПОКУПКА ЭКИПИРОВКИ (без изменений, но уже исправлена)
+// ПОКУПКА ЭКИПИРОВКИ (без изменений)
 // =======================================================
 window.buyItem = async function(itemId) {
     if (!store.authUser) {
@@ -430,7 +428,7 @@ window.equipItem = async function(itemId, slot) {
 };
 
 // =======================================================
-// ПИТОМЦЫ (без изменений, уже исправлено)
+// ПИТОМЦЫ (без изменений)
 // =======================================================
 async function loadPetsGrid() {
     const user = await getUser();
@@ -539,7 +537,7 @@ window.activatePet = async function(petId) {
 };
 
 // =======================================================
-// СИСТЕМА ТАЛАНТОВ И КРАФТА (без изменений, уже есть)
+// СИСТЕМА ТАЛАНТОВ И КРАФТА (без изменений)
 // =======================================================
 const talentsConfig = {
     basic: {
@@ -875,7 +873,7 @@ window.selectBattleTalent = async function(talentType) {
 };
 
 // =======================================================
-// ИСПРАВЛЕНИЕ БОЯ: ТАЙМЕР И ЯД
+// ИСПРАВЛЕНИЕ БОЯ: ТАЙМЕР И ЯД (без изменений)
 // =======================================================
 let poisonInterval = null;
 
@@ -926,36 +924,10 @@ function showDamageEffect(amount, icon = '💥') {
 }
 
 // =======================================================
-// ГИЛЬДИИ — СИСТЕМА ОПЫТА И МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ
+// ГИЛЬДИИ — СИСТЕМА РЕЙТИНГА И МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ
 // =======================================================
 
-// --- НОВАЯ ФУНКЦИЯ: начисление опыта гильдии ---
-async function addGuildExp(guildId, amount) {
-    const guildRef = db.collection('guilds').doc(guildId);
-    await db.runTransaction(async (transaction) => {
-        const guildDoc = await transaction.get(guildRef);
-        if (!guildDoc.exists) return;
-        const guild = guildDoc.data();
-
-        let newExp = (guild.exp || 0) + amount;
-        let newLevel = guild.level || 1;
-        let nextExp = guild.nextLevelExp || 100;
-
-        while (newExp >= nextExp) {
-            newExp -= nextExp;
-            newLevel++;
-            nextExp = Math.floor(nextExp * 1.5);
-        }
-
-        transaction.update(guildRef, {
-            exp: newExp,
-            level: newLevel,
-            nextLevelExp: nextExp
-        });
-    });
-}
-
-// --- НОВАЯ ФУНКЦИЯ: показать модальное окно с результатами битвы ---
+// --- Функция показа модального окна с результатами битвы ---
 function showBattleResultModal(victory, damageLog, userNames, guildName) {
     const modal = document.getElementById('battle-result-modal');
     const title = document.getElementById('battle-result-title');
@@ -1007,9 +979,7 @@ async function createGuild(name, description) {
         members: [store.authUser.uid],
         maxMembers: 20,
         level: 1,
-        exp: 0,
-        nextLevelExp: 100,
-        rating: 0,
+        rating: 0,                     // ★ Рейтинг вместо опыта
         bossId: 'boss1',
         bossHp: 1000,
         maxBossHp: 1000,
@@ -1128,16 +1098,13 @@ function renderGuildPage(guild) {
     const isLeader = guild.leaderId === store.authUser.uid;
 
     // Инициализация полей для старых гильдий
-    guild.exp = guild.exp ?? 0;
-    guild.nextLevelExp = guild.nextLevelExp ?? 100;
     guild.level = guild.level ?? 1;
+    guild.rating = guild.rating ?? 0;
 
     const bosses = ['boss1', 'boss2'];
     const currentBossIndex = bosses.indexOf(guild.bossId);
     const nextBoss = bosses[(currentBossIndex + 1) % bosses.length];
     const prevBoss = bosses[(currentBossIndex - 1 + bosses.length) % bosses.length];
-
-    const expPercent = Math.min(100, (guild.exp / guild.nextLevelExp) * 100);
 
     container.innerHTML = `
         <h1 id="guild-title" style="cursor: pointer;">🏰 ${guild.name} (ур. ${guild.level})</h1>
@@ -1146,6 +1113,7 @@ function renderGuildPage(guild) {
             <h3>📋 Информация о гильдии</h3>
             <p><strong>Название:</strong> ${guild.name}</p>
             <p><strong>Уровень:</strong> ${guild.level}</p>
+            <p><strong>Рейтинг:</strong> ${guild.rating}</p>
             <p><strong>Описание:</strong> ${guild.description || '—'}</p>
             <p><strong>Лидер:</strong> ${guild.leaderId}</p>
             <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
@@ -1159,18 +1127,6 @@ function renderGuildPage(guild) {
                     </li>
                 `).join('') || '<li>Нет участников</li>'}
             </ul>
-
-            <!-- ПОЛОСА ОПЫТА ГИЛЬДИИ -->
-            <div style="margin: 15px 0;">
-                <p><strong>🎮 Уровень гильдии:</strong> ${guild.level}</p>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 14px; color: #ffd966;">✨ Опыт</span>
-                    <div style="flex: 1; height: 12px; background: #2a2a2a; border-radius: 6px; overflow: hidden;">
-                        <div style="width: ${expPercent}%; height: 100%; background: linear-gradient(90deg, #4a6c8f, #8ab3ff);"></div>
-                    </div>
-                    <span style="font-size: 12px; color: #ddd;">${guild.exp} / ${guild.nextLevelExp}</span>
-                </div>
-            </div>
 
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button id="invite-friend-btn" class="glow-button" style="flex:1;">📨 Пригласить</button>
@@ -1406,14 +1362,13 @@ window.attackBoss = async function() {
                 });
 
                 if (newHp <= 0) {
-                    transaction.update(guildRef, {
-                        battleActive: false,
-                        battleEndTime: null
-                    });
+                    // Босс убит – отметим для вызова endBattle после транзакции
+                    window.__pendingVictory = { guildId: store.guild.id };
                 }
             }
         });
 
+        // После успешной транзакции
         await loadUserFromFirestore(true);
         createBattleTalentButtons();
         updateMainUI();
@@ -1424,6 +1379,13 @@ window.attackBoss = async function() {
         }
 
         hapticFeedback('heavy');
+
+        // Если босс был убит – завершаем битву с победой
+        if (window.__pendingVictory) {
+            await endBattle(true, window.__pendingVictory.guildId);
+            delete window.__pendingVictory;
+        }
+
     } catch (e) {
         console.error('Ошибка атаки:', e);
         showNotification('Ошибка', e.message || 'Не удалось атаковать');
@@ -1464,26 +1426,34 @@ async function endBattle(victory, guildId) {
             });
 
             if (victory) {
-                const rewardMoney = 500;
-                const rewardRating = 100;
-                const rewardKeys = guild.bossId === 'boss1' ? 1 : 2;
+                // 🏆 Рейтинг +10
+                const newRating = (guild.rating || 0) + 10;
+                const newLevel = Math.floor(newRating / 100) + 1;
+
+                // 🔑 Ключи для следующего босса (только если победили boss1)
+                let keyUpdate = {};
+                if (guild.bossId === 'boss1') {
+                    keyUpdate = { 'keys.boss2': firebase.firestore.FieldValue.increment(1) };
+                }
+
+                // 💰 Награда 1000 валюты каждому участнику, кто нанес урон
+                for (const uid of userIds) {
+                    const memberRef = db.collection('users').doc(uid);
+                    transaction.update(memberRef, {
+                        money: firebase.firestore.FieldValue.increment(1000)
+                    });
+                }
 
                 transaction.update(guildRef, {
                     battleActive: false,
                     bossHp: guild.maxBossHp,
-                    rating: firebase.firestore.FieldValue.increment(rewardRating),
-                    'keys.boss2': firebase.firestore.FieldValue.increment(rewardKeys),
+                    rating: newRating,
+                    level: newLevel,
+                    ...keyUpdate,
                     damageLog: {}
                 });
-
-                const members = guild.members || [];
-                members.forEach(memberId => {
-                    const memberRef = db.collection('users').doc(memberId);
-                    transaction.update(memberRef, {
-                        money: firebase.firestore.FieldValue.increment(rewardMoney)
-                    });
-                });
             } else {
+                // Поражение – просто сбрасываем битву
                 transaction.update(guildRef, {
                     battleActive: false,
                     bossHp: guild.maxBossHp,
@@ -1491,12 +1461,6 @@ async function endBattle(victory, guildId) {
                 });
             }
         });
-
-        if (victory) {
-            const totalDamage = Object.values(damageLog).reduce((a, b) => a + b, 0);
-            const expReward = 100 + Math.floor(totalDamage / 10);
-            await addGuildExp(guildId, expReward);
-        }
 
         // Показываем модальное окно с результатами
         showBattleResultModal(victory, damageLog, userNames, guildName);
@@ -1594,7 +1558,6 @@ async function loadFriendsScreen() {
     const container = document.getElementById('friends-view');
     if (!container) return;
 
-    // Отображаем Telegram ID, а не Firebase UID
     const myIdHtml = `
         <div class="my-id-card">
             <span>🆔 Ваш Telegram ID: </span>
@@ -1640,7 +1603,6 @@ async function loadFriendsScreen() {
         <div id="search-result"></div>
     `;
 
-    // ИСПРАВЛЕНО: поиск по полю telegramId
     document.getElementById('search-btn').onclick = async () => {
         const searchId = document.getElementById('search-friend').value.trim();
         if (!searchId) return;
