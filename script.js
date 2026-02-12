@@ -1760,9 +1760,9 @@ async function initTestData() {
         const items = [
             { name: 'Ковбойская шляпа', type: 'clothes', slot: 'hat', price: 100, imageUrl: 'img/skin1.png', damage: 0 },
             { name: 'Бейсболка', type: 'clothes', slot: 'hat', price: 80, imageUrl: 'img/skin2.png', damage: 0 },
-            { name: 'Кожаная куртка', type: 'clothes', slot: 'shirt', price: 200, imageUrl: 'https://via.placeholder.com/80/8B4513/FFFFFF?text=Jacket', damage: 0 },
-            { name: 'Джинсы', type: 'clothes', slot: 'jeans', price: 150, imageUrl: 'https://via.placeholder.com/80/4169E1/FFFFFF?text=Jeans', damage: 0 },
-            { name: 'Ботинки', type: 'clothes', slot: 'boots', price: 120, imageUrl: 'https://via.placeholder.com/80/8B4513/FFFFFF?text=Boots', damage: 0 }
+            { name: 'Кожаная куртка', type: 'clothes', slot: 'shirt', price: 200, imageUrl: 'img/skin6.png', damage: 0 },
+            { name: 'Джинсы', type: 'clothes', slot: 'jeans', price: 150, imageUrl: 'img/skin5.png', damage: 0 },
+            { name: 'Спортивки', type: 'clothes', slot: 'boots', price: 120, imageUrl: 'img/skin4.png', damage: 0 }
         ];
         for (const item of items) {
             await db.collection('shop_items').add(item);
