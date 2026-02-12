@@ -929,7 +929,8 @@ async function createGuild(name, description) {
         maxBossHp: 1000,
         battleActive: false,
         battleEndTime: null,
-        keys: { boss2: 0 }
+        keys: { boss2: 0 },
+        damageLog: {}  // <-- НОВОЕ ПОЛЕ ДЛЯ СТАТИСТИКИ УРОНА
     };
     try {
         const docRef = await db.collection('guilds').add(newGuild);
@@ -1022,33 +1023,12 @@ async function loadGuildScreen() {
         store.guild = guild;
         renderGuildPage(guild);
 
-        // Подписка на обновления гильдии
+        // Подписка на обновления гильдии — ПОЛНАЯ ПЕРЕРИСОВКА
         store.listeners.guild = db.collection('guilds').doc(user.guildId).onSnapshot(doc => {
             if (doc.exists) {
                 const updatedGuild = { id: doc.id, ...doc.data() };
                 store.guild = updatedGuild;
-                // Обновляем заголовок
-                const titleEl = document.getElementById('guild-title');
-                if (titleEl) titleEl.innerText = `🏰 ${updatedGuild.name} (ур. ${updatedGuild.level})`;
-
-                const area = document.getElementById('boss-battle-area');
-                if (area) {
-                    const prevBoss = store.guild.bossId; // нужно передавать prev/next — пересоздадим всю панель
-                    const bosses = ['boss1', 'boss2'];
-                    const currentIndex = bosses.indexOf(updatedGuild.bossId);
-                    const prev = bosses[(currentIndex - 1 + bosses.length) % bosses.length];
-                    const next = bosses[(currentIndex + 1) % bosses.length];
-                    area.innerHTML = renderBossBattle(updatedGuild, prev, next);
-
-                    if (updatedGuild.battleActive) {
-                        startBattleTimer(updatedGuild.battleEndTime, updatedGuild.id);
-                        createBattleTalentButtons();
-                    } else {
-                        if (store.listeners.battleTimer) clearInterval(store.listeners.battleTimer);
-                        store.listeners.battleTimer = null;
-                        document.getElementById('talent-selector').innerHTML = '';
-                    }
-                }
+                renderGuildPage(updatedGuild); // <-- ПЕРЕРИСОВЫВАЕМ ВСЁ
             }
         });
     }
@@ -1148,12 +1128,13 @@ function renderBossBattle(guild, prevBoss, nextBoss) {
             ` : ''}
 
             <div class="boss-container">
+                <h3>${guild.bossId}</h3>   <!-- НАЗВАНИЕ БОССА НАД КАРТИНКОЙ -->
                 <img class="boss-image" src="${bossImageUrl}" onclick="attackBoss()">
-                <h3>${guild.bossId}</h3>
                 ${isBattleActive ? `
                     <div class="boss-hp-bar">
                         <div class="boss-hp-fill" style="width: ${hpPercent}%;"></div>
                     </div>
+                    <div class="boss-hp-text">${guild.bossHp} / ${guild.maxBossHp}</div> <!-- ЦИФРЫ ЗДОРОВЬЯ -->
                     <div id="battle-timer">⏳ ${remainingSeconds}с</div>
                 ` : ''}
             </div>
@@ -1210,7 +1191,8 @@ async function startBattle(guildId) {
             transaction.update(guildRef, {
                 battleActive: true,
                 battleEndTime,
-                bossHp: guild.maxBossHp
+                bossHp: guild.maxBossHp,
+                damageLog: {}  // <-- ОЧИЩАЕМ ЛОГ УРОНА ПРИ СТАРТЕ
             });
         });
 
@@ -1258,6 +1240,7 @@ window.attackBoss = async function() {
 
     const guildRef = db.collection('guilds').doc(store.guild.id);
     const userRef = db.collection('users').doc(store.authUser.uid);
+    let damage = 0;
 
     try {
         await db.runTransaction(async (transaction) => {
@@ -1272,7 +1255,6 @@ window.attackBoss = async function() {
             if (!guild.battleActive) throw new Error('Битва уже закончилась');
             if (getCurrentEnergy(userData) < 1) throw new Error('Недостаточно энергии');
 
-            let damage = 0;
             let talentType = user.selectedTalent;
 
             // --- Обработка талантов ---
@@ -1315,7 +1297,10 @@ window.attackBoss = async function() {
 
             if (damage > 0) {
                 const newHp = guild.bossHp - damage;
-                transaction.update(guildRef, { bossHp: newHp });
+                transaction.update(guildRef, {
+                    bossHp: newHp,
+                    [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(damage)
+                });
 
                 if (newHp <= 0) {
                     transaction.update(guildRef, {
@@ -1326,7 +1311,17 @@ window.attackBoss = async function() {
             }
         });
 
-        // После успешной транзакции проверяем, не умер ли босс
+        // После успешной транзакции обновляем пользователя и UI
+        await loadUserFromFirestore(true);
+        createBattleTalentButtons();   // <-- ОБНОВЛЕНИЕ КНОПОК (ЗАРЯДЫ)
+        updateMainUI();               // <-- ОБНОВЛЕНИЕ ЭНЕРГИИ
+
+        if (damage > 0) {
+            const icon = getTalentIcon(user.selectedTalent);
+            showDamageEffect(damage, icon); // <-- ВСПЛЫВАЮЩИЙ УРОН
+        }
+
+        // Проверяем, не умер ли босс
         const guildAfter = await guildRef.get();
         if (guildAfter.exists) {
             const g = guildAfter.data();
@@ -1336,7 +1331,6 @@ window.attackBoss = async function() {
         }
 
         hapticFeedback('heavy');
-        createBattleTalentButtons();
     } catch (e) {
         console.error('Ошибка атаки:', e);
         showNotification('Ошибка', e.message || 'Не удалось атаковать');
@@ -1358,6 +1352,34 @@ async function endBattle(victory, guildId) {
             const guild = guildDoc.data();
             if (!guild.battleActive) return;
 
+            // Получаем лог урона ДО обновления
+            const damageLog = guild.damageLog || {};
+
+            // Формируем сообщение о результатах
+            let resultMessage = victory ? '🎉 ПОБЕДА!\n\n' : '💀 ПОРАЖЕНИЕ...\n\n';
+            if (victory) {
+                resultMessage += 'Награды:\n• +500 🪙 каждому\n• +100 рейтинга гильдии\n';
+                if (guild.bossId === 'boss1') resultMessage += '• +1 ключ 🔑\n';
+                else resultMessage += '• +2 ключа 🔑\n';
+            }
+            resultMessage += '\n📊 Урон участников:\n';
+
+            // Загрузим имена пользователей
+            const userIds = Object.keys(damageLog);
+            const userSnapshots = await Promise.all(userIds.map(uid => db.collection('users').doc(uid).get()));
+            const userNames = {};
+            userSnapshots.forEach((doc, idx) => {
+                if (doc.exists) userNames[userIds[idx]] = doc.data().name || userIds[idx];
+            });
+
+            for (const [uid, dmg] of Object.entries(damageLog)) {
+                const name = userNames[uid] || uid.slice(0, 6);
+                resultMessage += `• ${name}: ${dmg} урона\n`;
+            }
+
+            // Показываем сообщение (после транзакции)
+            setTimeout(() => showNotification('Результат битвы', resultMessage), 100);
+
             if (victory) {
                 const rewardMoney = 500;
                 const rewardRating = 100;
@@ -1367,7 +1389,8 @@ async function endBattle(victory, guildId) {
                     battleActive: false,
                     bossHp: guild.maxBossHp,
                     rating: firebase.firestore.FieldValue.increment(rewardRating),
-                    'keys.boss2': firebase.firestore.FieldValue.increment(rewardKeys)
+                    'keys.boss2': firebase.firestore.FieldValue.increment(rewardKeys),
+                    damageLog: {}  // <-- ОЧИСТКА ПОСЛЕ ПОБЕДЫ
                 });
 
                 const members = guild.members || [];
@@ -1377,11 +1400,12 @@ async function endBattle(victory, guildId) {
                         money: firebase.firestore.FieldValue.increment(rewardMoney)
                     });
                 });
-
-                showNotification('Победа!', `+${rewardMoney} 🪙, +${rewardRating} рейтинга`);
             } else {
-                transaction.update(guildRef, { battleActive: false, bossHp: guild.maxBossHp });
-                showNotification('Поражение', 'Босс победил...');
+                transaction.update(guildRef, {
+                    battleActive: false,
+                    bossHp: guild.maxBossHp,
+                    damageLog: {}  // <-- ОЧИСТКА ПОСЛЕ ПОРАЖЕНИЯ
+                });
             }
         });
 
