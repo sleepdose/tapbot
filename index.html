@@ -48,23 +48,89 @@
                 <div id="slot-items" class="items-grid"></div>
             </div>
 
-            <!-- Вкладка ПИТОМЦЫ (единая сетка) -->
+            <!-- Вкладка ПИТОМЦЫ -->
             <div id="tab-pets" class="tab-content">
                 <h3>🐾 Доступные питомцы</h3>
                 <div id="pets-grid" class="items-grid"></div>
             </div>
 
-            <!-- Вкладка ТАЛАНТЫ (сетка + крафт) -->
+            <!-- Вкладка ТАЛАНТЫ -->
             <div id="tab-talents" class="tab-content">
-                <h3>✨ Все таланты</h3>
-                <div id="talents-grid" class="items-grid"></div>
-                <h3>⚒️ Крафт талантов</h3>
-                <div id="craft-section"></div>
+                <div class="talent-tabs">
+                    <button class="tab-btn active" data-tab="buyCharges">💰 Купить заряды</button>
+                    <button class="tab-btn" data-tab="upgradeTalents">⬆️ Улучшить</button>
+                    <button class="tab-btn" data-tab="craftTalents">⚒️ Крафт</button>
+                </div>
+
+                <!-- Покупка зарядов -->
+                <div id="buyCharges" class="shop-tab active">
+                    <div class="attack-charges-container"></div>
+                </div>
+
+                <!-- Улучшение талантов -->
+                <div id="upgradeTalents" class="shop-tab">
+                    <div class="talents-upgrade-container">
+                        <div class="talent" data-talent="basic">
+                            <span>🗡️ Базовый удар</span>
+                            <span id="basicLevel">1</span> ур.
+                            <span id="basicDmg">10</span> урона
+                            <button class="upgrade-btn" data-talent="basic">75</button>
+                        </div>
+                        <div class="talent" data-talent="critical">
+                            <span>💥 Критический удар</span>
+                            <span id="critLevel">1</span> ур.
+                            <span id="critChanceUpgrade">20</span>% шанс
+                            <button class="upgrade-btn" data-talent="critical">150</button>
+                        </div>
+                        <div class="talent" data-talent="poison">
+                            <span>☠️ Ядовитый удар</span>
+                            <span id="poisonLevel">1</span> ур.
+                            <span id="poisonDmgUpgrade">3</span> урона/сек
+                            <button class="upgrade-btn" data-talent="poison">200</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Крафт -->
+                <div id="craftTalents" class="shop-tab">
+                    <div class="crafting-area">
+                        <div class="craft-slots">
+                            <div class="craft-slot" data-index="0"></div>
+                            <div class="craft-slot" data-index="1"></div>
+                        </div>
+                        <div class="craft-result">
+                            <button id="sonicButton" style="display:none;">🔊 Создать звуковой</button>
+                            <button id="fireButton" style="display:none;">🔥 Создать огненный</button>
+                            <button id="iceButton" style="display:none;">❄️ Создать ледяной</button>
+                        </div>
+                        <div class="talent-pool">
+                            <h4>Доступные таланты</h4>
+                            <div class="talent-cards">
+                                <div class="talent-card" data-talent="basic">🗡️ Базовый</div>
+                                <div class="talent-card" data-talent="critical">💥 Критический</div>
+                                <div class="talent-card" data-talent="poison">☠️ Ядовитый</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- ГИЛЬДИЯ -->
         <div id="screen-guild" class="screen">
+            <!-- Модальное окно создания гильдии -->
+            <div id="create-guild-modal" class="modal hidden">
+                <div class="modal-content">
+                    <h3>✨ Создание гильдии</h3>
+                    <input type="text" id="guild-name" placeholder="Название гильдии" maxlength="30">
+                    <textarea id="guild-desc" placeholder="Описание гильдии" rows="3"></textarea>
+                    <div class="modal-buttons">
+                        <button id="confirm-create-guild" class="glow-button">Создать</button>
+                        <button id="cancel-create-guild">Отмена</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Контент гильдии будет вставлен сюда -->
             <div id="guild-view"></div>
         </div>
 
@@ -89,7 +155,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-    <!-- Главный скрипт (полностью переработан) -->
+    <!-- Главный скрипт -->
     <script src="script.js"></script>
 </body>
 </html>
