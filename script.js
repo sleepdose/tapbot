@@ -86,7 +86,7 @@ async function initAuth() {
 }
 
 // =======================================================
-// РАБОТА С ПОЛЬЗОВАТЕЛЕМ (с полями талантов)
+// РАБОТА С ПОЛЬЗОВАТЕЛЕМ (с полями талантов и telegramId)
 // =======================================================
 
 // Значения по умолчанию для новых пользователей
@@ -126,6 +126,7 @@ async function loadUserFromFirestore() {
         const newUser = {
             id: uid,
             name: tg.initDataUnsafe.user?.first_name || 'Игрок',
+            telegramId: tg.initDataUnsafe.user?.id || null,   // ← ИСПРАВЛЕНО: сохраняем Telegram ID
             energy: 100,
             maxEnergy: 100,
             lastEnergyUpdate: Date.now(),
@@ -142,8 +143,13 @@ async function loadUserFromFirestore() {
         store.user = newUser;
     } else {
         const data = doc.data();
-        // Добавляем недостающие поля талантов, если их нет
         let needsUpdate = false;
+
+        // Добавляем недостающие поля (включая telegramId)
+        if (!data.telegramId) {
+            data.telegramId = tg.initDataUnsafe.user?.id || null;
+            needsUpdate = true;
+        }
         if (!data.talents) { data.talents = defaultTalents.talents; needsUpdate = true; }
         if (!data.attackCharges) { data.attackCharges = defaultTalents.attackCharges; needsUpdate = true; }
         if (!data.craftedTalents) { data.craftedTalents = defaultTalents.craftedTalents; needsUpdate = true; }
@@ -151,6 +157,7 @@ async function loadUserFromFirestore() {
 
         if (needsUpdate) {
             await userRef.update({
+                telegramId: data.telegramId,
                 talents: data.talents,
                 attackCharges: data.attackCharges,
                 craftedTalents: data.craftedTalents,
@@ -206,7 +213,6 @@ function updateMainUI() {
     document.getElementById('money').innerText = user.money;
     document.getElementById('energy-display').innerText = `⚡ ${currentEnergy}/${user.maxEnergy}`;
 
-    // Полная очистка слоёв перед отрисовкой
     const eqLayer = document.getElementById('equipment-layer');
     const petLayer = document.getElementById('pet-layer');
     if (eqLayer) eqLayer.innerHTML = '';
@@ -246,7 +252,7 @@ async function onCharacterClick() {
 }
 
 // =======================================================
-// МАСТЕРСКАЯ — КАСТОМИЗАЦИЯ
+// МАСТЕРСКАЯ — КАСТОМИЗАЦИЯ (без изменений, см. исходник)
 // =======================================================
 let currentCustomizationSlot = 'hat';
 let previewItemId = null;
@@ -346,7 +352,7 @@ window.previewItem = function(itemId) {
 };
 
 // =======================================================
-// ИСПРАВЛЕННАЯ ПОКУПКА ЭКИПИРОВКИ (БЕЗ undefined)
+// ПОКУПКА ЭКИПИРОВКИ (без изменений, но уже исправлена)
 // =======================================================
 window.buyItem = async function(itemId) {
     if (!store.authUser) {
@@ -367,14 +373,12 @@ window.buyItem = async function(itemId) {
             if (userDoc.data().money < item.price) throw new Error('Недостаточно денег');
 
             const inventory = userDoc.data().inventory || [];
-            // Проверяем по правильному ID документа
             if (inventory.some(inv => inv.id === itemId)) {
                 throw new Error('Предмет уже есть в инвентаре');
             }
 
-            // ✅ Безопасное создание объекта — используем itemId как id
             const inventoryItem = {
-                id: String(itemId),                      // ID документа Firestore
+                id: String(itemId),
                 name: String(item.name || ''),
                 type: String(item.type || ''),
                 slot: String(item.slot || ''),
@@ -384,7 +388,6 @@ window.buyItem = async function(itemId) {
                 instanceId: `${Date.now()}_${Math.random()}`
             };
 
-            // Удаляем возможные undefined (на всякий случай)
             Object.keys(inventoryItem).forEach(key => {
                 if (inventoryItem[key] === undefined) {
                     console.error(`⚠️ Поле ${key} оказалось undefined — заменено на null`);
@@ -400,7 +403,7 @@ window.buyItem = async function(itemId) {
 
         await loadUserFromFirestore(true);
         await renderItemsForSlot(currentCustomizationSlot);
-        updateMainUI(); // Обновляем главный экран сразу
+        updateMainUI();
         showNotification('Успех', 'Предмет куплен!');
         hapticFeedback();
     } catch (e) {
@@ -427,7 +430,7 @@ window.equipItem = async function(itemId, slot) {
 };
 
 // =======================================================
-// ПИТОМЦЫ (ИСПРАВЛЕННАЯ ПОКУПКА)
+// ПИТОМЦЫ (без изменений, уже исправлено)
 // =======================================================
 async function loadPetsGrid() {
     const user = await getUser();
@@ -487,12 +490,10 @@ window.buyPet = async function(petId) {
             if (userDoc.data().money < pet.price) throw new Error('Недостаточно денег');
 
             const inventory = userDoc.data().inventory || [];
-            // Проверяем по правильному ID документа
             if (inventory.some(inv => inv.id === petId)) {
                 throw new Error('Питомец уже есть в инвентаре');
             }
 
-            // ✅ Безопасное создание объекта — используем petId как id
             const inventoryItem = {
                 id: String(petId),
                 name: String(pet.name || ''),
@@ -502,7 +503,6 @@ window.buyPet = async function(petId) {
                 instanceId: `${Date.now()}_${Math.random()}`
             };
 
-            // Удаляем возможные undefined
             Object.keys(inventoryItem).forEach(key => {
                 if (inventoryItem[key] === undefined) {
                     console.error(`⚠️ Поле ${key} оказалось undefined — заменено на null`);
@@ -518,7 +518,7 @@ window.buyPet = async function(petId) {
 
         await loadUserFromFirestore(true);
         await loadPetsGrid();
-        updateMainUI(); // Обновляем главный экран (питомец)
+        updateMainUI();
         showNotification('Успех', 'Питомец куплен!');
         hapticFeedback();
     } catch (e) {
@@ -539,10 +539,8 @@ window.activatePet = async function(petId) {
 };
 
 // =======================================================
-// НОВАЯ СИСТЕМА ТАЛАНТОВ И КРАФТА
+// СИСТЕМА ТАЛАНТОВ И КРАФТА (без изменений, уже есть)
 // =======================================================
-
-// ---------- Конфигурация ----------
 const talentsConfig = {
     basic: {
         maxLevel: 10,
@@ -580,7 +578,6 @@ function getTalentIcon(type) {
     return icons[type] || '';
 }
 
-// ---------- Покупка зарядов ----------
 window.buyCharges = async function(type) {
     const user = await getUser();
     const charges = user.attackCharges[type];
@@ -605,7 +602,6 @@ window.buyCharges = async function(type) {
     if (store.guild?.battleActive) createBattleTalentButtons();
 };
 
-// ---------- Улучшение таланта ----------
 window.upgradeTalent = async function(talentType) {
     const user = await getUser();
     const talent = user.talents[talentType];
@@ -647,7 +643,6 @@ window.upgradeTalent = async function(talentType) {
     updateTalentUI();
 };
 
-// ---------- Крафт таланта ----------
 window.craftTalent = async function(talentType) {
     const user = await getUser();
     const recipe = craftedTalentsConfig[talentType].recipe;
@@ -726,7 +721,6 @@ function checkRecipe() {
     iceBtn.style.display = (counts.poison >= 1 && counts.basic >= 1) ? 'block' : 'none';
 }
 
-// ---------- Рендер UI талантов ----------
 function renderBuyChargesUI() {
     const container = document.querySelector('.attack-charges-container');
     if (!container) return;
@@ -778,13 +772,11 @@ function updateTalentUI() {
     });
 }
 
-// ---------- Инициализация вкладки талантов ----------
 function initTalentsTab() {
     renderBuyChargesUI();
     updateTalentUI();
 }
 
-// ---------- Глобальные обработчики талантов ----------
 function setupTalentsGlobalListeners() {
     const talentsScreen = document.getElementById('tab-talents');
     if (!talentsScreen) return;
@@ -836,7 +828,6 @@ function setupTalentsGlobalListeners() {
     document.getElementById('iceButton').onclick = () => craftTalent('ice');
 }
 
-// ---------- Интеграция талантов в бой гильдии ----------
 function createBattleTalentButtons() {
     const container = document.getElementById('talent-selector');
     if (!container) return;
@@ -905,7 +896,6 @@ function startPoisonEffect(damagePerSec, duration) {
 
         showDamageEffect(damagePerSec, '☠️');
 
-        // Проверяем, не убит ли босс после каждого тика яда
         const guildDoc = await guildRef.get();
         if (guildDoc.exists) {
             const guild = guildDoc.data();
@@ -936,10 +926,68 @@ function showDamageEffect(amount, icon = '💥') {
 }
 
 // =======================================================
-// ГИЛЬДИИ
+// ГИЛЬДИИ — СИСТЕМА ОПЫТА И МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ
 // =======================================================
 
-// ---------- Модальное окно создания гильдии ----------
+// --- НОВАЯ ФУНКЦИЯ: начисление опыта гильдии ---
+async function addGuildExp(guildId, amount) {
+    const guildRef = db.collection('guilds').doc(guildId);
+    await db.runTransaction(async (transaction) => {
+        const guildDoc = await transaction.get(guildRef);
+        if (!guildDoc.exists) return;
+        const guild = guildDoc.data();
+
+        let newExp = (guild.exp || 0) + amount;
+        let newLevel = guild.level || 1;
+        let nextExp = guild.nextLevelExp || 100;
+
+        while (newExp >= nextExp) {
+            newExp -= nextExp;
+            newLevel++;
+            nextExp = Math.floor(nextExp * 1.5);
+        }
+
+        transaction.update(guildRef, {
+            exp: newExp,
+            level: newLevel,
+            nextLevelExp: nextExp
+        });
+    });
+}
+
+// --- НОВАЯ ФУНКЦИЯ: показать модальное окно с результатами битвы ---
+function showBattleResultModal(victory, damageLog, userNames, guildName) {
+    const modal = document.getElementById('battle-result-modal');
+    const title = document.getElementById('battle-result-title');
+    const content = document.getElementById('battle-result-content');
+
+    title.textContent = victory ? '🎉 Победа!' : '💀 Поражение';
+    title.style.color = victory ? '#ffd966' : '#ff8a8a';
+
+    let html = `<p style="margin-bottom: 12px; color: #aaa;">🏰 ${guildName}</p>`;
+    html += '<table style="width:100%; border-collapse: collapse; color: #e0e0e0;">';
+    html += '<tr style="border-bottom: 1px solid #4a4a4a;"><th style="text-align:left; padding: 6px 0;">Игрок</th><th style="text-align:right; padding: 6px 0;">Урон</th></tr>';
+
+    const entries = Object.entries(damageLog).sort((a,b) => b[1] - a[1]);
+
+    if (entries.length === 0) {
+        html += '<tr><td colspan="2" style="text-align:center; padding: 20px;">Никто не нанёс урон</td></tr>';
+    } else {
+        for (const [uid, dmg] of entries) {
+            const name = userNames[uid] || uid.slice(0, 6);
+            html += `<tr>
+                        <td style="text-align:left; padding: 6px 0;">${name}</td>
+                        <td style="text-align:right; padding: 6px 0; color: #ffaa00;">${dmg}</td>
+                    </tr>`;
+        }
+    }
+
+    html += '</table>';
+    content.innerHTML = html;
+    modal.classList.remove('hidden');
+}
+
+// --- Модальное окно создания гильдии ---
 window.showCreateGuildModal = function() {
     document.getElementById('create-guild-modal').classList.remove('hidden');
 };
@@ -957,8 +1005,10 @@ async function createGuild(name, description) {
         description,
         leaderId: store.authUser.uid,
         members: [store.authUser.uid],
-        maxMembers: 20,                  // ✅ лимит участников
+        maxMembers: 20,
         level: 1,
+        exp: 0,
+        nextLevelExp: 100,
         rating: 0,
         bossId: 'boss1',
         bossHp: 1000,
@@ -1018,7 +1068,6 @@ async function loadGuildScreen() {
     const container = document.getElementById('guild-view');
     if (!container) return;
 
-    // Отписываемся от старого слушателя
     if (store.listeners.guild) {
         store.listeners.guild();
         store.listeners.guild = null;
@@ -1078,10 +1127,17 @@ function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
 
+    // Инициализация полей для старых гильдий
+    guild.exp = guild.exp ?? 0;
+    guild.nextLevelExp = guild.nextLevelExp ?? 100;
+    guild.level = guild.level ?? 1;
+
     const bosses = ['boss1', 'boss2'];
     const currentBossIndex = bosses.indexOf(guild.bossId);
     const nextBoss = bosses[(currentBossIndex + 1) % bosses.length];
     const prevBoss = bosses[(currentBossIndex - 1 + bosses.length) % bosses.length];
+
+    const expPercent = Math.min(100, (guild.exp / guild.nextLevelExp) * 100);
 
     container.innerHTML = `
         <h1 id="guild-title" style="cursor: pointer;">🏰 ${guild.name} (ур. ${guild.level})</h1>
@@ -1103,6 +1159,19 @@ function renderGuildPage(guild) {
                     </li>
                 `).join('') || '<li>Нет участников</li>'}
             </ul>
+
+            <!-- ПОЛОСА ОПЫТА ГИЛЬДИИ -->
+            <div style="margin: 15px 0;">
+                <p><strong>🎮 Уровень гильдии:</strong> ${guild.level}</p>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 14px; color: #ffd966;">✨ Опыт</span>
+                    <div style="flex: 1; height: 12px; background: #2a2a2a; border-radius: 6px; overflow: hidden;">
+                        <div style="width: ${expPercent}%; height: 100%; background: linear-gradient(90deg, #4a6c8f, #8ab3ff);"></div>
+                    </div>
+                    <span style="font-size: 12px; color: #ddd;">${guild.exp} / ${guild.nextLevelExp}</span>
+                </div>
+            </div>
+
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button id="invite-friend-btn" class="glow-button" style="flex:1;">📨 Пригласить</button>
                 <button id="leave-guild-btn" class="glow-button" style="flex:1; background:#b33e3e;">🚪 Покинуть</button>
@@ -1141,7 +1210,6 @@ function renderGuildPage(guild) {
         document.getElementById('start-battle-btn').onclick = () => startBattle(guild.id);
     }
 
-    // ✅ Обновляем кнопки талантов, если бой активен
     if (guild.battleActive) {
         createBattleTalentButtons();
     }
@@ -1206,7 +1274,6 @@ window.changeBoss = async function(bossId) {
     await db.collection('guilds').doc(store.guild.id).update(updates);
 };
 
-// ---------- Исправлено: запуск таймера битвы ----------
 async function startBattle(guildId) {
     const guildRef = db.collection('guilds').doc(guildId);
     try {
@@ -1226,7 +1293,7 @@ async function startBattle(guildId) {
                 });
             }
 
-            battleEndTime = Date.now() + 120000; // 2 минуты
+            battleEndTime = Date.now() + 120000;
             transaction.update(guildRef, {
                 battleActive: true,
                 battleEndTime,
@@ -1235,9 +1302,7 @@ async function startBattle(guildId) {
             });
         });
 
-        // ✅ Запускаем таймер битвы
         startBattleTimer(battleEndTime, guildId);
-
         await updateUser({ selectedTalent: null });
         createBattleTalentButtons();
     } catch (e) {
@@ -1251,7 +1316,7 @@ function startBattleTimer(endTime, guildId) {
     store.listeners.battleTimer = setInterval(() => {
         const remaining = Math.max(0, endTime - Date.now());
         const seconds = Math.floor(remaining / 1000);
-        const timerDiv = document.getElementById('battle-timer'); // ищем каждый раз
+        const timerDiv = document.getElementById('battle-timer');
         if (timerDiv) timerDiv.innerText = `⏳ ${seconds}с`;
         if (seconds <= 0) {
             clearInterval(store.listeners.battleTimer);
@@ -1358,8 +1423,6 @@ window.attackBoss = async function() {
             showDamageEffect(damage, icon);
         }
 
-        // ✅ Убрали повторный вызов endBattle — он вызывается из таймера или при достижении 0 HP в транзакции
-
         hapticFeedback('heavy');
     } catch (e) {
         console.error('Ошибка атаки:', e);
@@ -1375,42 +1438,30 @@ async function endBattle(victory, guildId) {
     if (!store.guild || store.guild.id !== guildId) return;
     const guildRef = db.collection('guilds').doc(guildId);
 
-    // Останавливаем таймер, если он ещё работает
     if (store.listeners.battleTimer) {
         clearInterval(store.listeners.battleTimer);
         store.listeners.battleTimer = null;
     }
 
     try {
+        let damageLog = {};
+        let userNames = {};
+        let guildName = '';
+
         await db.runTransaction(async (transaction) => {
             const guildDoc = await transaction.get(guildRef);
             if (!guildDoc.exists) return;
             const guild = guildDoc.data();
             if (!guild.battleActive) return;
 
-            const damageLog = guild.damageLog || {};
-
-            let resultMessage = victory ? '🎉 ПОБЕДА!\n\n' : '💀 ПОРАЖЕНИЕ...\n\n';
-            if (victory) {
-                resultMessage += 'Награды:\n• +500 🪙 каждому\n• +100 рейтинга гильдии\n';
-                if (guild.bossId === 'boss1') resultMessage += '• +1 ключ 🔑\n';
-                else resultMessage += '• +2 ключа 🔑\n';
-            }
-            resultMessage += '\n📊 Урон участников:\n';
+            damageLog = guild.damageLog || {};
+            guildName = guild.name;
 
             const userIds = Object.keys(damageLog);
             const userSnapshots = await Promise.all(userIds.map(uid => db.collection('users').doc(uid).get()));
-            const userNames = {};
             userSnapshots.forEach((doc, idx) => {
                 if (doc.exists) userNames[userIds[idx]] = doc.data().name || userIds[idx];
             });
-
-            for (const [uid, dmg] of Object.entries(damageLog)) {
-                const name = userNames[uid] || uid.slice(0, 6);
-                resultMessage += `• ${name}: ${dmg} урона\n`;
-            }
-
-            setTimeout(() => showNotification('Результат битвы', resultMessage), 100);
 
             if (victory) {
                 const rewardMoney = 500;
@@ -1442,11 +1493,14 @@ async function endBattle(victory, guildId) {
         });
 
         if (victory) {
-            const guildSnap = await guildRef.get();
-            const updatedGuild = guildSnap.data();
-            const newLevel = Math.floor((updatedGuild.rating || 0) / 100) + 1;
-            await guildRef.update({ level: newLevel });
+            const totalDamage = Object.values(damageLog).reduce((a, b) => a + b, 0);
+            const expReward = 100 + Math.floor(totalDamage / 10);
+            await addGuildExp(guildId, expReward);
         }
+
+        // Показываем модальное окно с результатами
+        showBattleResultModal(victory, damageLog, userNames, guildName);
+
     } catch (e) {
         console.error('Ошибка завершения битвы:', e);
     }
@@ -1533,18 +1587,19 @@ window.removeFromGuild = async function(guildId, memberId) {
 };
 
 // =======================================================
-// ДРУЗЬЯ (без изменений)
+// ДРУЗЬЯ — ИСПРАВЛЕН ПОИСК ПО TELEGRAM ID
 // =======================================================
 async function loadFriendsScreen() {
     const user = await getUser();
     const container = document.getElementById('friends-view');
     if (!container) return;
 
+    // Отображаем Telegram ID, а не Firebase UID
     const myIdHtml = `
         <div class="my-id-card">
             <span>🆔 Ваш Telegram ID: </span>
-            <strong>${store.authUser.uid}</strong>
-            <button class="copy-btn" onclick="copyToClipboard('${store.authUser.uid}')">📋 Копировать</button>
+            <strong>${user.telegramId || 'Не указан'}</strong>
+            <button class="copy-btn" onclick="copyToClipboard('${user.telegramId || ''}')">📋 Копировать</button>
         </div>
     `;
 
@@ -1561,7 +1616,7 @@ async function loadFriendsScreen() {
             <h3>Мои друзья</h3>
             ${friends.length ? friends.map(f => `
                 <div class="friend-item">
-                    <span>${f.name || f.id}</span>
+                    <span>${f.name || 'Игрок'} (ID: ${f.telegramId || f.id.slice(0,6)})</span>
                     <span class="${isOnline(f) ? 'online' : 'offline'}">${isOnline(f) ? '● в сети' : '○ офлайн'}</span>
                     <button onclick="removeFriend('${f.id}')">❌ Удалить</button>
                 </div>
@@ -1585,25 +1640,33 @@ async function loadFriendsScreen() {
         <div id="search-result"></div>
     `;
 
+    // ИСПРАВЛЕНО: поиск по полю telegramId
     document.getElementById('search-btn').onclick = async () => {
         const searchId = document.getElementById('search-friend').value.trim();
         if (!searchId) return;
-        if (searchId === store.authUser.uid) {
+
+        const currentUser = await getUser();
+        if (searchId === currentUser.telegramId) {
             showNotification('Ошибка', 'Это вы сами');
             return;
         }
-        const userDoc = await db.collection('users').doc(searchId).get();
-        if (userDoc.exists) {
-            const foundUser = userDoc.data();
+
+        const userQuery = await db.collection('users')
+            .where('telegramId', '==', searchId)
+            .get();
+
+        if (!userQuery.empty) {
+            const foundUserDoc = userQuery.docs[0];
+            const foundUser = foundUserDoc.data();
             const resultDiv = document.getElementById('search-result');
             resultDiv.innerHTML = `
                 <div class="friend-item">
-                    <span>${foundUser.name || searchId}</span>
-                    <button onclick="sendFriendRequest('${searchId}')">➕ Добавить</button>
+                    <span>${foundUser.name || foundUser.telegramId || searchId}</span>
+                    <button onclick="sendFriendRequest('${foundUserDoc.id}')">➕ Добавить</button>
                 </div>
             `;
         } else {
-            showNotification('Не найден', 'Пользователь не найден');
+            showNotification('Не найден', 'Пользователь с таким Telegram ID не найден');
         }
     };
 }
@@ -1727,7 +1790,7 @@ function showScreen(screenId) {
 }
 
 // =======================================================
-// ТЕСТОВЫЕ ДАННЫЕ (добавлено поле damage)
+// ТЕСТОВЫЕ ДАННЫЕ
 // =======================================================
 async function initTestData() {
     const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').limit(1).get();
@@ -1790,6 +1853,11 @@ window.onload = async () => {
             await createGuild(name, desc);
         };
         document.getElementById('cancel-create-guild').onclick = hideCreateGuildModal;
+
+        // Закрытие модального окна результатов битвы
+        document.getElementById('close-battle-result').onclick = () => {
+            document.getElementById('battle-result-modal').classList.add('hidden');
+        };
 
         document.getElementById('character-container').onclick = onCharacterClick;
 
