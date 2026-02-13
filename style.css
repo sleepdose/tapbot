@@ -1,16 +1,14 @@
 /* ============================================
-   СТРОГИЙ КЛАССИЧЕСКИЙ СТИЛЬ — ФИНАЛЬНАЯ ВЕРСИЯ
-   Основа: тёмная палитра, плоские элементы,
-   акцент — глубокий синий
-   ============================================ */
-
+СТРОГИЙ КЛАССИЧЕСКИЙ СТИЛЬ — ФИНАЛЬНАЯ ВЕРСИЯ
+Основа: тёмная палитра, плоские элементы,
+акцент — глубокий синий
+============================================ */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     font-family: 'Segoe UI', 'Arial', 'Helvetica', sans-serif;
 }
-
 body {
     background: #0a0c0e;
     display: flex;
@@ -18,7 +16,6 @@ body {
     align-items: center;
     min-height: 100vh;
 }
-
 #app {
     max-width: 480px;
     width: 100%;
@@ -32,7 +29,6 @@ body {
     color: #e6e6e6;
     box-shadow: 0 0 20px rgba(0,0,0,0.5);
 }
-
 /* Экраны */
 .screen {
     flex: 1;
@@ -57,7 +53,6 @@ body {
 .screen.active {
     display: flex;
 }
-
 /* Статистика: энергия слева, монеты справа */
 #stats {
     display: flex;
@@ -76,7 +71,6 @@ body {
 #energy-display {
     color: #6ab04c;
 }
-
 /* ========== ПЕРСОНАЖ В ГЛАВНОМ МЕНЮ ========== */
 #character-area {
     display: flex;
@@ -139,7 +133,6 @@ body {
     left: auto;
     top: auto;
 }
-
 /* Нижняя навигация */
 #bottom-nav {
     display: flex;
@@ -171,7 +164,6 @@ body {
     box-shadow: 0 0 10px #4a6c8f;
     transform: translateY(-2px);
 }
-
 /* Вкладки мастерской */
 .tabs {
     display: flex;
@@ -208,7 +200,6 @@ body {
 .tab-content.active {
     display: block;
 }
-
 /* ========== КАСТОМИЗАЦИЯ ПЕРСОНАЖА ========== */
 .customization-preview {
     display: flex;
@@ -224,7 +215,6 @@ body {
     border-radius: 12px;
     box-shadow: 0 6px 0 #2a3a4a;
 }
-
 /* Адаптация под маленькие экраны */
 @media (max-width: 480px) {
     .character-preview {
@@ -277,7 +267,6 @@ body {
     padding: 20px;
     font-style: italic;
 }
-
 /* Карточки предметов (универсально) */
 .item-card {
     background: #242424;
@@ -314,15 +303,14 @@ body {
     cursor: pointer;
     transition: 0.1s;
 }
-.item-card button:hover {
+.item-card button:hover:not(:disabled) {
     background: #3a3a3a;
     border-color: #7a7a7a;
 }
 .item-card button:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
 }
-
 /* ========== НОВЫЕ СТИЛИ ДЛЯ ТАЛАНТОВ И КРАФТА ========== */
 .talent-tabs {
     display: flex;
@@ -346,7 +334,6 @@ body {
 }
 .shop-tab { display: none; }
 .shop-tab.active { display: block; }
-
 /* Покупка зарядов */
 .attack-charges-container {
     display: flex;
@@ -377,7 +364,6 @@ body {
 .attack-charges-item button:hover {
     background: #3a5a7a;
 }
-
 /* Улучшение талантов */
 .talents-upgrade-container .talent {
     background: #242424;
@@ -403,7 +389,6 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
 /* Крафт */
 .crafting-area {
     background: #1a1a1a;
@@ -476,7 +461,6 @@ body {
     background: #3a5a7a;
     border-color: #8ab3ff;
 }
-
 /* ========== ГИЛЬДИЯ ========== */
 .guild-header {
     display: flex;
@@ -488,7 +472,6 @@ body {
     margin: 0;
     color: #ffd966;
 }
-
 .guild-card {
     background: #242424;
     border: 1px solid #3f3f3f;
@@ -520,7 +503,6 @@ body {
 .guild-card button:hover {
     background: #3a5a7a;
 }
-
 /* Босс со стрелками */
 .boss-wrapper {
     display: flex;
@@ -599,7 +581,6 @@ body {
     color: #ffd966;
     margin: 10px 0;
 }
-
 /* Ключи для босса 2 — только когда выбран босс 2 */
 .boss-keys {
     text-align: center;
@@ -611,7 +592,6 @@ body {
     margin-top: 15px;
     border: 1px solid #4a6c8f;
 }
-
 .talent-buttons {
     display: flex;
     gap: 8px;
@@ -638,7 +618,6 @@ body {
     border-color: #8ab3ff;
     box-shadow: 0 0 12px #4a6c8f;
 }
-
 /* Информационная панель гильдии */
 .guild-info-panel {
     background: #1a1a1a;
@@ -687,7 +666,6 @@ body {
 #leave-guild-btn:hover {
     background: #c44a4a;
 }
-
 /* glow-button — для ярких акцентных кнопок */
 .glow-button {
     background: linear-gradient(145deg, #2a4a6a, #1e3a4a);
@@ -708,7 +686,6 @@ body {
     transform: translateY(2px);
     box-shadow: 0 0 10px #4a6c8f, 0 2px 0 #1a2a3a;
 }
-
 /* ========== МОДАЛЬНОЕ ОКНО ========== */
 .modal {
     position: fixed;
@@ -765,7 +742,6 @@ body {
     border: 1px solid #5a5a5a;
     color: white;
 }
-
 /* ========== ДРУЗЬЯ ========== */
 .my-id-card {
     background: #242424;
@@ -831,7 +807,6 @@ body {
     font-weight: 600;
     cursor: pointer;
 }
-
 /* Лоадер */
 .loader {
     border: 4px solid #3a3a3a;
@@ -846,15 +821,60 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-
 /* Анимация урона */
 @keyframes flyUp {
     0% { transform: translateY(0); opacity: 1; }
     100% { transform: translateY(-50px); opacity: 0; }
 }
 
-/* Замените существующий медиа-запрос @media (max-width: 400px) на этот */
+/* ========== ПРЕЛОАДЕР ========== */
+.preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0a0c0e; /* Цвет фона прелоадера */
+    background-image: url('img/preloader_bg.jpg'); /* Путь к вашему фоновому изображению */
+    background-size: cover; /* Изображение растягивается, чтобы заполнить область */
+    background-position: center; /* Центрирует изображение */
+    background-repeat: no-repeat; /* Предотвращает повторение изображения */
+    z-index: 9999; /* Очень высокий z-index, чтобы прелоадер был поверх всего */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s ease-out; /* Плавное исчезновение */
+}
 
+.preloader-content {
+    text-align: center;
+    /* Можно добавить логотип или спиннер здесь */
+}
+
+.preloader-logo {
+    width: 100px; /* Пример размера */
+    height: auto;
+    margin-bottom: 20px;
+}
+
+.preloader-text {
+    font-size: 24px;
+    color: #e6e6e6; /* Цвет текста */
+    font-weight: bold;
+}
+
+.preloader-error {
+    color: #ff6b6b; /* Цвет текста ошибки */
+}
+
+/* Стиль для скрытия прелоадера */
+.preloader.hidden {
+    opacity: 0;
+    pointer-events: none; /* Отключает взаимодействие с прелоадером, когда он скрыт */
+}
+
+/* ========== ДРУГИЕ СТИЛИ ========== */
+/* Замените существующий медиа-запрос @media (max-width: 400px) на этот */
 @media (max-width: 400px) {
     .nav-btn {
         width: 50px;
@@ -865,7 +885,6 @@ body {
         padding: 8px 16px;
         font-size: 14px;
     }
-
     /* ✅ УВЕЛИЧЕНИЕ ПЕРСОНАЖА НА ГЛАВНОМ ЭКРАНЕ */
     #character-container {
         width: 90vw;          /* 90% ширины экрана */

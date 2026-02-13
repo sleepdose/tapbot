@@ -255,30 +255,24 @@ function getLogicalSlot(physicalSlot) {
 }
 
 /**
- * Проверяет, занят ли логический слот *другим* предметом, отличным от itemId.
+ * Находит текущий экипированный предмет в *том же логическом слоте*, что и переданный физический слот.
  * @param {Object} user - Объект пользователя из store.user.
  * @param {string} physicalSlot - Физический слот проверяемого предмета (например, 'boots').
- * @param {string} itemId - ID проверяемого предмета.
- * @returns {boolean} - True, если логический слот занят другим предметом.
+ * @returns {Object|null} - Возвращает экипированный предмет или null.
  */
-function isSlotOccupiedByAnotherItem(user, physicalSlot, itemId) {
+function findCurrentItemInLogicalSlot(user, physicalSlot) {
     const logicalSlot = getLogicalSlot(physicalSlot);
     const currentEquipment = user.equipped;
 
-    // Проходим по всем экипированным предметам
     for (const equippedSlotKey in currentEquipment) {
         const equippedItem = currentEquipment[equippedSlotKey];
         // Проверяем, если предмет экипирован И его физический слот принадлежит тому же логическому слоту
         if (equippedItem && getLogicalSlot(equippedSlotKey) === logicalSlot) {
-            // Если ID этого экипированного предмета НЕ совпадает с itemId, значит слот занят другим предметом
-            if (equippedItem.id !== itemId) {
-                return true; // Слот занят другим предметом из той же группы
-            }
+            return { slot: equippedSlotKey, item: equippedItem }; // Возвращаем и слот, и предмет
         }
     }
-    return false; // Слот не занят другим предметом
+    return null; // Нет экипированного предмета в этой логической группе
 }
-
 
 async function loadCharacterCustomization() {
     const user = await getUser();
@@ -345,31 +339,37 @@ async function renderItemsForSlot(slot) {
 
     container.innerHTML = items.map(item => {
         const isOwned = user.inventory.some(inv => inv.id === item.id);
-        // ★ ИСПРАВЛЕНО: Проверяем, занят ли логический слот другим предметом
-        const isEquipped = isOwned && !isSlotOccupiedByAnotherItem(user, item.slot, item.id) && user.equipped[item.slot]?.id === item.id;
+        // Проверяем, является ли *этот* конкретный предмет экипированным
+        const isEquipped = user.equipped[item.slot]?.id === item.id;
 
-        // ★ ИЗМЕНЕНО: для экипированного предмета показываем кнопку "Снять", для занятого другим - "Занято"
+        // Определяем, есть ли уже предмет в *логическом* слоте
+        const currentItemInLogicalSlot = findCurrentItemInLogicalSlot(user, item.slot);
+
+        // ★ ИЗМЕНЕНО: Логика кнопки
         let buttonText = 'Купить';
         let buttonAction = `buyItem('${item.id}')`;
         let isDisabled = false;
 
         if (isOwned) {
             if (isEquipped) {
+                // Если это именно экипированный предмет, кнопка "Снять"
                 buttonText = 'Снять';
                 buttonAction = `unequipItem('${item.slot}')`;
-            } else if (isSlotOccupiedByAnotherItem(user, item.slot, item.id)) {
-                 // Если слот занят другим предметом из той же логической группы
-                 buttonText = 'Занято';
-                 isDisabled = true;
+            } else if (currentItemInLogicalSlot) {
+                // Если в логическом слоте *уже* есть предмет (но не этот), кнопка "Выбрать" для переключения
+                buttonText = 'Выбрать';
+                // При выборе нового предмета, старый в той же группе снимется внутри equipItem
+                buttonAction = `equipItem('${item.id}', '${item.slot}')`;
             } else {
+                // Если логический слот свободен, обычная кнопка "Выбрать"
                 buttonText = 'Выбрать';
                 buttonAction = `equipItem('${item.id}', '${item.slot}')`;
             }
         } else {
+             // Для не купленных предметов
              buttonText = `Купить ${item.price} 🪙`;
              // Цена отображается отдельно
         }
-
 
         return `
              <div class="item-card" data-item-id="${item.id}" data-slot="${item.slot}" data-image="${item.imageUrl}">
@@ -1062,9 +1062,13 @@ async function loadGuildScreen() {
         store.listeners.guild();
         store.listeners.guild = null;
     }
-    if (store.listeners.battleTimer) {
-        clearInterval(store.listeners.battleTimer);
-         store.listeners.battleTimer = null;
+    // Очищаем *все* активные таймеры битв при переключении с вкладки гильдии
+    for (let key in store.listeners) {
+        if (key.startsWith('battleTimer_') && store.listeners[key]) {
+            console.log("Очищаем таймер битвы при переключении вкладки:", key);
+            clearInterval(store.listeners[key]);
+            store.listeners[key] = null;
+        }
     }
 
     if (!user.guildId) {
@@ -1120,11 +1124,11 @@ function renderGuildPage(guild) {
     guild.rating = guild.rating ?? 0;
 
     const bosses = ['boss1', 'boss2'];
-    const currentBossIndex = bosses.indexOf(guild.bossId); // ИСПРАВЛЕНО: indexOf
+    const currentBossIndex = bosses.indexOf(guild.bossId);
     const nextBoss = bosses[(currentBossIndex + 1) % bosses.length];
     const prevBoss = bosses[(currentBossIndex - 1 + bosses.length) % bosses.length];
 
-    container.innerHTML = ` // ИСПРАВЛЕНО: innerHTML
+    container.innerHTML = `
          <h1 id="guild-title" style="cursor: pointer;">🏰 ${guild.name} (ур. ${guild.level})</h1>
 
          <div id="guild-info-panel" class="guild-info-panel hidden">
@@ -1269,6 +1273,9 @@ async function startBattle(guildId) {
             });
         });
 
+        // Сбрасываем метку завершённого боя для этой гильдии при начале новой
+        finishedBattles.delete(guildId);
+
         startBattleTimer(battleEndTime, guildId);
         await updateUser({ selectedTalent: null });
         createBattleTalentButtons();
@@ -1277,145 +1284,77 @@ async function startBattle(guildId) {
         showNotification('Ошибка', e.message || 'Не удалось начать битву');
     }
 }
+// =======================================================
+// ЗАВЕРШЕНИЕ БИТВЫ — ИСПРАВЛЕННАЯ ВЕРСИЯ (НЕ ЗАВИСИТ ОТ store.guild, КОРРЕКТНОЕ ВЗАИМОДЕЙСТВИЕ С ТАЙМЕРОМ)
+// =======================================================
+
+// Переменная для отслеживания завершённых битв (локально в сессии)
+// Это поможет избежать повторных попыток завершения одного и того же боя в этой вкладке
+const finishedBattles = new Set();
+
 function startBattleTimer(endTime, guildId) {
-    if (store.listeners.battleTimer) clearInterval(store.listeners.battleTimer);
-    store.listeners.battleTimer = setInterval(() => {
+    // Очищаем предыдущий таймер для этой гильдии, если он был
+    const previousTimerKey = `battleTimer_${guildId}`;
+    if (store.listeners[previousTimerKey]) {
+        clearInterval(store.listeners[previousTimerKey]);
+        console.log("Предыдущий таймер боя очищен перед запуском нового.");
+    }
+
+    // Используем уникальный ключ для таймера этой гильдии
+    const timerKey = `battleTimer_${guildId}`;
+
+    // Запускаем новый таймер
+    store.listeners[timerKey] = setInterval(() => {
+        // Проверяем, не был ли бой уже завершён в этой сессии
+        if (finishedBattles.has(guildId)) {
+            console.log("Таймер обнаружил, что бой уже завершён, останавливается.");
+            clearInterval(store.listeners[timerKey]);
+            store.listeners[timerKey] = null;
+            return; // Выходим из коллбэка таймера
+        }
+
         const remaining = Math.max(0, endTime - Date.now());
         const seconds = Math.floor(remaining / 1000);
         const timerDiv = document.getElementById('battle-timer');
-        if (timerDiv) timerDiv.innerText = `⏳ ${seconds}с`;
+        if (timerDiv) {
+            timerDiv.innerText = `⏳ ${seconds}с`;
+            // Обновляем цвет таймера при приближении к концу (по желанию)
+            if (seconds <= 10) {
+                timerDiv.style.color = '#ff6b6b'; // Красный цвет
+            } else {
+                timerDiv.style.color = '#ffd966'; // Жёлтый цвет по умолчанию
+            }
+        }
         if (seconds <= 0) {
-            clearInterval(store.listeners.battleTimer);
-            store.listeners.battleTimer = null;
-            endBattle(false, guildId); // ИСПРАВЛЕНО: вызов endBattle с guildId
+            console.log("Таймер истёк, вызываем endBattle для guildId:", guildId);
+            clearInterval(store.listeners[timerKey]);
+            store.listeners[timerKey] = null; // Очищаем ссылку
+            endBattle(false, guildId); // Вызываем endBattle с guildId
         }
-    }, 1000);
+    }, 1000); // Обновляем каждую секунду
+
+    console.log("Таймер боя запущен для гильдии", guildId);
 }
-window.attackBoss = async function() {
-    const user = await getUser();
-    if (!user.selectedTalent) {
-        showNotification('Талант не выбран', 'Кликни по таланту, чтобы выбрать');
-        return;
-    }
-    if (!store.guild?.battleActive) {
-        showNotification('Битва не активна', '');
-        return;
-    }
-    const currentEnergy = getCurrentEnergy();
-    if (currentEnergy < 1) {
-        showNotification('Нет энергии', 'Подожди восстановления');
-        return;
-    }
 
-    const guildRef = db.collection('guilds').doc(store.guild.id);
-    const userRef = db.collection('users').doc(store.authUser.uid);
-    let damage = 0;
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            const guildDoc = await transaction.get(guildRef);
-            const userDoc = await transaction.get(userRef);
-            if (!guildDoc.exists) throw new Error('Гильдия не найдена');
-            if (!userDoc.exists) throw new Error('Пользователь не найден');
-
-            const guild = guildDoc.data();
-            const userData = userDoc.data();
-
-            if (!guild.battleActive) throw new Error('Битва уже закончилась');
-            if (getCurrentEnergy(userData) < 1) throw new Error('Недостаточно энергии');
-
-            let talentType = user.selectedTalent;
-
-            if (['basic', 'critical', 'poison'].includes(talentType)) {
-                const charges = userData.attackCharges[talentType]?.charges;
-                if (!charges || charges <= 0) throw new Error('Нет зарядов');
-
-                const newCharges = { ...userData.attackCharges };
-                newCharges[talentType].charges--;
-                transaction.update(userRef, { attackCharges: newCharges });
-
-                if (talentType === 'basic') {
-                    damage = userData.talents.basic.damage;
-                } else if (talentType === 'critical') {
-                    damage = userData.talents.basic.damage;
-                    if (Math.random() < userData.talents.critical.chance) {
-                        damage *= 2;
-                    }
-                } else if (talentType === 'poison') {
-                    const dmg = userData.talents.poison.damage;
-                    const dur = talentsConfig.poison.getDuration(userData.talents.poison.level);
-                    startPoisonEffect(dmg, dur);
-                    damage = 0;
-                }
-            } else if (['sonic', 'fire', 'ice'].includes(talentType)) {
-                const crafted = userData.craftedTalents[talentType];
-                if (!crafted.charges) throw new Error('Нет зарядов');
-                const newCrafted = { ...userData.craftedTalents };
-                newCrafted[talentType].charges--;
-                transaction.update(userRef, { craftedTalents: newCrafted });
-                damage = crafted.damage * (crafted.level || 1);
-            }
-
-            const newEnergy = getCurrentEnergy(userData) - 1;
-            transaction.update(userRef, {
-                energy: newEnergy,
-                lastEnergyUpdate: Date.now()
-            });
-
-            if (damage > 0) {
-                const newHp = guild.bossHp - damage;
-                transaction.update(guildRef, {
-                    bossHp: newHp,
-                    [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(damage)
-                });
-
-                if (newHp <= 0) {
-                    window.__pendingVictory = { guildId: store.guild.id };
-                }
-            }
-        });
-
-        await loadUserFromFirestore(true);
-        createBattleTalentButtons();
-        updateMainUI();
-
-        if (damage > 0) {
-            const icon = getTalentIcon(user.selectedTalent);
-            showDamageEffect(damage, icon);
-        }
-
-        hapticFeedback('heavy');
-
-        if (window.__pendingVictory) {
-             await endBattle(true, window.__pendingVictory.guildId);
-            delete window.__pendingVictory;
-        }
-
-    } catch (e) {
-        console.error('Ошибка атаки:', e);
-        showNotification('Ошибка', e.message || 'Не удалось атаковать');
-        if (e.message.includes('Нет зарядов')) {
-            await updateUser({ selectedTalent: null });
-            createBattleTalentButtons();
-        }
-    }
-};
-// =======================================================
-// ЗАВЕРШЕНИЕ БИТВЫ — ИСПРАВЛЕННАЯ ВЕРСИЯ (НЕ ЗАВИСИТ ОТ store.guild)
-// =======================================================
 async function endBattle(victory, guildId) {
-    // 1️⃣ Проверяем, активен ли бой для *этой* гильдии в состоянии
-    // Это помогает избежать повторного завершения, если событие триггерится несколько раз
-    if (store.guild && store.guild.id === guildId && !store.guild.battleActive) {
-        // Бой уже был завершён ранее
-        console.log("Бой для гильдии", guildId, "уже завершён.");
+    // 1️⃣ Проверяем, не завершали ли мы этот бой ранее в этой сессии
+    if (finishedBattles.has(guildId)) {
+        console.log("Бой для гильдии", guildId, "уже был обработан в этой сессии.");
         return;
     }
+
+    // 1️⃣ Помечаем бой как завершённый до выполнения транзакции
+    finishedBattles.add(guildId);
 
     // 1️⃣ Останавливаем таймер, если он был запущен в контексте текущей сессии для этой гильдии
-    if (store.listeners.battleTimer) {
-        clearInterval(store.listeners.battleTimer);
-        store.listeners.battleTimer = null;
+    // Используем специфичный ключ для таймера гильдии
+    const timerKey = `battleTimer_${guildId}`;
+    if (store.listeners[timerKey]) {
+        clearInterval(store.listeners[timerKey]);
+        store.listeners[timerKey] = null;
+        console.log("Таймер боя остановлен при завершении (endBattle).");
+    } else {
+        console.log("Таймер боя не был активен в этой сессии при вызове endBattle.");
     }
 
     const guildRef = db.collection('guilds').doc(guildId);
@@ -1440,7 +1379,7 @@ async function endBattle(victory, guildId) {
                 // Если бой уже не активен — ничего не делаем
                 if (!guild.battleActive) {
                     console.log("Транзакция: Бой уже не активен, выход.");
-                    success = false;
+                    success = false; // Не помечаем как успешный
                     return; // Прерываем транзакцию
                 }
 
@@ -1506,18 +1445,24 @@ async function endBattle(victory, guildId) {
                  console.log("Бой успешно завершён в Firestore.");
                  break; // успешно – выходим из цикла
             } else {
-                console.log("Транзакция: Бой уже был завершён кем-то другим.");
+                console.log("Транзакция: Бой уже был завершён кем-то другим или не активен.");
                  // Если бой уже завершили, всё равно можно попытаться показать результаты,
                  // если мы их успели получить. Но в данном случае, если success=false,
                  // значит бой уже не был активен на момент начала транзакции.
                  // В реальности это может означать, что другой участник тоже вызвал endBattle
                  // одновременно, и одна из транзакций проиграла. Это нормальное поведение.
+                 // Удаляем из finishedBattles, так как бой не был завершён этой вкладкой
+                 finishedBattles.delete(guildId);
                  return; // Прерываем дальнейшие попытки и показ модального окна
             }
         } catch (error) {
             console.error(`❌ Попытка ${attempt} завершения битвы не удалась:`, error);
+            // Возвращаем метку в Set, если транзакция не удалась, чтобы можно было повторить
+            finishedBattles.delete(guildId);
             if (attempt === 3) {
                 showNotification('Ошибка', 'Не удалось завершить битву. Попробуйте позже.');
+                // Удаляем метку, так как окончательно не удалось
+                finishedBattles.delete(guildId);
                 return; // Выходим после последней неудачной попытки
             }
             // Небольшая задержка перед следующей попыткой
@@ -1529,11 +1474,23 @@ async function endBattle(victory, guildId) {
     // Показываем модальное окно независимо от того, была ли вкладка гильдии открыта
     if (success) {
         console.log("Показываем модальное окно результата боя.");
+        // Обновляем store.guild, если он был для этой гильдии, чтобы UI отразил изменения
+        if (store.guild && store.guild.id === guildId) {
+            // Просто обновим флаг, чтобы renderGuildPage знал, что бой закончен
+            // Лучше всего обновить store.guild через подписку, если она активна,
+            // но если нет, просто вызовем renderGuildPage напрямую с новыми данными
+            // Однако подписка должна сработать. Проверим.
+            // console.log("store.guild до обновления:", store.guild);
+            // loadGuildScreen(); // Это перезагрузит данные из Firestore и обновит UI
+            // renderGuildPage({...store.guild, battleActive: false}); // Пример ручного обновления
+            // Лучше дать подписке сработать. Просто покажем модальное окно.
+        }
         showBattleResultModal(victory, damageLog, userNames, `${guildName} (ур. ${finalLevel}, рейт. ${finalRating})`);
     } else {
           console.log("Бой не был завершён, модальное окно не показывается.");
     }
 }
+
 async function showGuildRating() {
     const guildsSnap = await db.collection('guilds').orderBy('rating', 'desc').get();
     const guilds = guildsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1627,7 +1584,7 @@ async function loadFriendsScreen() {
     const friends = friendDocs.filter(doc => doc.exists).map(doc => ({ id: doc.id, ...doc.data() }));
 
     const requestsSnap = await db.collection('friendRequests').where('to', '==', store.authUser.uid).get();
-    const incomingRequests = requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })); // ИСПРАВЛЕНО: docs
+    const incomingRequests = requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     container.innerHTML = `
          <h2>👥 Друзья</h2>
@@ -1665,7 +1622,7 @@ async function loadFriendsScreen() {
         if (!searchId) return;
 
         const currentUser = await getUser();
-        if (searchId === currentUser.telegramId) { // ИСПРАВЛЕНО: currentUser.telegramId
+        if (searchId === currentUser.telegramId) {
             showNotification('Ошибка', 'Это вы сами');
             return;
         }
@@ -1831,22 +1788,45 @@ async function initTestData() {
 // ЗАПУСК ПРИЛОЖЕНИЯ
 // =======================================================
 window.onload = async () => { // ИСПРАВЛЕНО: async
+    // Получаем элементы прелоадера и основного приложения
+    const preloader = document.getElementById('preloader');
+    const appElement = document.getElementById('app');
+
     window.addEventListener('unhandledrejection', function(event) {
-        console.error('Unhandled rejection:', event.reason);
+        console.error('Unhandled rejection during startup:', event.reason);
+        // Опционально: показать ошибку пользователю через прелоадер
+        const loaderContent = preloader.querySelector('.preloader-content');
+        loaderContent.innerHTML = '<span class="preloader-error">Ошибка загрузки. Проверьте подключение.</span>';
+        // Все равно скрываем прелоадер через некоторое время, чтобы показать сообщение
+        setTimeout(() => {
+            preloader.classList.add('hidden');
+            appElement.style.display = 'block';
+        }, 3000);
     });
     if (!navigator.onLine) {
         showNotification('Нет интернета', 'Игра требует подключения к сети.');
+        // Скрыть прелоадер, показать сообщение
+        const loaderContent = preloader.querySelector('.preloader-content');
+        loaderContent.innerHTML = '<span class="preloader-error">Нет интернета!</span>';
+        setTimeout(() => {
+            preloader.classList.add('hidden');
+            appElement.style.display = 'block';
+        }, 3000);
         return;
     }
 
     try {
+        console.log('Запуск инициализации...');
         await initAuth();
         await initTestData();
-        await getUser(); // ИСПРАВЛЕНО: getUser()
+        await getUser();
         updateMainUI();
 
         setupTalentsGlobalListeners();
 
+        // --- Остальная инициализация ---
+        // (скопируйте сюда весь код, который был внутри старой window.onload после инициализации)
+        // Например:
         document.getElementById('confirm-create-guild').onclick = async () => {
             const name = document.getElementById('guild-name').value.trim();
             const desc = document.getElementById('guild-desc').value.trim();
@@ -1900,9 +1880,26 @@ window.onload = async () => { // ИСПРАВЛЕНО: async
         }, 60000);
 
         console.log('✅ Игра готова');
+        // --- Конец остальной инициализации ---
+
+        // Успешно завершена инициализация
+        console.log('Инициализация завершена успешно.');
+        // Скрываем прелоадер
+        preloader.classList.add('hidden');
+        // Показываем основное приложение (если оно было скрыто стилями)
+        appElement.style.display = 'block';
+
     } catch (e) {
         console.error('Ошибка инициализации:', e);
-        showNotification('Ошибка', 'Не удалось загрузить игру. Попробуйте позже.');
+        // Показываем ошибку в прелоадере
+        const loaderContent = preloader.querySelector('.preloader-content');
+        loaderContent.innerHTML = '<span class="preloader-error">Ошибка загрузки игры.</span>';
+        // Опционально: через N секунд всё равно скрыть прелоадер и показать основное приложение
+        setTimeout(() => {
+            preloader.classList.add('hidden');
+            appElement.style.display = 'block';
+        }, 3000);
+        // showNotification('Ошибка', 'Не удалось загрузить игру. Попробуйте позже.'); // Может быть не видно, если прелоадер активен
     }
 };
 // =======================================================
