@@ -37,7 +37,18 @@ const store = {
         guild: null,
         battleTimer: null
     },
-    activePoisonEffects: {} // { "guildId_userId_timestamp": { interval, timerInterval, userId, guildId, damage, endTime, duration } }
+    activePoisonEffects: {}, // { "guildId_userId_timestamp": { interval, timerInterval, userId, guildId, damage, endTime, duration } }
+    // [NEW] Поля для результата битвы
+    battleResult: {
+        visible: false,
+        victory: false,
+        damageLog: {},
+        userNames: {},
+        guildName: ''
+    },
+    // [NEW] Поля для кулдаунов
+    lastTalentUse: 0,
+    lastCharacterTap: 0
 };
 
 // =======================================================
@@ -70,6 +81,69 @@ function showLoader(containerId, show = true) {
         }
     } else {
         if (existing) existing.remove();
+    }
+}
+
+// [NEW] Сохранить результат битвы в store и sessionStorage
+function setBattleResult(victory, damageLog, userNames, guildName) {
+    store.battleResult = {
+        visible: true,
+        victory,
+        damageLog,
+        userNames,
+        guildName
+    };
+    sessionStorage.setItem('battleResult', JSON.stringify(store.battleResult));
+}
+
+// [NEW] Восстановить результат из sessionStorage при загрузке страницы
+function restoreBattleResultFromStorage() {
+    const saved = sessionStorage.getItem('battleResult');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.visible) {
+                store.battleResult = parsed;
+            }
+        } catch (e) {
+            console.warn('Не удалось восстановить результат битвы', e);
+        }
+    }
+}
+
+// [NEW] Функция управления видимостью модалки
+function updateBattleResultModalVisibility() {
+    const modal = document.getElementById('battle-result-modal');
+    const guildScreenActive = document.getElementById('screen-guild').classList.contains('active');
+
+    if (store.battleResult.visible && guildScreenActive) {
+        // Заполняем модалку данными из store
+        const title = document.getElementById('battle-result-title');
+        const content = document.getElementById('battle-result-content');
+        const res = store.battleResult;
+
+        title.textContent = res.victory ? '🎉 Победа!' : '💀 Поражение';
+        title.style.color = res.victory ? '#ffd966' : '#ff8a8a';
+
+        let html = `<p style="margin-bottom: 12px; color: #aaa;">🏰 ${res.guildName}</p>`;
+        html += '<table style="width:100%; border-collapse: collapse; color: #e0e0e0;">';
+        html += '<tr style="border-bottom: 1px solid #4a4a4a;"><th style="text-align:left; padding: 6px 0;">Игрок</th><th style="text-align:right; padding: 6px 0;">Урон</th></tr>';
+
+        const entries = Object.entries(res.damageLog).sort((a,b) => b[1] - a[1]);
+        if (entries.length === 0) {
+            html += '<tr><td colspan="2" style="text-align:center; padding: 20px;">Никто не нанёс урон</td></tr>';
+        } else {
+            for (const [uid, dmg] of entries) {
+                const name = res.userNames[uid] || uid.slice(0, 6);
+                html += `<tr><td style="text-align:left; padding: 6px 0;">${name}</td><td style="text-align:right; padding: 6px 0; color: #ffaa00;">${dmg}</td></tr>`;
+            }
+        }
+        html += '</table>';
+        content.innerHTML = html;
+
+        modal.classList.remove('hidden');
+    } else {
+        modal.classList.add('hidden');
     }
 }
 
@@ -229,7 +303,15 @@ function updateMainUI() {
         petLayer?.appendChild(img);
     }
 }
+// [MODIFIED] Добавлен кулдаун 1 секунда
 async function onCharacterClick() {
+    const now = Date.now();
+    if (now - store.lastCharacterTap < 1000) {
+        // Слишком частые тапы игнорируем без уведомления
+        return;
+    }
+    store.lastCharacterTap = now;
+
     const user = await getUser();
     const currentEnergy = getCurrentEnergy();
     if (currentEnergy >= 1) {
@@ -1006,34 +1088,10 @@ function stopPoisonEffectsForOtherGuilds(currentGuildId) {
 // ГИЛЬДИИ — СИСТЕМА РЕЙТИНГА И МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ
 // =======================================================
 
+// [MODIFIED] Функция теперь сохраняет результат и обновляет видимость
 function showBattleResultModal(victory, damageLog, userNames, guildName) {
-    const modal = document.getElementById('battle-result-modal');
-    const title = document.getElementById('battle-result-title');
-    const content = document.getElementById('battle-result-content');
-    title.textContent = victory ? '🎉 Победа!' : '💀 Поражение';
-    title.style.color = victory ? '#ffd966' : '#ff8a8a';
-
-    let html = `<p style="margin-bottom: 12px; color: #aaa;">🏰 ${guildName}</p>`;
-    html += '<table style="width:100%; border-collapse: collapse; color: #e0e0e0;">';
-    html += '<tr style="border-bottom: 1px solid #4a4a4a;"><th style="text-align:left; padding: 6px 0;">Игрок</th><th style="text-align:right; padding: 6px 0;">Урон</th></tr>';
-
-    const entries = Object.entries(damageLog).sort((a,b) => b[1] - a[1]);
-
-    if (entries.length === 0) {
-        html += '<tr><td colspan="2" style="text-align:center; padding: 20px;">Никто не нанёс урон</td></tr>';
-    } else {
-        for (const [uid, dmg] of entries) {
-            const name = userNames[uid] || uid.slice(0, 6);
-            html += `<tr>
-                         <td style="text-align:left; padding: 6px 0;">${name}</td>
-                         <td style="text-align:right; padding: 6px 0; color: #ffaa00;">${dmg}</td>
-                     </tr>`;
-        }
-    }
-
-    html += '</table>';
-    content.innerHTML = html;
-    modal.classList.remove('hidden');
+    setBattleResult(victory, damageLog, userNames, guildName);
+    updateBattleResultModalVisibility();
 }
 
 window.showCreateGuildModal = function() {
@@ -1174,7 +1232,10 @@ async function loadGuildScreen() {
             }
         });
     }
+    // [NEW] Обновляем видимость модалки после загрузки экрана
+    updateBattleResultModalVisibility();
 }
+// [MODIFIED] Добавлен data-progress для стилизации
 function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
@@ -1187,6 +1248,7 @@ function renderGuildPage(guild) {
     const nextLevelRating = currentLevel * 100; // для 1 уровня нужно 100, для 2 - 200 и т.д.
     const progress = rating % 100; // сколько очков до следующего уровня (0-99)
     const toNextLevel = nextLevelRating - rating;
+    // [MODIFIED] Убрал inline-стили фона, добавил data-progress
     const expBarHtml = `
         <div style="margin: 15px 0;">
             <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc;">
@@ -1194,7 +1256,7 @@ function renderGuildPage(guild) {
                 <span>Уровень ${currentLevel}</span>
             </div>
             <div class="exp-bar-container" style="width: 100%; height: 16px; background: #2a2a2a; border-radius: 8px; overflow: hidden; margin: 5px 0;">
-                <div class="exp-bar-fill" style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #4a6c8f, #6a8caf);"></div>
+                <div class="exp-bar-fill" style="width: ${progress}%;" data-progress="${Math.round(progress)}"></div>
             </div>
             <div style="text-align: right; font-size: 13px; color: #aaa;">
                 До уровня ${currentLevel + 1}: осталось ${toNextLevel} очков
@@ -1527,6 +1589,7 @@ async function endBattle(victory, guildId) {
         stopPoisonEffectsForGuild(guildId);
 
         finishedBattles.add(guildId);
+        // [MODIFIED] Вызываем изменённую showBattleResultModal
         showBattleResultModal(victory, damageLog, userNames, `${guildName} (ур. ${finalLevel}, рейт. ${finalRating})`);
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
@@ -1536,7 +1599,16 @@ async function endBattle(victory, guildId) {
 // =======================================================
 // АТАКА БОССА (исправленная: криты, яд, множественные эффекты)
 // =======================================================
+// [MODIFIED] Добавлен кулдаун 2 секунды
 window.attackBoss = async function() {
+    // Проверка кулдауна таланта (2 сек)
+    const now = Date.now();
+    if (now - store.lastTalentUse < 2000) {
+        const remaining = Math.ceil((2000 - (now - store.lastTalentUse)) / 1000);
+        showNotification('Подождите', `Талант можно использовать раз в 2 сек. Осталось ${remaining} сек.`);
+        return;
+    }
+
     if (!store.guild || !store.guild.battleActive) {
         showNotification('Ошибка', 'Сейчас нет активной битвы');
         return;
@@ -1615,6 +1687,9 @@ window.attackBoss = async function() {
 
     // 4. Тратим энергию и наносим урон
     if (!(await spendEnergy(1))) return;
+
+    // [NEW] Обновляем время последнего использования таланта
+    store.lastTalentUse = now;
 
     const guildRef = db.collection('guilds').doc(store.guild.id);
     await guildRef.update({
@@ -1917,6 +1992,8 @@ function showScreen(screenId) {
             loadFriendsScreen();
             break;
     }
+    // [NEW] Обновляем видимость модалки при смене экрана
+    updateBattleResultModalVisibility();
 }
 
 // =======================================================
@@ -1970,6 +2047,9 @@ window.onload = async () => {
 
         setupTalentsGlobalListeners();
 
+        // [NEW] Восстанавливаем результат битвы из sessionStorage
+        restoreBattleResultFromStorage();
+
         document.getElementById('confirm-create-guild').onclick = async () => {
             const name = document.getElementById('guild-name').value.trim();
             const desc = document.getElementById('guild-desc').value.trim();
@@ -1982,7 +2062,10 @@ window.onload = async () => {
         };
         document.getElementById('cancel-create-guild').onclick = hideCreateGuildModal;
 
+        // [MODIFIED] Обработчик закрытия модалки с результатом
         document.getElementById('close-battle-result').onclick = () => {
+            store.battleResult.visible = false;
+            sessionStorage.removeItem('battleResult');
             document.getElementById('battle-result-modal').classList.add('hidden');
         };
 
@@ -2020,6 +2103,9 @@ window.onload = async () => {
         setInterval(() => {
             updateMainUI();
         }, 60000);
+
+        // [NEW] Проверяем видимость модалки при старте
+        updateBattleResultModalVisibility();
 
         console.log('✅ Игра готова');
     } catch (e) {
