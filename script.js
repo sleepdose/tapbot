@@ -1542,7 +1542,6 @@ window.attackBoss = async function() {
         return;
     }
 
-    // Всегда загружаем свежие данные пользователя
     const user = await getUser(true);
     const currentEnergy = getCurrentEnergy();
     if (currentEnergy < 1) {
@@ -1550,76 +1549,71 @@ window.attackBoss = async function() {
         return;
     }
 
-    let damage = 10; // базовый урон
-    let talentIcon = '⚔️';
-    let talentType = null;
+    // 1. Проверяем, выбран ли талант
+    if (!user.selectedTalent) {
+        showNotification('Ошибка', 'Сначала выберите талант для атаки');
+        return;
+    }
+
+    let talentType = user.selectedTalent;
     let needResetTalent = false;
 
-    if (user.selectedTalent) {
-        talentType = user.selectedTalent;
-
-        // Проверяем, есть ли заряды у выбранного таланта
-        if (user.talents[talentType]) {
-            if ((user.attackCharges[talentType]?.charges || 0) <= 0) {
-                needResetTalent = true;
-            }
-        } else if (user.craftedTalents[talentType]) {
-            if ((user.craftedTalents[talentType]?.charges || 0) <= 0) {
-                needResetTalent = true;
-            }
+    // 2. Проверяем наличие зарядов у выбранного таланта
+    if (user.talents[talentType]) {
+        if ((user.attackCharges[talentType]?.charges || 0) <= 0) {
+            needResetTalent = true;
         }
-
-        if (needResetTalent) {
-            // Сбрасываем выбранный талант
-            await updateUser({ selectedTalent: null });
-            talentType = null;
-            showNotification('Заряды кончились', 'Талант сброшен, используется базовая атака');
+    } else if (user.craftedTalents[talentType]) {
+        if ((user.craftedTalents[talentType]?.charges || 0) <= 0) {
+            needResetTalent = true;
         }
+    } else {
+        // Талант не найден ни в обычных, ни в крафтовых — тоже сбрасываем
+        needResetTalent = true;
     }
 
-    // Если талант есть и он валиден, применяем его эффекты
-    if (talentType) {
-        // --- ОБЫЧНЫЕ ТАЛАНТЫ ---
-        if (user.talents[talentType]) {
-            damage = user.talents[talentType].damage || 10;
-            talentIcon = getTalentIcon(talentType);
-
-            // 🔥 КРИТИЧЕСКИЙ УДАР
-            if (talentType === 'critical') {
-                const critChance = user.talents.critical.chance;
-                if (Math.random() < critChance) {
-                    damage *= 2;
-                    talentIcon = '💥⚡';
-                }
-            }
-
-            // 🧪 ЯДОВИТЫЙ УДАР — запускаем периодический урон
-            if (talentType === 'poison') {
-                const level = user.talents.poison.level;
-                const dotDamage = user.talents.poison.damage;
-                const duration = 5 + level;
-                startPoisonEffect(dotDamage, duration, store.guild.id, store.authUser.uid);
-            }
-
-            // списываем заряд
-            if (user.attackCharges[talentType]?.charges > 0) {
-                const newCharges = { ...user.attackCharges };
-                newCharges[talentType].charges -= 1;
-                await updateUser({ attackCharges: newCharges });
-            }
-        }
-        // --- КРАФТОВЫЕ ТАЛАНТЫ ---
-        else if (user.craftedTalents[talentType]) {
-            damage = user.craftedTalents[talentType].damage || 50;
-            talentIcon = getTalentIcon(talentType);
-            if (user.craftedTalents[talentType].charges > 0) {
-                const newCrafted = { ...user.craftedTalents };
-                newCrafted[talentType].charges -= 1;
-                await updateUser({ craftedTalents: newCrafted });
-            }
-        }
+    if (needResetTalent) {
+        await updateUser({ selectedTalent: null });
+        showNotification('Заряды кончились', 'Талант сброшен, выберите другой талант');
+        return; // ❌ Атака не происходит
     }
 
+    // 3. Если дошли сюда — талант выбран и заряды есть
+    let damage = 0;
+    let talentIcon = getTalentIcon(talentType);
+
+    if (user.talents[talentType]) {
+        damage = user.talents[talentType].damage || 10;
+
+        // Особые эффекты
+        if (talentType === 'critical') {
+            const critChance = user.talents.critical.chance;
+            if (Math.random() < critChance) {
+                damage *= 2;
+                talentIcon = '💥⚡';
+            }
+        }
+        if (talentType === 'poison') {
+            const level = user.talents.poison.level;
+            const dotDamage = user.talents.poison.damage;
+            const duration = 5 + level;
+            startPoisonEffect(dotDamage, duration, store.guild.id, store.authUser.uid);
+        }
+
+        // Списываем заряд обычного таланта
+        const newCharges = { ...user.attackCharges };
+        newCharges[talentType].charges -= 1;
+        await updateUser({ attackCharges: newCharges });
+    }
+    else if (user.craftedTalents[talentType]) {
+        damage = user.craftedTalents[talentType].damage || 50;
+        // Списываем заряд крафтового таланта
+        const newCrafted = { ...user.craftedTalents };
+        newCrafted[talentType].charges -= 1;
+        await updateUser({ craftedTalents: newCrafted });
+    }
+
+    // 4. Тратим энергию и наносим урон
     if (!(await spendEnergy(1))) return;
 
     const guildRef = db.collection('guilds').doc(store.guild.id);
