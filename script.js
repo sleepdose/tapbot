@@ -1181,6 +1181,28 @@ function renderGuildPage(guild) {
     guild.level = guild.level ?? 1;
     guild.rating = guild.rating ?? 0;
 
+    // ========== ДОБАВЛЕНО: расчёт прогресса уровня ==========
+    const currentLevel = guild.level || 1;
+    const rating = guild.rating || 0;
+    const nextLevelRating = currentLevel * 100; // для 1 уровня нужно 100, для 2 - 200 и т.д.
+    const progress = rating % 100; // сколько очков до следующего уровня (0-99)
+    const toNextLevel = nextLevelRating - rating;
+    const expBarHtml = `
+        <div style="margin: 15px 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc;">
+                <span>Текущий рейтинг: ${rating}</span>
+                <span>Уровень ${currentLevel}</span>
+            </div>
+            <div class="exp-bar-container" style="width: 100%; height: 16px; background: #2a2a2a; border-radius: 8px; overflow: hidden; margin: 5px 0;">
+                <div class="exp-bar-fill" style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #4a6c8f, #6a8caf);"></div>
+            </div>
+            <div style="text-align: right; font-size: 13px; color: #aaa;">
+                До уровня ${currentLevel + 1}: осталось ${toNextLevel} очков
+            </div>
+        </div>
+    `;
+    // ========================================================
+
     const bosses = ['boss1', 'boss2'];
     const currentBossIndex = bosses.indexOf(guild.bossId);
     const nextBoss = bosses[(currentBossIndex + 1) % bosses.length];
@@ -1194,6 +1216,7 @@ function renderGuildPage(guild) {
              <p><strong>Название:</strong> ${guild.name}</p>
              <p><strong>Уровень:</strong> ${guild.level}</p>
              <p><strong>Рейтинг:</strong> ${guild.rating}</p>
+             ${expBarHtml}  <!-- ВСТАВЛЯЕМ ПРОГРЕСС-БАР -->
              <p><strong>Описание:</strong> ${guild.description || '—'}</p>
              <p><strong>Лидер:</strong> ${guild.leaderId}</p>
              <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
@@ -1264,7 +1287,9 @@ function renderGuildPage(guild) {
 function renderBossBattle(guild, prevBoss, nextBoss) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
-    const bossImageUrl = `img/boss1.png`;
+    // ========== ИЗМЕНЕНО: динамическая картинка босса ==========
+    const bossImageUrl = `img/${guild.bossId}.png`;
+    // ===========================================================
     let remainingSeconds = 0;
     if (isBattleActive && guild.battleEndTime) {
         remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
@@ -1517,7 +1542,8 @@ window.attackBoss = async function() {
         return;
     }
 
-    const user = await getUser();
+    // Всегда загружаем свежие данные пользователя
+    const user = await getUser(true);
     const currentEnergy = getCurrentEnergy();
     if (currentEnergy < 1) {
         showNotification('Нет энергии', 'Подождите восстановления');
@@ -1527,10 +1553,32 @@ window.attackBoss = async function() {
     let damage = 10; // базовый урон
     let talentIcon = '⚔️';
     let talentType = null;
+    let needResetTalent = false;
 
     if (user.selectedTalent) {
         talentType = user.selectedTalent;
 
+        // Проверяем, есть ли заряды у выбранного таланта
+        if (user.talents[talentType]) {
+            if ((user.attackCharges[talentType]?.charges || 0) <= 0) {
+                needResetTalent = true;
+            }
+        } else if (user.craftedTalents[talentType]) {
+            if ((user.craftedTalents[talentType]?.charges || 0) <= 0) {
+                needResetTalent = true;
+            }
+        }
+
+        if (needResetTalent) {
+            // Сбрасываем выбранный талант
+            await updateUser({ selectedTalent: null });
+            talentType = null;
+            showNotification('Заряды кончились', 'Талант сброшен, используется базовая атака');
+        }
+    }
+
+    // Если талант есть и он валиден, применяем его эффекты
+    if (talentType) {
         // --- ОБЫЧНЫЕ ТАЛАНТЫ ---
         if (user.talents[talentType]) {
             damage = user.talents[talentType].damage || 10;
@@ -1545,11 +1593,11 @@ window.attackBoss = async function() {
                 }
             }
 
-            // 🧪 ЯДОВИТЫЙ УДАР — запускаем периодический урон (каждый игрок свой)
+            // 🧪 ЯДОВИТЫЙ УДАР — запускаем периодический урон
             if (talentType === 'poison') {
                 const level = user.talents.poison.level;
-                const dotDamage = user.talents.poison.damage;    // урон в секунду
-                const duration = 5 + level;                      // длительность (сек)
+                const dotDamage = user.talents.poison.damage;
+                const duration = 5 + level;
                 startPoisonEffect(dotDamage, duration, store.guild.id, store.authUser.uid);
             }
 
@@ -1588,7 +1636,7 @@ window.attackBoss = async function() {
         await endBattle(true, store.guild.id);
     }
 
-    createBattleTalentButtons();
+    createBattleTalentButtons(); // обновляем кнопки после атаки
 };
 
 function showDamageEffect(amount, icon = '💥') {
