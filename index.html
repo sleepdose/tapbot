@@ -2,50 +2,43 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Рик и Морти · Гильдии</title>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 </head>
 <body>
-
-    <!-- НАЧАЛО: Прелоадер -->
-    <div id="preloader" class="preloader">
-        <div class="preloader-content">
-            <span class="preloader-text">Загрузка...</span>
-        </div>
-    </div>
-    <!-- КОНЕЦ: Прелоадер -->
-
-    <div id="app" style="display: none;">
-        <div id="stats">
-            <div id="energy-display">⚡ 100/1000</div>
-            <div id="money">🪙</div>
-        </div>
-        <div class="screen active" id="screen-main">
+    <div id="app">
+        <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
+        <div id="screen-main" class="screen active">
+            <div id="stats">
+                <span id="energy-display">⚡ 100/100</span>
+                <span id="money">0</span> 🪙
+            </div>
             <div id="character-area">
                 <div id="character-container">
-                    <img id="base-character" src="img/base_char.png" alt="Base Character">
+                    <img id="base-character" src="img/men.png" alt="Персонаж">
                     <div id="equipment-layer"></div>
                     <div id="pet-layer"></div>
                 </div>
             </div>
         </div>
 
-        <div class="screen" id="screen-workshop">
+        <!-- ========== МАСТЕРСКАЯ ========== -->
+        <div id="screen-workshop" class="screen">
             <div class="tabs">
                 <button class="tab-button active" data-tab="character">👤 Персонаж</button>
                 <button class="tab-button" data-tab="pets">🐾 Питомцы</button>
                 <button class="tab-button" data-tab="talents">✨ Таланты</button>
             </div>
 
-            <div class="tab-content active" id="tab-character">
+            <!-- Вкладка ПЕРСОНАЖ (экипировка) -->
+            <div id="tab-character" class="tab-content active">
                 <div class="customization-preview">
-                    <div class="character-preview">
+                    <div id="char-preview-container" class="character-preview">
+                        <img id="preview-base" src="img/men.png" alt="Персонаж">
                         <div id="preview-equipment"></div>
+                        <div id="preview-pet"></div>
                     </div>
                 </div>
                 <div class="slot-selector">
@@ -53,58 +46,49 @@
                     <button class="slot-btn" data-slot="shirt">👕 Туловище</button>
                     <button class="slot-btn" data-slot="legs">👖 Ноги</button>
                 </div>
-                <div class="items-grid" id="slot-items">
-                    <!-- Контент будет загружен через JS -->
-                </div>
+                <div id="slot-items" class="items-grid"></div>
             </div>
 
-            <div class="tab-content" id="tab-pets">
+            <!-- Вкладка ПИТОМЦЫ -->
+            <div id="tab-pets" class="tab-content">
                 <h3>🐾 Доступные питомцы</h3>
-                <div id="pets-grid" class="items-grid">
-                    <!-- Контент будет загружен через JS -->
-                </div>
+                <div id="pets-grid" class="items-grid"></div>
             </div>
 
-            <div class="tab-content" id="tab-talents">
+            <!-- Вкладка ТАЛАНТЫ (покупка зарядов, улучшение, крафт) -->
+            <div id="tab-talents" class="tab-content">
+                <!-- Внутренние вкладки -->
                 <div class="talent-tabs">
-                    <button class="tab-btn active" data-tab="buy-charges">🛒 Заряды</button>
-                    <button class="tab-btn" data-tab="upgrade">⬆️ Улучшение</button>
-                    <button class="tab-btn" data-tab="craft">⚒️ Крафт</button>
+                    <button class="tab-btn active" data-tab="shop-charges">🛒 Заряды</button>
+                    <button class="tab-btn" data-tab="shop-upgrade">⬆️ Улучшение</button>
+                    <button class="tab-btn" data-tab="shop-craft">⚒️ Крафт</button>
                 </div>
 
-                <div class="shop-tab active" id="buy-charges">
-                    <h3>🛒 Покупка зарядов</h3>
-                    <div class="attack-charges-container">
-                        <!-- Контент будет загружен через JS -->
-                    </div>
+                <!-- Покупка зарядов -->
+                <div id="shop-charges" class="shop-tab active">
+                    <div class="attack-charges-container"></div>
                 </div>
 
-                <div class="shop-tab" id="upgrade">
-                    <h3>⬆️ Улучшение талантов</h3>
+                <!-- Улучшение талантов -->
+                <div id="shop-upgrade" class="shop-tab">
                     <div class="talents-upgrade-container">
                         <div class="talent">
-                            <div>
-                                <strong>🗡️ Базовый</strong> ур. <span id="basicLevel">1</span> (урон <span id="basicDmg">10</span>)
-                            </div>
+                            <span>🗡️ Базовый ур. <span id="basicLevel">1</span> (урон <span id="basicDmg">10</span>)</span>
                             <button class="upgrade-btn" data-talent="basic">75</button>
                         </div>
                         <div class="talent">
-                            <div>
-                                <strong>💥 Критический</strong> ур. <span id="critLevel">1</span> (шанс <span id="critChanceUpgrade">20</span>%)
-                            </div>
+                            <span>💥 Критический ур. <span id="critLevel">1</span> (шанс <span id="critChanceUpgrade">20</span>%)</span>
                             <button class="upgrade-btn" data-talent="critical">150</button>
                         </div>
                         <div class="talent">
-                            <div>
-                                <strong>☠️ Ядовитый</strong> ур. <span id="poisonLevel">1</span> (урон <span id="poisonDmgUpgrade">3</span>)
-                            </div>
+                            <span>☠️ Ядовитый ур. <span id="poisonLevel">1</span> (урон <span id="poisonDmgUpgrade">3</span>)</span>
                             <button class="upgrade-btn" data-talent="poison">200</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="shop-tab" id="craft">
-                    <h3>⚒️ Крафт талантов</h3>
+                <!-- Крафт талантов -->
+                <div id="shop-craft" class="shop-tab">
                     <div class="crafting-area">
                         <div class="craft-slots">
                             <div class="craft-slot" data-talent=""></div>
@@ -128,46 +112,57 @@
             </div>
         </div>
 
-        <div class="screen" id="screen-guild">
-            <div id="guild-view">
-                <!-- Контент будет загружен через JS -->
+        <!-- ========== ГИЛЬДИЯ ========== -->
+        <div id="screen-guild" class="screen">
+            <div id="guild-view"></div>
+        </div>
+
+        <!-- ========== ДРУЗЬЯ ========== -->
+        <div id="screen-friends" class="screen">
+            <div id="friends-view"></div>
+        </div>
+
+        <!-- ========== НИЖНЯЯ НАВИГАЦИЯ ========== -->
+        <nav id="bottom-nav">
+            <button data-screen="main" class="nav-btn active">👤</button>
+            <button data-screen="workshop" class="nav-btn">🔧</button>
+            <button data-screen="guild" class="nav-btn">🏰</button>
+            <button data-screen="friends" class="nav-btn">👥</button>
+        </nav>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ГИЛЬДИИ ========== -->
+        <div id="create-guild-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>✨ Создание гильдии</h3>
+                <input type="text" id="guild-name" placeholder="Название гильдии">
+                <textarea id="guild-desc" placeholder="Описание (необязательно)" rows="2"></textarea>
+                <div class="modal-buttons">
+                    <button id="confirm-create-guild" class="glow-button">✅ Создать</button>
+                    <button id="cancel-create-guild">❌ Отмена</button>
+                </div>
             </div>
         </div>
 
-        <div class="screen" id="screen-friends">
-            <div id="friends-view">
-                <!-- Контент будет загружен через JS -->
-            </div>
-        </div>
-
-        <div id="bottom-nav">
-            <button class="nav-btn active" data-screen="main">👤</button>
-            <button class="nav-btn" data-screen="workshop">펫</button>
-            <button class="nav-btn" data-screen="guild">🏰</button>
-            <button class="nav-btn" data-screen="friends">👥</button>
-        </div>
-    </div>
-
-    <div id="create-guild-modal" class="modal hidden">
-        <div class="modal-content">
-            <h3>✨ Создание гильдии</h3>
-            <input type="text" id="guild-name" placeholder="Название гильдии">
-            <textarea id="guild-desc" placeholder="Описание (необязательно)"></textarea>
-            <div class="modal-buttons">
-                <button id="confirm-create-guild">✅ Создать</button>
-                <button id="cancel-create-guild">❌ Отмена</button>
+        <!-- ========== МОДАЛЬНОЕ ОКНО: РЕЗУЛЬТАТЫ БИТВЫ ========== -->
+        <div id="battle-result-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="battle-result-title">Результат битвы</h3>
+                <div id="battle-result-content" style="max-height: 300px; overflow-y: auto; margin-bottom: 16px; padding-right: 5px;"></div>
+                <div class="modal-buttons">
+                    <button id="close-battle-result" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="battle-result-modal" class="modal hidden">
-        <div class="modal-content">
-            <h3 id="battle-result-title">Результат</h3>
-            <div id="battle-result-content"></div>
-            <button id="close-battle-result">Закрыть</button>
-        </div>
-    </div>
-
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <!-- Главный скрипт -->
     <script src="script.js"></script>
 </body>
 </html>
