@@ -290,7 +290,7 @@ async function spendEnergy(amount = 1) {
 }
 
 // =======================================================
-// ГЛАВНЫЙ ЭКРАН
+// ГЛАВНЫЙ ЭКРАН (исправлено: защита от дублей)
 // =======================================================
 function updateMainUI() {
     if (!store.user) return;
@@ -304,12 +304,21 @@ function updateMainUI() {
     if (petLayer) petLayer.innerHTML = '';
 
     const slots = ['hat', 'shirt', 'jeans', 'boots'];
+    const addedLogicalSlots = new Set(); // ← отслеживаем логические слоты
+
     slots.forEach(slot => {
         if (user.equipped[slot]) {
-            const img = document.createElement('img');
-            img.src = user.equipped[slot].imageUrl;
-            img.classList.add(slot);
-            eqLayer?.appendChild(img);
+            const logicalSlot = getLogicalSlot(slot);
+            // Если для этого логического слота ещё не добавляли картинку
+            if (!addedLogicalSlots.has(logicalSlot)) {
+                const img = document.createElement('img');
+                img.src = user.equipped[slot].imageUrl;
+                img.classList.add(slot);
+                eqLayer?.appendChild(img);
+                addedLogicalSlots.add(logicalSlot);
+            } else {
+                console.warn(`Обнаружен дубль для логического слота ${logicalSlot} (физический слот ${slot}), пропускаем.`);
+            }
         }
     });
 
@@ -372,17 +381,29 @@ async function loadCharacterCustomization() {
     updatePreviewCharacter(user);
     await renderItemsForSlot(currentCustomizationSlot);
 }
+
+// =======================================================
+// МАСТЕРСКАЯ — предпросмотр (исправлено: защита от дублей)
+// =======================================================
 function updatePreviewCharacter(user) {
     const eqLayer = document.getElementById('preview-equipment');
     if (!eqLayer) return;
     eqLayer.innerHTML = '';
     const slots = ['hat', 'shirt', 'jeans', 'boots'];
+    const addedLogicalSlots = new Set(); // ← отслеживаем логические слоты
+
     slots.forEach(slot => {
         if (user.equipped[slot]) {
-            const img = document.createElement('img');
-            img.src = user.equipped[slot].imageUrl;
-            img.classList.add(slot);
-            eqLayer.appendChild(img);
+            const logicalSlot = getLogicalSlot(slot);
+            if (!addedLogicalSlots.has(logicalSlot)) {
+                const img = document.createElement('img');
+                img.src = user.equipped[slot].imageUrl;
+                img.classList.add(slot);
+                eqLayer.appendChild(img);
+                addedLogicalSlots.add(logicalSlot);
+            } else {
+                console.warn(`Предпросмотр: дубль для логического слота ${logicalSlot} (физический слот ${slot}), пропускаем.`);
+            }
         }
     });
 
@@ -391,6 +412,7 @@ function updatePreviewCharacter(user) {
         if (previewCard) {
             const slot = previewCard.dataset.slot;
             const imgUrl = previewCard.dataset.image;
+            // Предпросматриваемый предмет может временно создать дубль, но это нормально
             const img = document.createElement('img');
             img.src = imgUrl;
             img.classList.add(slot);
@@ -404,7 +426,6 @@ async function renderItemsForSlot(slot) {
     const user = await getUser();
     const container = document.getElementById('slot-items');
     if (!container) return;
-    showLoader('slot-items', true);
 
     let query;
     if (slot === 'legs') {
@@ -419,8 +440,6 @@ async function renderItemsForSlot(slot) {
 
     const snapshot = await query.get();
     const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    showLoader('slot-items', false);
 
     if (items.length === 0) {
         container.innerHTML = '<p class="empty-msg">Нет доступных предметов</p>';
@@ -1245,7 +1264,7 @@ async function loadGuildScreen() {
                     endBattle(false, updatedGuild.id);
                 }
 
-                // ========== НОВОЕ: Обработка lastBattleResult ==========
+                // ========== Обработка lastBattleResult ==========
                 if (updatedGuild.lastBattleResult) {
                     const res = updatedGuild.lastBattleResult;
                     // Проверяем, участвовал ли текущий пользователь
@@ -1265,6 +1284,10 @@ async function loadGuildScreen() {
                                 res.timestamp
                             );
                             updateBattleResultModalVisibility();
+
+                            // ========== ДОБАВЛЕНО: обновляем данные пользователя, чтобы увидеть начисленные монеты ==========
+                            await loadUserFromFirestore(true);
+                            updateMainUI();
                         }
                     }
                 }
@@ -1274,14 +1297,14 @@ async function loadGuildScreen() {
     updateBattleResultModalVisibility();
 }
 
-// [ИЗМЕНЕНО] Функция отрисовки страницы гильдии с учётом индивидуального выбора босса
+// Функция отрисовки страницы гильдии с учётом индивидуального выбора босса
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
     guild.level = guild.level ?? 1;
     guild.rating = guild.rating ?? 0;
 
-    // ========== ДОБАВЛЕНО: расчёт прогресса уровня ==========
+    // расчёт прогресса уровня
     const currentLevel = guild.level || 1;
     const rating = guild.rating || 0;
     const nextLevelRating = currentLevel * 100; // для 1 уровня нужно 100, для 2 - 200 и т.д.
@@ -1301,7 +1324,6 @@ async function renderGuildPage(guild) {
             </div>
         </div>
     `;
-    // ========================================================
 
     // Определяем, какого босса показывать
     const user = store.user; // уже загружен
@@ -1475,8 +1497,8 @@ async function startBattle(guildId) {
                 bossId: bossId,
                 bossHp: maxBossHp,
                 maxBossHp: maxBossHp,
-                damageLog: {},
-                lastBattleResult: null // очищаем предыдущий результат
+                damageLog: {}
+                // lastBattleResult больше не обнуляется!
             });
         });
 
