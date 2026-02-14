@@ -876,7 +876,7 @@ body {
 }
 /* Фон для главного экрана */
 #screen-main {
-    background-image: url('img/background_main.jpg'); /* замените на имя вашего файла */
+    background-image: url('img/img/background.JPG'); /* замените на имя вашего файла */
     background-size: cover;          /* масштабирует картинку, чтобы полностью покрыть экран */
     background-position: center;     /* центрирует изображение */
     background-repeat: no-repeat;    /* не повторять */
