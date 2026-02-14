@@ -43,10 +43,12 @@ const store = {
         victory: false,
         damageLog: {},
         userNames: {},
-        guildName: ''
+        guildName: '',
+        rating: 0,
+        level: 0,
+        timestamp: 0
     },
     lastTalentUse: 0
-    // lastCharacterTap удалён (больше не нужен)
 };
 
 // =======================================================
@@ -83,13 +85,16 @@ function showLoader(containerId, show = true) {
 }
 
 // [NEW] Сохранить результат битвы в store и sessionStorage
-function setBattleResult(victory, damageLog, userNames, guildName) {
+function setBattleResult(victory, damageLog, userNames, guildName, rating, level, timestamp) {
     store.battleResult = {
         visible: true,
         victory,
         damageLog,
         userNames,
-        guildName
+        guildName,
+        rating,
+        level,
+        timestamp
     };
     sessionStorage.setItem('battleResult', JSON.stringify(store.battleResult));
 }
@@ -123,7 +128,6 @@ function updateBattleResultModalVisibility() {
         title.textContent = res.victory ? '🎉 Победа!' : '💀 Поражение';
         title.style.color = res.victory ? '#ffd966' : '#ff8a8a';
 
-        // Убрано отображение названия гильдии
         let html = '<table style="width:100%; border-collapse: collapse; color: #e0e0e0;">';
         html += '<tr style="border-bottom: 1px solid #4a4a4a;"><th style="text-align:left; padding: 6px 0;">Игрок</th><th style="text-align:right; padding: 6px 0;">Урон</th></tr>';
 
@@ -181,7 +185,7 @@ const defaultTalents = {
         ice:    { level: 0, damage: 60, charges: 0 }
     },
     selectedTalent: null,
-    preferredBoss: 'boss1'   // <-- ДОБАВЛЕНО: индивидуальный выбор босса
+    preferredBoss: 'boss1'
 };
 
 async function getUser(forceReload = false) {
@@ -199,7 +203,7 @@ async function loadUserFromFirestore() {
         const newUser = {
             id: uid,
             name: tg.initDataUnsafe.user?.first_name || 'Игрок',
-            telegramId: String(tg.initDataUnsafe.user?.id || ''), // строка
+            telegramId: String(tg.initDataUnsafe.user?.id || ''),
             energy: 100,
             maxEnergy: 100,
             lastEnergyUpdate: Date.now(),
@@ -210,6 +214,7 @@ async function loadUserFromFirestore() {
             guildId: null,
             friends: [],
             pendingRequests: [],
+            battleResultsSeen: {}, // <-- ДОБАВЛЕНО
             ...defaultTalents
         };
         await userRef.set(newUser);
@@ -231,7 +236,8 @@ async function loadUserFromFirestore() {
         if (!data.attackCharges) { data.attackCharges = defaultTalents.attackCharges; needsUpdate = true; }
         if (!data.craftedTalents) { data.craftedTalents = defaultTalents.craftedTalents; needsUpdate = true; }
         if (data.selectedTalent === undefined) { data.selectedTalent = null; needsUpdate = true; }
-        if (!data.preferredBoss) { data.preferredBoss = 'boss1'; needsUpdate = true; } // <-- ДОБАВЛЕНО
+        if (!data.preferredBoss) { data.preferredBoss = 'boss1'; needsUpdate = true; }
+        if (!data.battleResultsSeen) { data.battleResultsSeen = {}; needsUpdate = true; } // <-- ДОБАВЛЕНО
 
         if (needsUpdate) {
             await userRef.update({
@@ -240,7 +246,8 @@ async function loadUserFromFirestore() {
                 attackCharges: data.attackCharges,
                 craftedTalents: data.craftedTalents,
                 selectedTalent: data.selectedTalent,
-                preferredBoss: data.preferredBoss
+                preferredBoss: data.preferredBoss,
+                battleResultsSeen: data.battleResultsSeen
             });
         }
 
@@ -250,7 +257,6 @@ async function loadUserFromFirestore() {
         data.lastEnergyUpdate = now;
         store.user = data;
 
-        // Дополнительно: обновляем lastEnergyUpdate в Firestore, если прошло >5 мин, чтобы друзья видели статус онлайн
         if (now - data.lastEnergyUpdate > 5 * 60 * 1000) {
             userRef.update({ lastEnergyUpdate: now }).catch(console.error);
         }
@@ -314,7 +320,6 @@ function updateMainUI() {
         petLayer?.appendChild(img);
     }
 }
-// [ИЗМЕНЕНО] Убран кулдаун
 async function onCharacterClick() {
     const user = await getUser();
     const currentEnergy = getCurrentEnergy();
@@ -1104,12 +1109,6 @@ function stopPoisonEffectsForOtherGuilds(currentGuildId) {
 // ГИЛЬДИИ — СИСТЕМА РЕЙТИНГА И МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ
 // =======================================================
 
-// [MODIFIED] Функция теперь сохраняет результат и обновляет видимость
-function showBattleResultModal(victory, damageLog, userNames, guildName) {
-    setBattleResult(victory, damageLog, userNames, guildName);
-    updateBattleResultModalVisibility();
-}
-
 window.showCreateGuildModal = function() {
     document.getElementById('create-guild-modal').classList.remove('hidden');
 };
@@ -1235,7 +1234,7 @@ async function loadGuildScreen() {
         store.guild = guild;
         renderGuildPage(guild);
 
-        store.listeners.guild = db.collection('guilds').doc(user.guildId).onSnapshot(doc => {
+        store.listeners.guild = db.collection('guilds').doc(user.guildId).onSnapshot(async (doc) => {
             if (doc.exists) {
                 const updatedGuild = { id: doc.id, ...doc.data() };
                 store.guild = updatedGuild;
@@ -1245,10 +1244,33 @@ async function loadGuildScreen() {
                 if (updatedGuild.battleActive && updatedGuild.battleEndTime < Date.now()) {
                     endBattle(false, updatedGuild.id);
                 }
+
+                // ========== НОВОЕ: Обработка lastBattleResult ==========
+                if (updatedGuild.lastBattleResult) {
+                    const res = updatedGuild.lastBattleResult;
+                    // Проверяем, участвовал ли текущий пользователь
+                    if (res.participants && res.participants.includes(store.authUser.uid)) {
+                        // Получаем актуальные данные пользователя (с battleResultsSeen)
+                        const currentUser = await getUser();
+                        const seenTimestamp = currentUser.battleResultsSeen?.[updatedGuild.id];
+                        // Показываем, если результат новее последнего просмотра
+                        if (!seenTimestamp || seenTimestamp < res.timestamp) {
+                            setBattleResult(
+                                res.victory,
+                                res.damageLog,
+                                res.userNames,
+                                updatedGuild.name,
+                                updatedGuild.rating,
+                                updatedGuild.level,
+                                res.timestamp
+                            );
+                            updateBattleResultModalVisibility();
+                        }
+                    }
+                }
             }
         });
     }
-    // [NEW] Обновляем видимость модалки после загрузки экрана
     updateBattleResultModalVisibility();
 }
 
@@ -1450,10 +1472,11 @@ async function startBattle(guildId) {
             transaction.update(guildRef, {
                 battleActive: true,
                 battleEndTime,
-                bossId: bossId,          // сохраняем, какой босс сейчас в битве
+                bossId: bossId,
                 bossHp: maxBossHp,
                 maxBossHp: maxBossHp,
-                damageLog: {}
+                damageLog: {},
+                lastBattleResult: null // очищаем предыдущий результат
             });
         });
 
@@ -1587,6 +1610,7 @@ async function endBattle(victory, guildId) {
                         updates['keys.boss2'] = firebase.firestore.FieldValue.increment(1);
                     }
 
+                    // Начисляем монеты только участникам битвы
                     for (const uid of userIds) {
                         const memberRef = db.collection('users').doc(uid);
                         transaction.update(memberRef, {
@@ -1597,6 +1621,16 @@ async function endBattle(victory, guildId) {
                     finalRating = newRating;
                     finalLevel = updates.level;
                 }
+
+                // Сохраняем результат боя для участников
+                const lastBattleResult = {
+                    victory: victory,
+                    damageLog: damageLog,
+                    userNames: userNames,
+                    participants: userIds,
+                    timestamp: Date.now()
+                };
+                updates.lastBattleResult = lastBattleResult;
 
                 transaction.update(guildRef, updates);
                 success = true;
@@ -1619,7 +1653,7 @@ async function endBattle(victory, guildId) {
         stopPoisonEffectsForGuild(guildId);
 
         finishedBattles.add(guildId);
-        showBattleResultModal(victory, damageLog, userNames, `${guildName} (ур. ${finalLevel}, рейт. ${finalRating})`);
+        // Модальное окно не показываем напрямую — оно отобразится через snapshot для каждого участника
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
     }
@@ -2095,7 +2129,18 @@ window.onload = async () => {
         };
         document.getElementById('cancel-create-guild').onclick = hideCreateGuildModal;
 
-        document.getElementById('close-battle-result').onclick = () => {
+        document.getElementById('close-battle-result').onclick = async () => {
+            const res = store.battleResult;
+            if (res && res.visible && res.timestamp && store.guild) {
+                // Записываем в Firestore, что пользователь видел этот результат
+                const userRef = db.collection('users').doc(store.authUser.uid);
+                await userRef.update({
+                    [`battleResultsSeen.${store.guild.id}`]: res.timestamp
+                });
+                // Обновляем локальные данные
+                if (!store.user.battleResultsSeen) store.user.battleResultsSeen = {};
+                store.user.battleResultsSeen[store.guild.id] = res.timestamp;
+            }
             store.battleResult.visible = false;
             sessionStorage.removeItem('battleResult');
             document.getElementById('battle-result-modal').classList.add('hidden');
