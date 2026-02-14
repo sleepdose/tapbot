@@ -38,7 +38,6 @@ const store = {
         battleTimer: null
     },
     activePoisonEffects: {}, // { "guildId_userId_timestamp": { interval, timerInterval, userId, guildId, damage, endTime, duration } }
-    // [NEW] Поля для результата битвы
     battleResult: {
         visible: false,
         victory: false,
@@ -46,9 +45,8 @@ const store = {
         userNames: {},
         guildName: ''
     },
-    // [NEW] Поля для кулдаунов
-    lastTalentUse: 0,
-    lastCharacterTap: 0
+    lastTalentUse: 0
+    // lastCharacterTap удалён (больше не нужен)
 };
 
 // =======================================================
@@ -200,7 +198,7 @@ async function loadUserFromFirestore() {
         const newUser = {
             id: uid,
             name: tg.initDataUnsafe.user?.first_name || 'Игрок',
-            telegramId: tg.initDataUnsafe.user?.id || null,
+            telegramId: String(tg.initDataUnsafe.user?.id || ''), // строка
             energy: 100,
             maxEnergy: 100,
             lastEnergyUpdate: Date.now(),
@@ -219,10 +217,18 @@ async function loadUserFromFirestore() {
         const data = doc.data();
         let needsUpdate = false;
 
-        if (!data.telegramId) {
-            data.telegramId = tg.initDataUnsafe.user?.id || null;
-            needsUpdate = true;
-        }
+        // Стало:
+if (data.telegramId !== undefined && data.telegramId !== null) {
+    // Если поле есть, но它不是 строка — преобразуем
+    if (typeof data.telegramId !== 'string') {
+        data.telegramId = String(data.telegramId);
+        needsUpdate = true;
+    }
+} else {
+    // Если поля нет — устанавливаем из Telegram
+    data.telegramId = String(tg.initDataUnsafe.user?.id || '');
+    needsUpdate = true;
+}
         if (!data.talents) { data.talents = defaultTalents.talents; needsUpdate = true; }
         if (!data.attackCharges) { data.attackCharges = defaultTalents.attackCharges; needsUpdate = true; }
         if (!data.craftedTalents) { data.craftedTalents = defaultTalents.craftedTalents; needsUpdate = true; }
@@ -303,15 +309,8 @@ function updateMainUI() {
         petLayer?.appendChild(img);
     }
 }
-// [MODIFIED] Добавлен кулдаун 1 секунда
+// [ИЗМЕНЕНО] Убран кулдаун
 async function onCharacterClick() {
-    const now = Date.now();
-    if (now - store.lastCharacterTap < 1000) {
-        // Слишком частые тапы игнорируем без уведомления
-        return;
-    }
-    store.lastCharacterTap = now;
-
     const user = await getUser();
     const currentEnergy = getCurrentEnergy();
     if (currentEnergy >= 1) {
@@ -679,10 +678,23 @@ const talentsConfig = {
         getCost: (level) => Math.floor(200 * Math.pow(1.3, level - 1))
     }
 };
+// [ИЗМЕНЕНО] Добавлены формулы урона для крафтовых талантов
 const craftedTalentsConfig = {
-    sonic: { damage: 50, recipe: ['basic', 'critical'] },
-    fire:  { damage: 75, recipe: ['critical', 'poison'] },
-    ice:   { damage: 60, recipe: ['poison', 'basic'] }
+    sonic: {
+        baseDamage: 50,
+        recipe: ['basic', 'critical'],
+        damageFormula: (basicLevel, critLevel) => 50 + (basicLevel + critLevel) * 5
+    },
+    fire: {
+        baseDamage: 75,
+        recipe: ['critical', 'poison'],
+        damageFormula: (critLevel, poisonLevel) => 75 + (critLevel + poisonLevel) * 8
+    },
+    ice: {
+        baseDamage: 60,
+        recipe: ['poison', 'basic'],
+        damageFormula: (poisonLevel, basicLevel) => 60 + (poisonLevel + basicLevel) * 6
+    }
 };
 function getTalentName(type) {
     const names = { basic: 'Базовый', critical: 'Критический', poison: 'Ядовитый',
@@ -1235,7 +1247,7 @@ async function loadGuildScreen() {
     // [NEW] Обновляем видимость модалки после загрузки экрана
     updateBattleResultModalVisibility();
 }
-// [MODIFIED] Добавлен data-progress для стилизации
+// [ИЗМЕНЕНО] Интерфейс гильдии: кнопка рейтинг справа, название по центру без уровня
 function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
@@ -1248,7 +1260,6 @@ function renderGuildPage(guild) {
     const nextLevelRating = currentLevel * 100; // для 1 уровня нужно 100, для 2 - 200 и т.д.
     const progress = rating % 100; // сколько очков до следующего уровня (0-99)
     const toNextLevel = nextLevelRating - rating;
-    // [MODIFIED] Убрал inline-стили фона, добавил data-progress
     const expBarHtml = `
         <div style="margin: 15px 0;">
             <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc;">
@@ -1271,14 +1282,19 @@ function renderGuildPage(guild) {
     const prevBoss = bosses[(currentBossIndex - 1 + bosses.length) % bosses.length];
 
     container.innerHTML = `
-         <h1 id="guild-title" style="cursor: pointer;">🏰 ${guild.name} (ур. ${guild.level})</h1>
+         <!-- ИЗМЕНЕНО: шапка с кнопкой рейтинг справа -->
+         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <div style="width: 100px;"></div> <!-- пустой элемент для баланса -->
+            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">🏰 ${guild.name}</h1>
+            <button onclick="showGuildRating()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
+         </div>
 
          <div id="guild-info-panel" class="guild-info-panel hidden">
              <h3>📋 Информация о гильдии</h3>
              <p><strong>Название:</strong> ${guild.name}</p>
              <p><strong>Уровень:</strong> ${guild.level}</p>
              <p><strong>Рейтинг:</strong> ${guild.rating}</p>
-             ${expBarHtml}  <!-- ВСТАВЛЯЕМ ПРОГРЕСС-БАР -->
+             ${expBarHtml}
              <p><strong>Описание:</strong> ${guild.description || '—'}</p>
              <p><strong>Лидер:</strong> ${guild.leaderId}</p>
              <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
@@ -1314,9 +1330,7 @@ function renderGuildPage(guild) {
          <!-- 🆕 КОНТЕЙНЕР ДЛЯ ТАЙМЕРОВ ЯДА -->
          <div id="poison-timer-container" style="margin-top: 10px; text-align: center;"></div>
 
-         <div style="position: sticky; bottom: 10px; left: 0; margin-top: 20px;">
-             <button onclick="showGuildRating()" class="glow-button" style="width: auto; padding: 10px 20px;">🏆 Рейтинг</button>
-         </div>
+         <!-- Кнопка рейтинг внизу УДАЛЕНА -->
     `;
 
     document.getElementById('guild-title').onclick = () => {
@@ -1589,7 +1603,6 @@ async function endBattle(victory, guildId) {
         stopPoisonEffectsForGuild(guildId);
 
         finishedBattles.add(guildId);
-        // [MODIFIED] Вызываем изменённую showBattleResultModal
         showBattleResultModal(victory, damageLog, userNames, `${guildName} (ур. ${finalLevel}, рейт. ${finalRating})`);
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
@@ -1599,14 +1612,11 @@ async function endBattle(victory, guildId) {
 // =======================================================
 // АТАКА БОССА (исправленная: криты, яд, множественные эффекты)
 // =======================================================
-// [MODIFIED] Добавлен кулдаун 2 секунды
+// [ИЗМЕНЕНО] Добавлен тихий кулдаун 2 секунды (без уведомления)
 window.attackBoss = async function() {
-    // Проверка кулдауна таланта (2 сек)
     const now = Date.now();
     if (now - store.lastTalentUse < 2000) {
-        const remaining = Math.ceil((2000 - (now - store.lastTalentUse)) / 1000);
-        showNotification('Подождите', `Талант можно использовать раз в 2 сек. Осталось ${remaining} сек.`);
-        return;
+        return; // тихо пропускаем
     }
 
     if (!store.guild || !store.guild.battleActive) {
@@ -1678,7 +1688,13 @@ window.attackBoss = async function() {
         await updateUser({ attackCharges: newCharges });
     }
     else if (user.craftedTalents[talentType]) {
-        damage = user.craftedTalents[talentType].damage || 50;
+        // [ИЗМЕНЕНО] Вычисляем урон на основе уровней ингредиентов
+        const config = craftedTalentsConfig[talentType];
+        const [t1, t2] = config.recipe;
+        const level1 = user.talents[t1].level;
+        const level2 = user.talents[t2].level;
+        damage = config.damageFormula(level1, level2);
+
         // Списываем заряд крафтового таланта
         const newCrafted = { ...user.craftedTalents };
         newCrafted[talentType].charges -= 1;
@@ -1688,7 +1704,6 @@ window.attackBoss = async function() {
     // 4. Тратим энергию и наносим урон
     if (!(await spendEnergy(1))) return;
 
-    // [NEW] Обновляем время последнего использования таланта
     store.lastTalentUse = now;
 
     const guildRef = db.collection('guilds').doc(store.guild.id);
@@ -2062,7 +2077,6 @@ window.onload = async () => {
         };
         document.getElementById('cancel-create-guild').onclick = hideCreateGuildModal;
 
-        // [MODIFIED] Обработчик закрытия модалки с результатом
         document.getElementById('close-battle-result').onclick = () => {
             store.battleResult.visible = false;
             sessionStorage.removeItem('battleResult');
