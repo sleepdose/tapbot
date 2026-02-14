@@ -123,8 +123,8 @@ function updateBattleResultModalVisibility() {
         title.textContent = res.victory ? '🎉 Победа!' : '💀 Поражение';
         title.style.color = res.victory ? '#ffd966' : '#ff8a8a';
 
-        let html = `<p style="margin-bottom: 12px; color: #aaa;">🏰 ${res.guildName}</p>`;
-        html += '<table style="width:100%; border-collapse: collapse; color: #e0e0e0;">';
+        // Убрано отображение названия гильдии
+        let html = '<table style="width:100%; border-collapse: collapse; color: #e0e0e0;">';
         html += '<tr style="border-bottom: 1px solid #4a4a4a;"><th style="text-align:left; padding: 6px 0;">Игрок</th><th style="text-align:right; padding: 6px 0;">Урон</th></tr>';
 
         const entries = Object.entries(res.damageLog).sort((a,b) => b[1] - a[1]);
@@ -217,18 +217,15 @@ async function loadUserFromFirestore() {
         const data = doc.data();
         let needsUpdate = false;
 
-        // Стало:
-if (data.telegramId !== undefined && data.telegramId !== null) {
-    // Если поле есть, но它不是 строка — преобразуем
-    if (typeof data.telegramId !== 'string') {
-        data.telegramId = String(data.telegramId);
-        needsUpdate = true;
-    }
-} else {
-    // Если поля нет — устанавливаем из Telegram
-    data.telegramId = String(tg.initDataUnsafe.user?.id || '');
-    needsUpdate = true;
-}
+        if (data.telegramId !== undefined && data.telegramId !== null) {
+            if (typeof data.telegramId !== 'string') {
+                data.telegramId = String(data.telegramId);
+                needsUpdate = true;
+            }
+        } else {
+            data.telegramId = String(tg.initDataUnsafe.user?.id || '');
+            needsUpdate = true;
+        }
         if (!data.talents) { data.talents = defaultTalents.talents; needsUpdate = true; }
         if (!data.attackCharges) { data.attackCharges = defaultTalents.attackCharges; needsUpdate = true; }
         if (!data.craftedTalents) { data.craftedTalents = defaultTalents.craftedTalents; needsUpdate = true; }
@@ -249,6 +246,11 @@ if (data.telegramId !== undefined && data.telegramId !== null) {
         data.energy = Math.min(data.maxEnergy, (data.energy || 0) + deltaSeconds);
         data.lastEnergyUpdate = now;
         store.user = data;
+
+        // Дополнительно: обновляем lastEnergyUpdate в Firestore, если прошло >5 мин, чтобы друзья видели статус онлайн
+        if (now - data.lastEnergyUpdate > 5 * 60 * 1000) {
+            userRef.update({ lastEnergyUpdate: now }).catch(console.error);
+        }
     }
     return store.user;
 }
@@ -678,7 +680,6 @@ const talentsConfig = {
         getCost: (level) => Math.floor(200 * Math.pow(1.3, level - 1))
     }
 };
-// [ИЗМЕНЕНО] Добавлены формулы урона для крафтовых талантов
 const craftedTalentsConfig = {
     sonic: {
         baseDamage: 50,
@@ -1276,27 +1277,26 @@ function renderGuildPage(guild) {
     `;
     // ========================================================
 
-    const bosses = ['boss1', 'boss2'];
-    const currentBossIndex = bosses.indexOf(guild.bossId);
-    const nextBoss = bosses[(currentBossIndex + 1) % bosses.length];
-    const prevBoss = bosses[(currentBossIndex - 1 + bosses.length) % bosses.length];
+    const nextBoss = guild.bossId === 'boss1' ? 'boss2' : null;
+    const prevBoss = guild.bossId === 'boss2' ? 'boss1' : null;
 
     container.innerHTML = `
+         <!-- Шапка с кнопкой рейтинг справа -->
          <!-- ИЗМЕНЕНО: шапка с кнопкой рейтинг справа -->
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="width: 100px;"></div> <!-- пустой элемент для баланса -->
-            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">🏰 ${guild.name}</h1>
+            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">${guild.name}</h1>
             <button onclick="showGuildRating()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
          </div>
 
+
          <div id="guild-info-panel" class="guild-info-panel hidden">
              <h3>📋 Информация о гильдии</h3>
-             <p><strong>Название:</strong> ${guild.name}</p>
-             <p><strong>Уровень:</strong> ${guild.level}</p>
-             <p><strong>Рейтинг:</strong> ${guild.rating}</p>
-             ${expBarHtml}
+             <!-- Убраны дублирующиеся строки: название, уровень, рейтинг -->
              <p><strong>Описание:</strong> ${guild.description || '—'}</p>
              <p><strong>Лидер:</strong> ${guild.leaderId}</p>
+             <!-- ✅ Прогресс-бар уровня (всегда виден) -->
+  ${expBarHtml}
              <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
              <ul class="member-list">
                 ${guild.members?.map(memberId => `
@@ -1316,10 +1316,10 @@ function renderGuildPage(guild) {
          </div>
 
          <div id="boss-battle-area">
-            ${renderBossBattle(guild, prevBoss, nextBoss)}
+            ${renderBossBattle(guild, prevBoss, nextBoss, isLeader)}
          </div>
 
-        ${isLeader && !guild.battleActive ? `
+        ${isLeader && !guild.battleActive && (guild.bossId !== 'boss2' || (guild.keys?.boss2 || 0) >= 3) ? `
              <div style="display: flex; justify-content: center; margin: 20px 0;">
                  <button id="start-battle-btn" class="glow-button">⚔️ Начать сражение</button>
              </div>
@@ -1329,8 +1329,6 @@ function renderGuildPage(guild) {
 
          <!-- 🆕 КОНТЕЙНЕР ДЛЯ ТАЙМЕРОВ ЯДА -->
          <div id="poison-timer-container" style="margin-top: 10px; text-align: center;"></div>
-
-         <!-- Кнопка рейтинг внизу УДАЛЕНА -->
     `;
 
     document.getElementById('guild-title').onclick = () => {
@@ -1340,7 +1338,7 @@ function renderGuildPage(guild) {
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
     document.getElementById('invite-friend-btn')?.addEventListener('click', showInviteMenu);
 
-    if (isLeader && !guild.battleActive) {
+    if (isLeader && !guild.battleActive && (guild.bossId !== 'boss2' || (guild.keys?.boss2 || 0) >= 3)) {
         document.getElementById('start-battle-btn').onclick = () => startBattle(guild.id);
     }
 
@@ -1360,42 +1358,40 @@ function renderGuildPage(guild) {
         createBattleTalentButtons();
     }
 }
-function renderBossBattle(guild, prevBoss, nextBoss) {
+function renderBossBattle(guild, prevBoss, nextBoss, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
-    // ========== ИЗМЕНЕНО: динамическая картинка босса ==========
     const bossImageUrl = `img/${guild.bossId}.png`;
-    // ===========================================================
     let remainingSeconds = 0;
     if (isBattleActive && guild.battleEndTime) {
         remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
     }
 
     return `
-         <div class="boss-wrapper">
-            ${!isBattleActive ? `
-                 <button class="boss-arrow" onclick="changeBoss('${prevBoss}')" ${isBattleActive ? 'disabled' : ''}>◀</button>
-            ` : ''}
+        <div class="boss-wrapper">
+            ${!isBattleActive && isLeader && prevBoss ? `
+                <button class="boss-arrow" onclick="changeBoss('${prevBoss}')">◀</button>
+            ` : '<div style="width:48px;"></div>'}
 
-             <div class="boss-container">
-                 <h3>${guild.bossId}</h3>
-                 <img class="boss-image" src="${bossImageUrl}" onclick="attackBoss()">
+            <div class="boss-container">
+                <h3>${guild.bossId}</h3>
+                <img class="boss-image" src="${bossImageUrl}" onclick="attackBoss()">
                 ${isBattleActive ? `
-                     <div class="boss-hp-bar">
-                         <div class="boss-hp-fill" style="width: ${hpPercent}%;"></div>
-                     </div>
-                     <div class="boss-hp-text">${guild.bossHp} / ${guild.maxBossHp}</div>
-                     <div id="battle-timer">⏳ ${remainingSeconds}с</div>
+                    <div class="boss-hp-bar">
+                        <div class="boss-hp-fill" style="width: ${hpPercent}%;"></div>
+                    </div>
+                    <div class="boss-hp-text">${guild.bossHp} / ${guild.maxBossHp}</div>
+                    <div id="battle-timer">⏳ ${remainingSeconds}с</div>
                 ` : ''}
-             </div>
+            </div>
 
-            ${!isBattleActive ? `
-                 <button class="boss-arrow" onclick="changeBoss('${nextBoss}')" ${isBattleActive ? 'disabled' : ''}>▶</button>
-            ` : ''}
-         </div>
+            ${!isBattleActive && isLeader && nextBoss ? `
+                <button class="boss-arrow" onclick="changeBoss('${nextBoss}')">▶</button>
+            ` : '<div style="width:48px;"></div>'}
+        </div>
 
         ${guild.bossId === 'boss2' ? `
-             <div class="boss-keys">🔑 Ключи для босса 2: ${guild.keys?.boss2 || 0} / 3</div>
+            <div class="boss-keys">🔑 Ключи для босса 2: ${guild.keys?.boss2 || 0} / 3</div>
         ` : ''}
     `;
 }
@@ -1457,6 +1453,7 @@ async function startBattle(guildId) {
 // =======================================================
 
 const finishedBattles = new Set();
+let isAttacking = false; // защита от множественных вызовов атаки
 
 function startBattleTimer(endTime, guildId) {
     const timerKey = `battleTimer_${guildId}`;
@@ -1610,117 +1607,119 @@ async function endBattle(victory, guildId) {
 }
 
 // =======================================================
-// АТАКА БОССА (исправленная: криты, яд, множественные эффекты)
+// АТАКА БОССА (исправленная: защита от спама, множественные эффекты)
 // =======================================================
-// [ИЗМЕНЕНО] Добавлен тихий кулдаун 2 секунды (без уведомления)
 window.attackBoss = async function() {
-    const now = Date.now();
-    if (now - store.lastTalentUse < 2000) {
-        return; // тихо пропускаем
-    }
+    if (isAttacking) return; // если уже выполняется атака, игнорируем клик
+    isAttacking = true;
 
-    if (!store.guild || !store.guild.battleActive) {
-        showNotification('Ошибка', 'Сейчас нет активной битвы');
-        return;
-    }
-
-    const user = await getUser(true);
-    const currentEnergy = getCurrentEnergy();
-    if (currentEnergy < 1) {
-        showNotification('Нет энергии', 'Подождите восстановления');
-        return;
-    }
-
-    // 1. Проверяем, выбран ли талант
-    if (!user.selectedTalent) {
-        showNotification('Ошибка', 'Сначала выберите талант для атаки');
-        return;
-    }
-
-    let talentType = user.selectedTalent;
-    let needResetTalent = false;
-
-    // 2. Проверяем наличие зарядов у выбранного таланта
-    if (user.talents[talentType]) {
-        if ((user.attackCharges[talentType]?.charges || 0) <= 0) {
-            needResetTalent = true;
+    try {
+        const now = Date.now();
+        // кулдаун 2 секунды (без уведомления, просто пропускаем)
+        if (now - store.lastTalentUse < 2000) {
+            return;
         }
-    } else if (user.craftedTalents[talentType]) {
-        if ((user.craftedTalents[talentType]?.charges || 0) <= 0) {
-            needResetTalent = true;
+
+        if (!store.guild || !store.guild.battleActive) {
+            showNotification('Ошибка', 'Сейчас нет активной битвы');
+            return;
         }
-    } else {
-        // Талант не найден ни в обычных, ни в крафтовых — тоже сбрасываем
-        needResetTalent = true;
-    }
 
-    if (needResetTalent) {
-        await updateUser({ selectedTalent: null });
-        showNotification('Заряды кончились', 'Талант сброшен, выберите другой талант');
-        return; // ❌ Атака не происходит
-    }
+        const user = await getUser(true);
+        const currentEnergy = getCurrentEnergy();
+        if (currentEnergy < 1) {
+            showNotification('Нет энергии', 'Подождите восстановления');
+            return;
+        }
 
-    // 3. Если дошли сюда — талант выбран и заряды есть
-    let damage = 0;
-    let talentIcon = getTalentIcon(talentType);
+        if (!user.selectedTalent) {
+            showNotification('Ошибка', 'Сначала выберите талант для атаки');
+            return;
+        }
 
-    if (user.talents[talentType]) {
-        damage = user.talents[talentType].damage || 10;
+        let talentType = user.selectedTalent;
+        let needResetTalent = false;
 
-        // Особые эффекты
-        if (talentType === 'critical') {
-            const critChance = user.talents.critical.chance;
-            if (Math.random() < critChance) {
-                damage *= 2;
-                talentIcon = '💥⚡';
+        // Проверка наличия зарядов
+        if (user.talents[talentType]) {
+            if ((user.attackCharges[talentType]?.charges || 0) <= 0) {
+                needResetTalent = true;
             }
+        } else if (user.craftedTalents[talentType]) {
+            if ((user.craftedTalents[talentType]?.charges || 0) <= 0) {
+                needResetTalent = true;
+            }
+        } else {
+            needResetTalent = true;
         }
-        if (talentType === 'poison') {
-            const level = user.talents.poison.level;
-            const dotDamage = user.talents.poison.damage;
-            const duration = 5 + level;
-            startPoisonEffect(dotDamage, duration, store.guild.id, store.authUser.uid);
+
+        if (needResetTalent) {
+            await updateUser({ selectedTalent: null });
+            showNotification('Заряды кончились', 'Талант сброшен, выберите другой талант');
+            return;
         }
 
-        // Списываем заряд обычного таланта
-        const newCharges = { ...user.attackCharges };
-        newCharges[talentType].charges -= 1;
-        await updateUser({ attackCharges: newCharges });
+        let damage = 0;
+        let talentIcon = getTalentIcon(talentType);
+
+        if (user.talents[talentType]) {
+            damage = user.talents[talentType].damage || 10;
+
+            if (talentType === 'critical') {
+                const critChance = user.talents.critical.chance;
+                if (Math.random() < critChance) {
+                    damage *= 2;
+                    talentIcon = '💥⚡';
+                }
+            }
+            if (talentType === 'poison') {
+                const level = user.talents.poison.level;
+                const dotDamage = user.talents.poison.damage;
+                const duration = 5 + level;
+                startPoisonEffect(dotDamage, duration, store.guild.id, store.authUser.uid);
+            }
+
+            const newCharges = { ...user.attackCharges };
+            newCharges[talentType].charges -= 1;
+            await updateUser({ attackCharges: newCharges });
+        } else if (user.craftedTalents[talentType]) {
+            const config = craftedTalentsConfig[talentType];
+            const [t1, t2] = config.recipe;
+            const level1 = user.talents[t1].level;
+            const level2 = user.talents[t2].level;
+            damage = config.damageFormula(level1, level2);
+
+            const newCrafted = { ...user.craftedTalents };
+            newCrafted[talentType].charges -= 1;
+            await updateUser({ craftedTalents: newCrafted });
+        }
+
+        // Тратим энергию и наносим урон
+        if (!(await spendEnergy(1))) return;
+
+        store.lastTalentUse = now; // запоминаем время последней успешной атаки
+
+        const guildRef = db.collection('guilds').doc(store.guild.id);
+        await guildRef.update({
+            bossHp: firebase.firestore.FieldValue.increment(-damage),
+            [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(damage)
+        });
+
+        showDamageEffect(damage, talentIcon);
+        hapticFeedback('light');
+
+        const updatedGuild = (await guildRef.get()).data();
+        if (updatedGuild.bossHp <= 0) {
+            await endBattle(true, store.guild.id);
+        }
+
+        createBattleTalentButtons(); // обновляем кнопки после атаки
+    } catch (error) {
+        console.error('Ошибка при атаке босса:', error);
+        showNotification('Ошибка', 'Не удалось выполнить атаку');
+    } finally {
+        isAttacking = false; // снимаем блокировку в любом случае
     }
-    else if (user.craftedTalents[talentType]) {
-        // [ИЗМЕНЕНО] Вычисляем урон на основе уровней ингредиентов
-        const config = craftedTalentsConfig[talentType];
-        const [t1, t2] = config.recipe;
-        const level1 = user.talents[t1].level;
-        const level2 = user.talents[t2].level;
-        damage = config.damageFormula(level1, level2);
-
-        // Списываем заряд крафтового таланта
-        const newCrafted = { ...user.craftedTalents };
-        newCrafted[talentType].charges -= 1;
-        await updateUser({ craftedTalents: newCrafted });
-    }
-
-    // 4. Тратим энергию и наносим урон
-    if (!(await spendEnergy(1))) return;
-
-    store.lastTalentUse = now;
-
-    const guildRef = db.collection('guilds').doc(store.guild.id);
-    await guildRef.update({
-        bossHp: firebase.firestore.FieldValue.increment(-damage),
-        [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(damage)
-    });
-
-    showDamageEffect(damage, talentIcon);
-    hapticFeedback('light');
-
-    const updatedGuild = (await guildRef.get()).data();
-    if (updatedGuild.bossHp <= 0) {
-        await endBattle(true, store.guild.id);
-    }
-
-    createBattleTalentButtons(); // обновляем кнопки после атаки
 };
 
 function showDamageEffect(amount, icon = '💥') {
