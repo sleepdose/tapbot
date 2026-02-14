@@ -180,7 +180,8 @@ const defaultTalents = {
         fire:   { level: 0, damage: 75, charges: 0 },
         ice:    { level: 0, damage: 60, charges: 0 }
     },
-    selectedTalent: null
+    selectedTalent: null,
+    preferredBoss: 'boss1'   // <-- ДОБАВЛЕНО: индивидуальный выбор босса
 };
 
 async function getUser(forceReload = false) {
@@ -230,6 +231,7 @@ async function loadUserFromFirestore() {
         if (!data.attackCharges) { data.attackCharges = defaultTalents.attackCharges; needsUpdate = true; }
         if (!data.craftedTalents) { data.craftedTalents = defaultTalents.craftedTalents; needsUpdate = true; }
         if (data.selectedTalent === undefined) { data.selectedTalent = null; needsUpdate = true; }
+        if (!data.preferredBoss) { data.preferredBoss = 'boss1'; needsUpdate = true; } // <-- ДОБАВЛЕНО
 
         if (needsUpdate) {
             await userRef.update({
@@ -237,7 +239,8 @@ async function loadUserFromFirestore() {
                 talents: data.talents,
                 attackCharges: data.attackCharges,
                 craftedTalents: data.craftedTalents,
-                selectedTalent: data.selectedTalent
+                selectedTalent: data.selectedTalent,
+                preferredBoss: data.preferredBoss
             });
         }
 
@@ -1248,8 +1251,9 @@ async function loadGuildScreen() {
     // [NEW] Обновляем видимость модалки после загрузки экрана
     updateBattleResultModalVisibility();
 }
-// [ИЗМЕНЕНО] Интерфейс гильдии: кнопка рейтинг справа, название по центру без уровня
-function renderGuildPage(guild) {
+
+// [ИЗМЕНЕНО] Функция отрисовки страницы гильдии с учётом индивидуального выбора босса
+async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
     guild.level = guild.level ?? 1;
@@ -1277,26 +1281,25 @@ function renderGuildPage(guild) {
     `;
     // ========================================================
 
-    const nextBoss = guild.bossId === 'boss1' ? 'boss2' : null;
-    const prevBoss = guild.bossId === 'boss2' ? 'boss1' : null;
+    // Определяем, какого босса показывать
+    const user = store.user; // уже загружен
+    const isBattleActive = guild.battleActive;
+    const displayedBossId = isBattleActive ? guild.bossId : (user.preferredBoss || 'boss1');
+    const canAccessBoss2 = (guild.keys?.boss2 || 0) >= 3;
 
     container.innerHTML = `
          <!-- Шапка с кнопкой рейтинг справа -->
-         <!-- ИЗМЕНЕНО: шапка с кнопкой рейтинг справа -->
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="width: 100px;"></div> <!-- пустой элемент для баланса -->
             <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">${guild.name}</h1>
             <button onclick="showGuildRating()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
          </div>
 
-
          <div id="guild-info-panel" class="guild-info-panel hidden">
              <h3>📋 Информация о гильдии</h3>
-             <!-- Убраны дублирующиеся строки: название, уровень, рейтинг -->
              <p><strong>Описание:</strong> ${guild.description || '—'}</p>
              <p><strong>Лидер:</strong> ${guild.leaderId}</p>
-             <!-- ✅ Прогресс-бар уровня (всегда виден) -->
-  ${expBarHtml}
+             ${expBarHtml}
              <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
              <ul class="member-list">
                 ${guild.members?.map(memberId => `
@@ -1316,10 +1319,10 @@ function renderGuildPage(guild) {
          </div>
 
          <div id="boss-battle-area">
-            ${renderBossBattle(guild, prevBoss, nextBoss)}
+            ${renderBossBattle(guild, displayedBossId, canAccessBoss2, isLeader)}
          </div>
 
-        ${isLeader && !guild.battleActive && (guild.bossId !== 'boss2' || (guild.keys?.boss2 || 0) >= 3) ? `
+        ${isLeader && !guild.battleActive && (displayedBossId !== 'boss2' || canAccessBoss2) ? `
              <div style="display: flex; justify-content: center; margin: 20px 0;">
                  <button id="start-battle-btn" class="glow-button">⚔️ Начать сражение</button>
              </div>
@@ -1338,7 +1341,7 @@ function renderGuildPage(guild) {
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
     document.getElementById('invite-friend-btn')?.addEventListener('click', showInviteMenu);
 
-    if (isLeader && !guild.battleActive && (guild.bossId !== 'boss2' || (guild.keys?.boss2 || 0) >= 3)) {
+    if (isLeader && !guild.battleActive && (displayedBossId !== 'boss2' || canAccessBoss2)) {
         document.getElementById('start-battle-btn').onclick = () => startBattle(guild.id);
     }
 
@@ -1358,23 +1361,29 @@ function renderGuildPage(guild) {
         createBattleTalentButtons();
     }
 }
-function renderBossBattle(guild, prevBoss, nextBoss, isLeader) {
+
+// Новая функция отрисовки босса с индивидуальным выбором
+function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
-    const bossImageUrl = `img/${guild.bossId}.png`;
+    const bossImageUrl = `img/${currentBossId}.png`;
     let remainingSeconds = 0;
     if (isBattleActive && guild.battleEndTime) {
         remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
     }
 
+    // Стрелки видны только когда битва не активна
+    const showLeftArrow = !isBattleActive && currentBossId !== 'boss1';
+    const showRightArrow = !isBattleActive && currentBossId !== 'boss2' && canAccessBoss2;
+
     return `
         <div class="boss-wrapper">
-            ${!isBattleActive && prevBoss ? `
-                <button class="boss-arrow" onclick="changeBoss('${prevBoss}')">◀</button>
-            ` : '<div style="width:48px;"></div>'}
+            ${showLeftArrow ?
+                `<button class="boss-arrow" onclick="changePreferredBoss('boss1')">◀</button>` :
+                '<div style="width:48px;"></div>'}
 
             <div class="boss-container">
-                <h3>${guild.bossId}</h3>
+                <h3>${currentBossId}</h3>
                 <img class="boss-image" src="${bossImageUrl}" onclick="attackBoss()">
                 ${isBattleActive ? `
                     <div class="boss-hp-bar">
@@ -1385,34 +1394,46 @@ function renderBossBattle(guild, prevBoss, nextBoss, isLeader) {
                 ` : ''}
             </div>
 
-            ${!isBattleActive && nextBoss ? `
-                <button class="boss-arrow" onclick="changeBoss('${nextBoss}')">▶</button>
-            ` : '<div style="width:48px;"></div>'}
+            ${showRightArrow ?
+                `<button class="boss-arrow" onclick="changePreferredBoss('boss2')">▶</button>` :
+                '<div style="width:48px;"></div>'}
         </div>
 
-        ${guild.bossId === 'boss2' ? `
+        ${currentBossId === 'boss2' && !isBattleActive ? `
             <div class="boss-keys">🔑 Ключи для босса 2: ${guild.keys?.boss2 || 0} / 3</div>
         ` : ''}
     `;
 }
-window.changeBoss = async function(bossId) {
+
+// Новая функция для смены предпочтительного босса (индивидуально)
+window.changePreferredBoss = async function(targetBossId) {
     if (!store.guild) return;
+
+    // Нельзя менять босса во время битвы
     if (store.guild.battleActive) {
         showNotification('Ошибка', 'Нельзя сменить босса во время битвы');
         return;
     }
-    const updates = { bossId };
-    if (bossId === 'boss2') {
-        updates.maxBossHp = 2000;
-        updates.bossHp = 2000;
-    } else {
-        updates.maxBossHp = 1000;
-        updates.bossHp = 1000;
+
+    // Проверка доступности босса 2 (ключи гильдии)
+    if (targetBossId === 'boss2') {
+        const keys = store.guild.keys?.boss2 || 0;
+        if (keys < 3) {
+            showNotification('Ошибка', 'Недостаточно ключей для босса 2');
+            return;
+        }
     }
-    await db.collection('guilds').doc(store.guild.id).update(updates);
+
+    // Обновляем предпочтение пользователя
+    await updateUser({ preferredBoss: targetBossId });
+
+    // Перерисовываем гильдию (snapshot гильдии обновит её, но предпочтение не вызовет триггер, поэтому вызываем вручную)
+    renderGuildPage(store.guild);
 };
+
 async function startBattle(guildId) {
     const guildRef = db.collection('guilds').doc(guildId);
+    const user = await getUser(); // текущий пользователь (лидер)
     try {
         let battleEndTime;
         await db.runTransaction(async (transaction) => {
@@ -1421,7 +1442,10 @@ async function startBattle(guildId) {
             const guild = guildDoc.data();
             if (guild.battleActive) throw new Error('Битва уже идёт');
             if (guild.leaderId !== store.authUser.uid) throw new Error('Только лидер может начать битву');
-            if (guild.bossId === 'boss2') {
+
+            const bossId = user.preferredBoss || 'boss1';
+
+            if (bossId === 'boss2') {
                 const keys = guild.keys?.boss2 || 0;
                 if (keys < 3) throw new Error('Недостаточно ключей для босса 2');
                 transaction.update(guildRef, {
@@ -1429,11 +1453,15 @@ async function startBattle(guildId) {
                 });
             }
 
+            const maxBossHp = bossId === 'boss2' ? 2000 : 1000;
+
             battleEndTime = Date.now() + 120000;
             transaction.update(guildRef, {
                 battleActive: true,
                 battleEndTime,
-                bossHp: guild.maxBossHp,
+                bossId: bossId,          // сохраняем, какой босс сейчас в битве
+                bossHp: maxBossHp,
+                maxBossHp: maxBossHp,
                 damageLog: {}
             });
         });
@@ -2144,7 +2172,6 @@ window.attackBoss = window.attackBoss;
 window.joinGuild = window.joinGuild;
 window.leaveGuild = leaveGuild;
 window.startBattle = window.startBattle;
-window.changeBoss = window.changeBoss;
 window.showGuildRating = window.showGuildRating;
 window.removeFriend = window.removeFriend;
 window.sendFriendRequest = window.sendFriendRequest;
