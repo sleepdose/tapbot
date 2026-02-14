@@ -1374,7 +1374,7 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
 
     // Стрелки видны только когда битва не активна
     const showLeftArrow = !isBattleActive && currentBossId !== 'boss1';
-    const showRightArrow = !isBattleActive && currentBossId !== 'boss2' && canAccessBoss2;
+    const showRightArrow = !isBattleActive && currentBossId !== 'boss2'; // всегда показываем, если текущий не boss2
 
     return `
         <div class="boss-wrapper">
@@ -1415,19 +1415,10 @@ window.changePreferredBoss = async function(targetBossId) {
         return;
     }
 
-    // Проверка доступности босса 2 (ключи гильдии)
-    if (targetBossId === 'boss2') {
-        const keys = store.guild.keys?.boss2 || 0;
-        if (keys < 3) {
-            showNotification('Ошибка', 'Недостаточно ключей для босса 2');
-            return;
-        }
-    }
-
-    // Обновляем предпочтение пользователя
+    // Убираем проверку ключей – переключение доступно всем всегда
     await updateUser({ preferredBoss: targetBossId });
 
-    // Перерисовываем гильдию (snapshot гильдии обновит её, но предпочтение не вызовет триггер, поэтому вызываем вручную)
+    // Перерисовываем гильдию
     renderGuildPage(store.guild);
 };
 
