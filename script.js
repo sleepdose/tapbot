@@ -1316,7 +1316,7 @@ function renderGuildPage(guild) {
          </div>
 
          <div id="boss-battle-area">
-            ${renderBossBattle(guild, prevBoss, nextBoss, isLeader)}
+            ${renderBossBattle(guild, prevBoss, nextBoss)}
          </div>
 
         ${isLeader && !guild.battleActive && (guild.bossId !== 'boss2' || (guild.keys?.boss2 || 0) >= 3) ? `
@@ -1369,7 +1369,7 @@ function renderBossBattle(guild, prevBoss, nextBoss, isLeader) {
 
     return `
         <div class="boss-wrapper">
-            ${!isBattleActive && isLeader && prevBoss ? `
+            ${!isBattleActive && prevBoss ? `
                 <button class="boss-arrow" onclick="changeBoss('${prevBoss}')">◀</button>
             ` : '<div style="width:48px;"></div>'}
 
@@ -1385,7 +1385,7 @@ function renderBossBattle(guild, prevBoss, nextBoss, isLeader) {
                 ` : ''}
             </div>
 
-            ${!isBattleActive && isLeader && nextBoss ? `
+            ${!isBattleActive && nextBoss ? `
                 <button class="boss-arrow" onclick="changeBoss('${nextBoss}')">▶</button>
             ` : '<div style="width:48px;"></div>'}
         </div>
