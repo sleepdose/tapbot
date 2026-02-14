@@ -199,7 +199,9 @@ async function loadUserFromFirestore() {
     const uid = store.authUser.uid;
     const userRef = db.collection('users').doc(uid);
     const doc = await userRef.get();
+
     if (!doc.exists) {
+        // Создание нового пользователя (без изменений)
         const newUser = {
             id: uid,
             name: tg.initDataUnsafe.user?.first_name || 'Игрок',
@@ -214,53 +216,71 @@ async function loadUserFromFirestore() {
             guildId: null,
             friends: [],
             pendingRequests: [],
-            battleResultsSeen: {}, // <-- ДОБАВЛЕНО
+            battleResultsSeen: {},
             ...defaultTalents
         };
         await userRef.set(newUser);
         store.user = newUser;
-    } else {
-        const data = doc.data();
-        let needsUpdate = false;
+        return store.user;
+    }
 
-        if (data.telegramId !== undefined && data.telegramId !== null) {
-            if (typeof data.telegramId !== 'string') {
-                data.telegramId = String(data.telegramId);
-                needsUpdate = true;
-            }
-        } else {
-            data.telegramId = String(tg.initDataUnsafe.user?.id || '');
+    const data = doc.data();
+    let needsUpdate = false;
+
+    // Приведение telegramId к строке
+    if (data.telegramId !== undefined && data.telegramId !== null) {
+        if (typeof data.telegramId !== 'string') {
+            data.telegramId = String(data.telegramId);
             needsUpdate = true;
         }
-        if (!data.talents) { data.talents = defaultTalents.talents; needsUpdate = true; }
-        if (!data.attackCharges) { data.attackCharges = defaultTalents.attackCharges; needsUpdate = true; }
-        if (!data.craftedTalents) { data.craftedTalents = defaultTalents.craftedTalents; needsUpdate = true; }
-        if (data.selectedTalent === undefined) { data.selectedTalent = null; needsUpdate = true; }
-        if (!data.preferredBoss) { data.preferredBoss = 'boss1'; needsUpdate = true; }
-        if (!data.battleResultsSeen) { data.battleResultsSeen = {}; needsUpdate = true; } // <-- ДОБАВЛЕНО
-
-        if (needsUpdate) {
-            await userRef.update({
-                telegramId: data.telegramId,
-                talents: data.talents,
-                attackCharges: data.attackCharges,
-                craftedTalents: data.craftedTalents,
-                selectedTalent: data.selectedTalent,
-                preferredBoss: data.preferredBoss,
-                battleResultsSeen: data.battleResultsSeen
-            });
-        }
-
-        const now = Date.now();
-        const deltaSeconds = Math.floor((now - (data.lastEnergyUpdate || now)) / 1000);
-        data.energy = Math.min(data.maxEnergy, (data.energy || 0) + deltaSeconds);
-        data.lastEnergyUpdate = now;
-        store.user = data;
-
-        if (now - data.lastEnergyUpdate > 5 * 60 * 1000) {
-            userRef.update({ lastEnergyUpdate: now }).catch(console.error);
-        }
+    } else {
+        data.telegramId = String(tg.initDataUnsafe.user?.id || '');
+        needsUpdate = true;
     }
+
+    // Добавление недостающих полей талантов
+    if (!data.talents) { data.talents = defaultTalents.talents; needsUpdate = true; }
+    if (!data.attackCharges) { data.attackCharges = defaultTalents.attackCharges; needsUpdate = true; }
+    if (!data.craftedTalents) { data.craftedTalents = defaultTalents.craftedTalents; needsUpdate = true; }
+    if (data.selectedTalent === undefined) { data.selectedTalent = null; needsUpdate = true; }
+    if (!data.preferredBoss) { data.preferredBoss = 'boss1'; needsUpdate = true; }
+    if (!data.battleResultsSeen) { data.battleResultsSeen = {}; needsUpdate = true; }
+
+    // --- ВОССТАНОВЛЕНИЕ ЭНЕРГИИ ---
+    const now = Date.now();
+    const originalEnergy = data.energy || 0;
+    const originalLastUpdate = data.lastEnergyUpdate || now;
+
+    const deltaSeconds = Math.floor((now - originalLastUpdate) / 1000);
+    const newEnergy = Math.min(data.maxEnergy || 100, originalEnergy + deltaSeconds);
+
+    // Если энергия изменилась или прошло время, нужно обновить запись в Firestore
+    const energyChanged = (newEnergy !== originalEnergy) || (now - originalLastUpdate > 5000); // обновляем, если прошло >5 сек
+
+    if (energyChanged) {
+        data.energy = newEnergy;
+        data.lastEnergyUpdate = now;
+        needsUpdate = true; // гарантируем запись в Firestore
+    }
+
+    // Если есть что обновлять в Firestore
+    if (needsUpdate) {
+        const updateData = {
+            telegramId: data.telegramId,
+            talents: data.talents,
+            attackCharges: data.attackCharges,
+            craftedTalents: data.craftedTalents,
+            selectedTalent: data.selectedTalent,
+            preferredBoss: data.preferredBoss,
+            battleResultsSeen: data.battleResultsSeen,
+            energy: data.energy,
+            lastEnergyUpdate: data.lastEnergyUpdate
+        };
+        await userRef.update(updateData);
+    }
+
+    // Сохраняем в store
+    store.user = data;
     return store.user;
 }
 async function updateUser(updates) {
@@ -2199,9 +2219,11 @@ window.onload = async () => {
             renderItemsForSlot(currentCustomizationSlot);
         });
 
-        setInterval(() => {
-            updateMainUI();
-        }, 60000);
+        // Очищаем предыдущий интервал, если он был (на случай повторного вызова onload)
+if (window.energyUpdateInterval) {
+    clearInterval(window.energyUpdateInterval);
+}
+window.energyUpdateInterval = setInterval(updateMainUI, 1000);
 
         // [NEW] Проверяем видимость модалки при старте
         updateBattleResultModalVisibility();
