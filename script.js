@@ -1461,9 +1461,9 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
 
     // Определяем URL картинки в зависимости от текущего HP
-    let bossImageUrl = `img/${currentBossId}.jpg`;
+    let bossImageUrl = `img/${currentBossId}.JPG`;
     if (isBattleActive && guild.bossHp / guild.maxBossHp <= 0.5) {
-        bossImageUrl = `img/${currentBossId}_half.jpg`;   // например, boss1_half.png
+        bossImageUrl = `img/${currentBossId}_half.JPG`;   // например, boss1_half.png
     }
 
     let remainingSeconds = 0;
