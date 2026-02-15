@@ -347,8 +347,9 @@ function updateMainUI() {
     const currentEnergy = getCurrentEnergy();
     document.getElementById('money').innerText = user.money;
     document.getElementById('energy-display').innerText = `⚡ ${currentEnergy}/${user.maxEnergy}`;
-    const levelBadge = document.getElementById('user-level-badge');
-    if (levelBadge) levelBadge.textContent = user.level;
+    // Обновляем уровень на аватарке
+    const avatarLevel = document.getElementById('avatar-level');
+    if (avatarLevel) avatarLevel.textContent = user.level;
 
     const eqLayer = document.getElementById('equipment-layer');
     const petLayer = document.getElementById('pet-layer');
@@ -2354,7 +2355,7 @@ window.onload = async () => {
         };
 
         updateFriendsOnlineCount();
-        setInterval(updateFriendsOnlineCount, 10000);
+        setInterval(updateFriendsOnlineCount, 10000); // Обновление каждые 30 секунд
 
         console.log('✅ Игра готова');
     } catch (e) {
