@@ -11,6 +11,26 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
+// Функция установки аватара пользователя из Telegram
+function setUserAvatar() {
+    const user = tg.initDataUnsafe?.user;
+    const avatarImg = document.getElementById('avatar-img');
+    if (!avatarImg) return;
+
+    if (user && user.photo_url) {
+        avatarImg.src = user.photo_url;
+    } else {
+        // Если фото нет – показываем инициалы
+        avatarImg.style.display = 'none';
+        const avatarDiv = document.getElementById('user-avatar');
+        const initials = user ? (user.first_name?.[0] || '').toUpperCase() : '?';
+        const span = document.createElement('span');
+        span.className = 'avatar-initials';
+        span.textContent = initials;
+        avatarDiv.appendChild(span);
+    }
+}
+
 // Firebase config
 const firebaseConfig = {
     apiKey: "AIzaSyAhzdARqvqC4a6zCaXUVoO9Ij94mtoNha0",
@@ -988,6 +1008,10 @@ function setupTalentsGlobalListeners() {
     document.getElementById('fireButton').onclick = () => craftTalent('fire');
     document.getElementById('iceButton').onclick = () => craftTalent('ice');
 }
+
+// =======================================================
+// 🆕 ФУНКЦИЯ СОЗДАНИЯ КНОПОК ТАЛАНТОВ (УЛУЧШЕННАЯ)
+// =======================================================
 function createBattleTalentButtons() {
     const container = document.getElementById('talent-selector');
     if (!container) return;
@@ -998,33 +1022,36 @@ function createBattleTalentButtons() {
     }
     let html = '<div class="talent-buttons">';
 
+    // Обычные таланты
     Object.entries(user.talents).forEach(([type, talent]) => {
         if (talent.level > 0) {
             const charges = user.attackCharges[type]?.charges || 0;
             if (charges <= 0) return;
             const isSelected = user.selectedTalent === type;
-            html += `<button class="talent-btn ${isSelected ? 'active' : ''}"
-                            data-talent="${type}"
-                            onclick="selectBattleTalent('${type}')">
-                        ${getTalentIcon(type)} ${getTalentName(type)} (${charges})
-                       </button>`;
+            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
+                <span class="talent-icon">${getTalentIcon(type)}</span>
+                <span class="talent-name">${getTalentName(type)}</span>
+                <span class="talent-charges">${charges}</span>
+            </button>`;
         }
     });
 
+    // Крафтовые таланты
     Object.entries(user.craftedTalents).forEach(([type, data]) => {
         if (data.charges > 0) {
             const isSelected = user.selectedTalent === type;
-            html += `<button class="talent-btn ${isSelected ? 'active' : ''}"
-                            data-talent="${type}"
-                            onclick="selectBattleTalent('${type}')">
-                        ${getTalentIcon(type)} ${getTalentName(type)} (${data.charges})
-                       </button>`;
+            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
+                <span class="talent-icon">${getTalentIcon(type)}</span>
+                <span class="talent-name">${getTalentName(type)}</span>
+                <span class="talent-charges">${data.charges}</span>
+            </button>`;
         }
     });
 
     html += '</div>';
     container.innerHTML = html;
 }
+
 window.selectBattleTalent = async function(talentType) {
     const user = await getUser();
     const newSelected = user.selectedTalent === talentType ? null : talentType;
@@ -1426,11 +1453,19 @@ async function renderGuildPage(guild) {
     }
 }
 
-// Новая функция отрисовки босса с индивидуальным выбором
+// =======================================================
+// 🆕 ФУНКЦИЯ ОТРИСОВКИ БОССА С ДИНАМИЧЕСКОЙ КАРТИНКОЙ
+// =======================================================
 function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
-    const bossImageUrl = `img/${currentBossId}.png`;
+
+    // Определяем URL картинки в зависимости от текущего HP
+    let bossImageUrl = `img/${currentBossId}.jpg`;
+    if (isBattleActive && guild.bossHp / guild.maxBossHp <= 0.5) {
+        bossImageUrl = `img/${currentBossId}_half.jpg`;   // например, boss1_half.png
+    }
+
     let remainingSeconds = 0;
     if (isBattleActive && guild.battleEndTime) {
         remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
@@ -1533,7 +1568,7 @@ async function startBattle(guildId) {
 }
 
 // =======================================================
-// ЗАВЕРШЕНИЕ БИТВЫ — ИСПРАВЛЕННАЯ ВЕРСИЯ
+// ЗАВЕРШЕНИЕ БИТВЫ — ИСПРАВЛЕННАЯ ВЕРСИЯ (с увеличенной наградой для boss2)
 // =======================================================
 
 const finishedBattles = new Set();
@@ -1652,11 +1687,15 @@ async function endBattle(victory, guildId) {
                         updates['keys.boss2'] = firebase.firestore.FieldValue.increment(1);
                     }
 
+                    // ========== УВЕЛИЧЕННАЯ НАГРАДА ДЛЯ ВТОРОГО БОССА ==========
+                    const bossId = freshGuild.bossId; // 'boss1' или 'boss2'
+                    const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
+
                     // Начисляем монеты только участникам битвы
                     for (const uid of userIds) {
                         const memberRef = db.collection('users').doc(uid);
                         transaction.update(memberRef, {
-                            money: firebase.firestore.FieldValue.increment(1000)
+                            money: firebase.firestore.FieldValue.increment(rewardAmount)
                         });
                     }
 
@@ -2154,6 +2193,8 @@ window.onload = async () => {
         await getUser();
         updateMainUI();
 
+        setUserAvatar(); // <-- загружаем аватар пользователя
+
         setupTalentsGlobalListeners();
 
         // [NEW] Восстанавливаем результат битвы из sessionStorage
@@ -2220,10 +2261,10 @@ window.onload = async () => {
         });
 
         // Очищаем предыдущий интервал, если он был (на случай повторного вызова onload)
-if (window.energyUpdateInterval) {
-    clearInterval(window.energyUpdateInterval);
-}
-window.energyUpdateInterval = setInterval(updateMainUI, 1000);
+        if (window.energyUpdateInterval) {
+            clearInterval(window.energyUpdateInterval);
+        }
+        window.energyUpdateInterval = setInterval(updateMainUI, 1000);
 
         // [NEW] Проверяем видимость модалки при старте
         updateBattleResultModalVisibility();

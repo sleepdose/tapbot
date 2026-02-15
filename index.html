@@ -9,12 +9,17 @@
 </head>
 <body>
     <div id="app">
+        <!-- ========== ВЕРХНЯЯ ПАНЕЛЬ (ВИДНА ВСЕГДА) ========== -->
+        <div id="stats">
+            <div class="avatar" id="user-avatar">
+                <img id="avatar-img" src="" alt="avatar">
+            </div>
+            <span id="energy-display">⚡ 100/100</span>
+            <span id="money">0</span> 🪙
+        </div>
+
         <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
         <div id="screen-main" class="screen active">
-            <div id="stats">
-                <span id="energy-display">⚡ 100/100</span>
-                <span id="money">0</span> 🪙
-            </div>
             <div id="character-area">
                 <div id="character-container">
                     <img id="base-character" src="img/men.png" alt="Персонаж">
