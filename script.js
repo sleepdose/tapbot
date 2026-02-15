@@ -223,12 +223,17 @@ async function loadUserFromFirestore() {
     const userRef = db.collection('users').doc(uid);
     const doc = await userRef.get();
 
+    // Получаем актуальные данные из Telegram
+    const tgUser = tg.initDataUnsafe?.user;
+    const currentPhotoUrl = tgUser?.photo_url || '';
+
     if (!doc.exists) {
         // Создание нового пользователя
         const newUser = {
             id: uid,
-            name: tg.initDataUnsafe.user?.first_name || 'Игрок',
-            telegramId: String(tg.initDataUnsafe.user?.id || ''),
+            name: tgUser?.first_name || 'Игрок',
+            telegramId: String(tgUser?.id || ''),
+            photoUrl: currentPhotoUrl, // [FIX] сохраняем фото
             energy: 100,
             maxEnergy: 100,
             lastEnergyUpdate: Date.now(),
@@ -257,7 +262,13 @@ async function loadUserFromFirestore() {
             needsUpdate = true;
         }
     } else {
-        data.telegramId = String(tg.initDataUnsafe.user?.id || '');
+        data.telegramId = String(tgUser?.id || '');
+        needsUpdate = true;
+    }
+
+    // [FIX] Обновляем photoUrl, если оно изменилось или отсутствует
+    if (data.photoUrl !== currentPhotoUrl) {
+        data.photoUrl = currentPhotoUrl;
         needsUpdate = true;
     }
 
@@ -292,6 +303,7 @@ async function loadUserFromFirestore() {
     if (needsUpdate) {
         const updateData = {
             telegramId: data.telegramId,
+            photoUrl: data.photoUrl, // [FIX] включаем photoUrl в обновление
             talents: data.talents,
             attackCharges: data.attackCharges,
             craftedTalents: data.craftedTalents,
@@ -1426,7 +1438,7 @@ async function renderGuildPage(guild) {
                 name: data.name || 'Без имени',
                 telegramId: data.telegramId || memberId.slice(0, 6),
                 level: data.level || 1,
-                photoUrl: data.photoUrl || null
+                photoUrl: data.photoUrl || null  // [FIX] получаем photoUrl
             };
         } else {
             return {
@@ -1440,6 +1452,9 @@ async function renderGuildPage(guild) {
     });
     const membersData = await Promise.all(memberPromises);
 
+    // [FIX] Находим данные лидера
+    const leaderData = membersData.find(m => m.id === guild.leaderId) || { name: 'Неизвестный', telegramId: guild.leaderId.slice(0,6) };
+
     container.innerHTML = `
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="width: 100px;"></div>
@@ -1451,7 +1466,7 @@ async function renderGuildPage(guild) {
              <h3>📋 Информация о гильдии</h3>
              <p><strong>Описание:</strong> ${guild.description || '—'}</p>
              ${guild.chatLink ? `<p><strong>Чат/канал:</strong> <a href="${guild.chatLink}" target="_blank" style="color: #8ab3ff;">${guild.chatLink}</a></p>` : ''}
-             <p><strong>Лидер:</strong> ${guild.leaderId}</p>
+             <p><strong>Лидер:</strong> ${leaderData.name} (${leaderData.telegramId})</p>  <!-- [FIX] отображаем имя и ID -->
              ${expBarHtml}
              <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
              <ul class="member-list">
