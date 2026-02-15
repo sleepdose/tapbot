@@ -1085,6 +1085,7 @@ function startPoisonEffect(damagePerSec, duration, guildId, userId) {
 
     let ticks = duration;
     const damageInterval = setInterval(async () => {
+        // Проверяем, активен ли бой и существует ли гильдия
         if (!store.guild?.battleActive || store.guild?.id !== guildId || ticks <= 0) {
             clearInterval(damageInterval);
             clearInterval(timerInterval);
@@ -1093,7 +1094,17 @@ function startPoisonEffect(damagePerSec, duration, guildId, userId) {
             return;
         }
 
+        // Дополнительная проверка: если здоровье босса уже ≤ 0, не наносим урон
         const guildRef = db.collection('guilds').doc(guildId);
+        const guildDoc = await guildRef.get();
+        if (!guildDoc.exists || guildDoc.data().bossHp <= 0) {
+            clearInterval(damageInterval);
+            clearInterval(timerInterval);
+            delete store.activePoisonEffects[effectId];
+            updatePoisonTimers(guildId);
+            return;
+        }
+
         await guildRef.update({
             bossHp: firebase.firestore.FieldValue.increment(-damagePerSec),
             [`damageLog.${userId}`]: firebase.firestore.FieldValue.increment(damagePerSec)
@@ -1101,12 +1112,10 @@ function startPoisonEffect(damagePerSec, duration, guildId, userId) {
 
         showDamageEffect(damagePerSec, '☠️');
 
-        const guildDoc = await guildRef.get();
-        if (guildDoc.exists) {
-            const guild = guildDoc.data();
-            if (guild.bossHp <= 0) {
-                await endBattle(true, guildId);
-            }
+        // После нанесения урона проверяем, не убит ли босс
+        const updatedGuildDoc = await guildRef.get();
+        if (updatedGuildDoc.exists && updatedGuildDoc.data().bossHp <= 0) {
+            await endBattle(true, guildId);
         }
 
         ticks--;
@@ -1183,16 +1192,24 @@ window.hideCreateGuildModal = function() {
     document.getElementById('create-guild-modal').classList.add('hidden');
     document.getElementById('guild-name').value = '';
     document.getElementById('guild-desc').value = '';
+    document.getElementById('guild-chat-link').value = '';
 };
 
-async function createGuild(name, description) {
+async function createGuild(name, description, chatLink) {
+    // Проверка длины названия
+    if (name.length < 5) {
+        showNotification('Ошибка', 'Название гильдии должно содержать минимум 5 символов');
+        return;
+    }
+
     const user = await getUser();
     const newGuild = {
         name,
         description,
+        chatLink: chatLink || '',
         leaderId: store.authUser.uid,
         members: [store.authUser.uid],
-        maxMembers: 20,
+        maxMembers: 20, // Начальное значение для 1 уровня
         level: 1,
         rating: 0,
         bossId: 'boss1',
@@ -1227,7 +1244,7 @@ window.joinGuild = async function(guildId) {
 
             const guild = guildDoc.data();
             if (guild.members.length >= (guild.maxMembers || 20)) {
-                throw new Error('Гильдия полна (макс. 20 участников)');
+                throw new Error('Гильдия полна');
             }
             if (guild.members.includes(store.authUser.uid)) throw new Error('Уже в гильдии');
 
@@ -1245,6 +1262,18 @@ window.joinGuild = async function(guildId) {
         showNotification('Ошибка', e.message || 'Не удалось вступить');
     }
 };
+
+// Функция определения уровня гильдии и максимального числа участников по рейтингу
+function getGuildLevelAndMaxMembersFromRating(rating) {
+    if (rating >= 300) {
+        return { level: 3, maxMembers: 60 };
+    } else if (rating >= 100) {
+        return { level: 2, maxMembers: 40 };
+    } else {
+        return { level: 1, maxMembers: 20 };
+    }
+}
+
 async function loadGuildScreen() {
     const user = await getUser(true);
     const container = document.getElementById('guild-view');
@@ -1354,14 +1383,19 @@ function getXPProgress(user) {
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
-    guild.level = guild.level ?? 1;
+
+    // Определяем уровень и максимальное количество участников по рейтингу
+    const { level: computedLevel, maxMembers: computedMaxMembers } = getGuildLevelAndMaxMembersFromRating(guild.rating || 0);
+    // Если в гильдии ещё нет поля level или оно устарело, обновим в базе (но пока просто используем вычисленное)
+    guild.level = computedLevel;
+    guild.maxMembers = computedMaxMembers;
     guild.rating = guild.rating ?? 0;
 
     const currentLevel = guild.level || 1;
     const rating = guild.rating || 0;
-    const nextLevelRating = currentLevel * 100;
-    const progress = rating % 100;
-    const toNextLevel = nextLevelRating - rating;
+    const nextLevelRating = currentLevel === 1 ? 100 : (currentLevel === 2 ? 300 : 300);
+    const progress = currentLevel === 3 ? 100 : (rating % (currentLevel === 1 ? 100 : 200)) / ((currentLevel === 1 ? 100 : 200)) * 100;
+    const toNextLevel = currentLevel === 3 ? 0 : (currentLevel === 1 ? 100 - rating : 300 - rating);
     const expBarHtml = `
         <div style="margin: 15px 0;">
             <div style="display: flex; justify-content: space-between; font-size: 14px; color: #ccc;">
@@ -1371,9 +1405,9 @@ async function renderGuildPage(guild) {
             <div class="exp-bar-container" style="width: 100%; height: 16px; background: #2a2a2a; border-radius: 8px; overflow: hidden; margin: 5px 0;">
                 <div class="exp-bar-fill" style="width: ${progress}%;" data-progress="${Math.round(progress)}"></div>
             </div>
-            <div style="text-align: right; font-size: 13px; color: #aaa;">
+            ${currentLevel < 3 ? `<div style="text-align: right; font-size: 13px; color: #aaa;">
                 До уровня ${currentLevel + 1}: осталось ${toNextLevel} очков
-            </div>
+            </div>` : '<div style="text-align: right; font-size: 13px; color: #aaa;">Максимальный уровень</div>'}
         </div>
     `;
 
@@ -1381,6 +1415,30 @@ async function renderGuildPage(guild) {
     const isBattleActive = guild.battleActive;
     const displayedBossId = isBattleActive ? guild.bossId : (user.preferredBoss || 'boss1');
     const canAccessBoss2 = (guild.keys?.boss2 || 0) >= 3;
+
+    // Собираем данные об участниках
+    const memberPromises = guild.members.map(async (memberId) => {
+        const memberDoc = await db.collection('users').doc(memberId).get();
+        if (memberDoc.exists) {
+            const data = memberDoc.data();
+            return {
+                id: memberId,
+                name: data.name || 'Без имени',
+                telegramId: data.telegramId || memberId.slice(0, 6),
+                level: data.level || 1,
+                photoUrl: data.photoUrl || null
+            };
+        } else {
+            return {
+                id: memberId,
+                name: 'Неизвестный',
+                telegramId: memberId.slice(0, 6),
+                level: 1,
+                photoUrl: null
+            };
+        }
+    });
+    const membersData = await Promise.all(memberPromises);
 
     container.innerHTML = `
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
@@ -1392,18 +1450,34 @@ async function renderGuildPage(guild) {
          <div id="guild-info-panel" class="guild-info-panel hidden">
              <h3>📋 Информация о гильдии</h3>
              <p><strong>Описание:</strong> ${guild.description || '—'}</p>
+             ${guild.chatLink ? `<p><strong>Чат/канал:</strong> <a href="${guild.chatLink}" target="_blank" style="color: #8ab3ff;">${guild.chatLink}</a></p>` : ''}
              <p><strong>Лидер:</strong> ${guild.leaderId}</p>
              ${expBarHtml}
              <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
              <ul class="member-list">
-                ${guild.members?.map(memberId => `
-                     <li>
-                         <span>${memberId === store.authUser.uid ? '⭐ ' : ''}${memberId}</span>
-                        ${isLeader && memberId !== store.authUser.uid ?
-                            `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${memberId}')">❌ Удалить</button>`
-                            : ''}
-                     </li>
-                `).join('') || '<li>Нет участников</li>'}
+                ${membersData.map(member => {
+                    // Создаём мини-аватарку
+                    const avatarHtml = member.photoUrl
+                        ? `<img src="${member.photoUrl}" class="member-avatar-img" alt="avatar">`
+                        : `<span class="member-avatar-initials">${member.name[0]?.toUpperCase() || '?'}</span>`;
+                    return `
+                        <li>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="member-avatar">
+                                    ${avatarHtml}
+                                    <span class="member-level-badge">${member.level}</span>
+                                </div>
+                                <div>
+                                    <div>${member.name}</div>
+                                    <div style="font-size: 12px; color: #aaa;">${member.telegramId}</div>
+                                </div>
+                            </div>
+                            ${isLeader && member.id !== store.authUser.uid ?
+                                `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${member.id}')">❌ Удалить</button>`
+                                : ''}
+                        </li>
+                    `;
+                }).join('') || '<li>Нет участников</li>'}
              </ul>
 
              <div style="display: flex; gap: 10px; margin-top: 15px;">
@@ -1607,6 +1681,9 @@ async function endBattle(victory, guildId) {
         console.log("Таймер боя остановлен при завершении (endBattle).");
     }
 
+    // Останавливаем все эффекты яда для этой гильдии
+    stopPoisonEffectsForGuild(guildId);
+
     const guildRef = db.collection('guilds').doc(guildId);
     const guildDoc = await guildRef.get();
     if (!guildDoc.exists) {
@@ -1664,7 +1741,11 @@ async function endBattle(victory, guildId) {
                 if (victory) {
                     const newRating = (freshGuild.rating || 0) + 10;
                     updates.rating = newRating;
-                    updates.level = Math.floor(newRating / 100) + 1;
+
+                    // Определяем новый уровень и максимальное количество участников по рейтингу
+                    const { level: newLevel, maxMembers: newMaxMembers } = getGuildLevelAndMaxMembersFromRating(newRating);
+                    updates.level = newLevel;
+                    updates.maxMembers = newMaxMembers;
 
                     if (freshGuild.bossId === 'boss1') {
                         updates['keys.boss2'] = firebase.firestore.FieldValue.increment(1);
@@ -1696,7 +1777,7 @@ async function endBattle(victory, guildId) {
                     }
 
                     finalRating = newRating;
-                    finalLevel = updates.level;
+                    finalLevel = newLevel;
                 }
 
                 const lastBattleResult = {
@@ -1725,7 +1806,6 @@ async function endBattle(victory, guildId) {
     }
 
     if (success) {
-        stopPoisonEffectsForGuild(guildId);
         finishedBattles.add(guildId);
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
@@ -2242,12 +2322,17 @@ window.onload = async () => {
         document.getElementById('confirm-create-guild').onclick = async () => {
             const name = document.getElementById('guild-name').value.trim();
             const desc = document.getElementById('guild-desc').value.trim();
+            const chatLink = document.getElementById('guild-chat-link').value.trim();
             if (!name) {
                  showNotification('Ошибка', 'Введите название гильдии');
                 return;
             }
+            if (name.length < 5) {
+                showNotification('Ошибка', 'Название гильдии должно содержать минимум 5 символов');
+                return;
+            }
             hideCreateGuildModal();
-            await createGuild(name, desc);
+            await createGuild(name, desc, chatLink);
         };
         document.getElementById('cancel-create-guild').onclick = hideCreateGuildModal;
 
@@ -2355,7 +2440,7 @@ window.onload = async () => {
         };
 
         updateFriendsOnlineCount();
-        setInterval(updateFriendsOnlineCount, 10000); // Обновление каждые 30 секунд
+        setInterval(updateFriendsOnlineCount, 10000); // Обновление каждые 10 секунд
 
         console.log('✅ Игра готова');
     } catch (e) {
