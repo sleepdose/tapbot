@@ -14,6 +14,7 @@
             <div class="avatar" id="user-avatar">
                 <img id="avatar-img" src="" alt="avatar">
             </div>
+            <span id="user-level-badge" class="level-badge">1</span>
             <span id="energy-display">⚡ 100/100</span>
             <span id="money">0</span> 🪙
         </div>
@@ -122,17 +123,11 @@
             <div id="guild-view"></div>
         </div>
 
-        <!-- ========== ДРУЗЬЯ ========== -->
-        <div id="screen-friends" class="screen">
-            <div id="friends-view"></div>
-        </div>
-
         <!-- ========== НИЖНЯЯ НАВИГАЦИЯ ========== -->
         <nav id="bottom-nav">
             <button data-screen="main" class="nav-btn active">👤</button>
             <button data-screen="workshop" class="nav-btn">🔧</button>
             <button data-screen="guild" class="nav-btn">🏰</button>
-            <button data-screen="friends" class="nav-btn">👥</button>
         </nav>
 
         <!-- ========== МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ГИЛЬДИИ ========== -->
@@ -157,6 +152,66 @@
                     <button id="close-battle-result" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
                 </div>
             </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО ПРОФИЛЯ ========== -->
+        <div id="profile-modal" class="modal hidden">
+            <div class="modal-content profile-content">
+                <div class="profile-avatar">
+                    <img id="profile-avatar-img" src="" alt="Avatar">
+                </div>
+                <div class="profile-name" id="profile-name">Загрузка...</div>
+                <div class="profile-id">ID: <span id="profile-id">...</span></div>
+                <div class="profile-level">Уровень <span id="profile-level">1</span></div>
+                <div class="xp-bar-container">
+                    <div class="xp-bar-fill" id="profile-xp-fill" style="width:0%"></div>
+                </div>
+                <div class="xp-text"><span id="profile-xp-current">0</span> / <span id="profile-xp-next">100</span> XP</div>
+                <div class="profile-damage">💥 Всего урона: <span id="profile-damage">0</span></div>
+                <button class="close-modal-btn glow-button" id="close-profile-modal">Закрыть</button>
+            </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО ДРУЗЕЙ ========== -->
+        <div id="friends-modal" class="modal hidden">
+            <div class="modal-content friends-content">
+                <h3>👥 Друзья</h3>
+                <div class="friends-my-id">
+                    <span>Ваш ID: </span>
+                    <strong id="friends-my-id-value"></strong>
+                    <button class="copy-btn" onclick="copyToClipboard(document.getElementById('friends-my-id-value').innerText)">📋 Копировать</button>
+                </div>
+
+                <div class="friends-tabs">
+                    <button class="friends-tab-btn active" data-tab="list">Список друзей</button>
+                    <button class="friends-tab-btn" data-tab="requests">Заявки</button>
+                    <button class="friends-tab-btn" data-tab="search">Найти друга</button>
+                </div>
+
+                <!-- Вкладка: Список друзей -->
+                <div id="friends-list-tab" class="friends-tab-content active">
+                    <div id="friends-list-container"></div>
+                </div>
+
+                <!-- Вкладка: Входящие заявки -->
+                <div id="friends-requests-tab" class="friends-tab-content">
+                    <div id="friends-requests-container"></div>
+                </div>
+
+                <!-- Вкладка: Поиск друга -->
+                <div id="friends-search-tab" class="friends-tab-content">
+                    <input type="text" id="friends-search-input" placeholder="Telegram ID друга">
+                    <button id="friends-search-btn" class="glow-button">Найти</button>
+                    <div id="friends-search-result"></div>
+                </div>
+
+                <button class="close-modal-btn" id="close-friends-modal">Закрыть</button>
+            </div>
+        </div>
+
+        <!-- Плавающая кнопка друзей -->
+        <div id="friends-fab" class="fab" onclick="openFriendsModal()">
+            <span id="friends-online-count">0</span>в сети
         </div>
     </div>
 

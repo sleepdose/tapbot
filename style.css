@@ -88,6 +88,7 @@ body {
     border: 2px solid #4a6c8f;
     flex-shrink: 0;
     box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    cursor: pointer;
 }
 .avatar img {
     width: 100%;
@@ -104,6 +105,18 @@ body {
     font-weight: bold;
     color: #fff;
     background: #4a6c8f;
+}
+/* Бейдж уровня */
+.level-badge {
+    background: #4a6c8f;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 2px solid #ffd966;
+    box-shadow: 0 2px 4px black;
+    margin-left: -5px;
 }
 /* ========== ПЕРСОНАЖ В ГЛАВНОМ МЕНЮ ========== */
 #character-area {
@@ -756,7 +769,7 @@ body {
     transform: translateY(2px);
     box-shadow: 0 0 10px #4a6c8f, 0 2px 0 #1a2a3a;
 }
-/* ========== МОДАЛЬНОЕ ОКНО ========== */
+/* ========== МОДАЛЬНЫЕ ОКНА ========== */
 .modal {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -812,8 +825,89 @@ body {
     border: 1px solid #5a5a5a;
     color: white;
 }
-/* ========== ДРУЗЬЯ ========== */
-.my-id-card {
+/* Модальное окно профиля */
+.profile-content {
+    text-align: center;
+}
+.profile-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 15px;
+    border: 3px solid #4a6c8f;
+    background: #2a2a2a;
+}
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.profile-name {
+    font-size: 22px;
+    font-weight: bold;
+    color: #ffd966;
+    margin-bottom: 5px;
+}
+.profile-id {
+    color: #aaa;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+.profile-level {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: #6ab04c;
+}
+.xp-bar-container {
+    width: 100%;
+    height: 20px;
+    background: #2a2a2a;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0 5px;
+    border: 1px solid #4a4a4a;
+}
+.xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a6c8f, #7aa3d1);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+.xp-text {
+    font-size: 14px;
+    color: #ccc;
+    margin-bottom: 15px;
+}
+.profile-damage {
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    padding: 10px;
+    border-radius: 30px;
+    margin: 15px 0;
+    font-size: 16px;
+    color: #ffaa00;
+}
+.close-modal-btn {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+.close-modal-btn:hover {
+    background: #3a5a7a;
+}
+/* Модальное окно друзей */
+.friends-content {
+    max-width: 420px;
+    width: 95%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.friends-my-id {
     background: #242424;
     border: 1px solid #4a6c8f;
     border-radius: 16px;
@@ -823,27 +917,71 @@ body {
     align-items: center;
     justify-content: space-between;
     color: #d0d0d0;
-    box-shadow: 0 4px 0 #2a3a4a;
 }
-.copy-btn {
+.friends-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #3a3a3a;
+}
+.friends-tab-btn {
+    flex: 1;
+    padding: 10px;
     background: #2d2d2d;
-    border: 1px solid #6b8cae;
-    color: #fff;
-    padding: 6px 12px;
-    border-radius: 30px;
+    border: none;
+    color: #ccc;
+    border-radius: 8px 8px 0 0;
     cursor: pointer;
+    font-size: 14px;
+    transition: 0.1s;
 }
-.friend-item, .friend-request {
+.friends-tab-btn.active {
+    background: #1e1e1e;
+    color: white;
+    border-bottom: 3px solid #4a6c8f;
+}
+.friends-tab-content {
+    display: none;
+    padding: 10px 0;
+}
+.friends-tab-content.active {
+    display: block;
+}
+.friend-item {
     background: #242424;
     border: 1px solid #3f3f3f;
     border-radius: 16px;
     padding: 12px 16px;
     margin-bottom: 10px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 10px;
 }
-.friend-item button {
+.friend-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.friend-status.online {
+    background: #6ab04c;
+    box-shadow: 0 0 8px #6ab04c;
+}
+.friend-status.offline {
+    background: #b33e3e;
+}
+.friend-info {
+    flex: 1;
+}
+.friend-name {
+    font-weight: 600;
+    color: #e0e0e0;
+}
+.friend-id {
+    font-size: 12px;
+    color: #888;
+}
+.remove-friend-btn {
     background: #b33e3e;
     border: none;
     color: white;
@@ -852,12 +990,32 @@ body {
     font-size: 12px;
     cursor: pointer;
 }
-.friend-item button:hover {
-    background: #c44a4a;
+.friend-request {
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    border-radius: 16px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
-.online { color: #6ab04c; }
-.offline { color: #b0b0b0; }
-#search-friend {
+.friend-request span {
+    color: #e0e0e0;
+}
+.friend-request button {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin-left: 5px;
+}
+.friend-request button.accept {
+    background: #4a6c8f;
+}
+#friends-search-input {
     background: #1a1a1a;
     border: 1px solid #4a4a4a;
     color: #e0e0e0;
@@ -867,15 +1025,46 @@ body {
     border-radius: 40px;
     font-size: 15px;
 }
-#search-btn {
-    background: #2d2d2d;
-    border: 1px solid #5a5a5a;
-    color: #fff;
+#friends-search-btn {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+}
+#friends-search-result .friend-item {
+    margin-top: 10px;
+}
+/* Плавающая кнопка друзей */
+.fab {
+    position: fixed;
+    bottom: 80px;
+    right: 15px;
+    background: #2a4a6a;
+    border: 2px solid #8ab3ff;
+    color: white;
     padding: 12px 20px;
     border-radius: 40px;
-    width: 100%;
+    font-size: 16px;
     font-weight: 600;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 15px #4a6c8f;
     cursor: pointer;
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+.fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.6), 0 0 20px #6a8caf;
+}
+.fab span {
+    background: #ffd966;
+    color: #1e1e1e;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: bold;
+    min-width: 28px;
+    text-align: center;
 }
 /* Лоадер */
 .loader {

@@ -205,7 +205,10 @@ const defaultTalents = {
         ice:    { level: 0, damage: 60, charges: 0 }
     },
     selectedTalent: null,
-    preferredBoss: 'boss1'
+    preferredBoss: 'boss1',
+    level: 1,
+    xp: 0,
+    totalDamage: 0
 };
 
 async function getUser(forceReload = false) {
@@ -221,7 +224,7 @@ async function loadUserFromFirestore() {
     const doc = await userRef.get();
 
     if (!doc.exists) {
-        // Создание нового пользователя (без изменений)
+        // Создание нового пользователя
         const newUser = {
             id: uid,
             name: tg.initDataUnsafe.user?.first_name || 'Игрок',
@@ -265,6 +268,9 @@ async function loadUserFromFirestore() {
     if (data.selectedTalent === undefined) { data.selectedTalent = null; needsUpdate = true; }
     if (!data.preferredBoss) { data.preferredBoss = 'boss1'; needsUpdate = true; }
     if (!data.battleResultsSeen) { data.battleResultsSeen = {}; needsUpdate = true; }
+    if (data.level === undefined) { data.level = 1; needsUpdate = true; }
+    if (data.xp === undefined) { data.xp = 0; needsUpdate = true; }
+    if (data.totalDamage === undefined) { data.totalDamage = 0; needsUpdate = true; }
 
     // --- ВОССТАНОВЛЕНИЕ ЭНЕРГИИ ---
     const now = Date.now();
@@ -274,13 +280,12 @@ async function loadUserFromFirestore() {
     const deltaSeconds = Math.floor((now - originalLastUpdate) / 1000);
     const newEnergy = Math.min(data.maxEnergy || 100, originalEnergy + deltaSeconds);
 
-    // Если энергия изменилась или прошло время, нужно обновить запись в Firestore
-    const energyChanged = (newEnergy !== originalEnergy) || (now - originalLastUpdate > 5000); // обновляем, если прошло >5 сек
+    const energyChanged = (newEnergy !== originalEnergy) || (now - originalLastUpdate > 5000);
 
     if (energyChanged) {
         data.energy = newEnergy;
         data.lastEnergyUpdate = now;
-        needsUpdate = true; // гарантируем запись в Firestore
+        needsUpdate = true;
     }
 
     // Если есть что обновлять в Firestore
@@ -294,7 +299,10 @@ async function loadUserFromFirestore() {
             preferredBoss: data.preferredBoss,
             battleResultsSeen: data.battleResultsSeen,
             energy: data.energy,
-            lastEnergyUpdate: data.lastEnergyUpdate
+            lastEnergyUpdate: data.lastEnergyUpdate,
+            level: data.level,
+            xp: data.xp,
+            totalDamage: data.totalDamage
         };
         await userRef.update(updateData);
     }
@@ -309,6 +317,7 @@ async function updateUser(updates) {
     await userRef.update(updates);
     Object.assign(store.user, updates);
     updateMainUI();
+    updateFriendsOnlineCount(); // Обновляем счётчик друзей после изменения
 }
 function getCurrentEnergy(userData = store.user) {
     if (!userData) return 0;
@@ -330,7 +339,7 @@ async function spendEnergy(amount = 1) {
 }
 
 // =======================================================
-// ГЛАВНЫЙ ЭКРАН (исправлено: защита от дублей)
+// ГЛАВНЫЙ ЭКРАН
 // =======================================================
 function updateMainUI() {
     if (!store.user) return;
@@ -338,18 +347,20 @@ function updateMainUI() {
     const currentEnergy = getCurrentEnergy();
     document.getElementById('money').innerText = user.money;
     document.getElementById('energy-display').innerText = `⚡ ${currentEnergy}/${user.maxEnergy}`;
+    const levelBadge = document.getElementById('user-level-badge');
+    if (levelBadge) levelBadge.textContent = user.level;
+
     const eqLayer = document.getElementById('equipment-layer');
     const petLayer = document.getElementById('pet-layer');
     if (eqLayer) eqLayer.innerHTML = '';
     if (petLayer) petLayer.innerHTML = '';
 
     const slots = ['hat', 'shirt', 'jeans', 'boots'];
-    const addedLogicalSlots = new Set(); // ← отслеживаем логические слоты
+    const addedLogicalSlots = new Set();
 
     slots.forEach(slot => {
         if (user.equipped[slot]) {
             const logicalSlot = getLogicalSlot(slot);
-            // Если для этого логического слота ещё не добавляли картинку
             if (!addedLogicalSlots.has(logicalSlot)) {
                 const img = document.createElement('img');
                 img.src = user.equipped[slot].imageUrl;
@@ -423,14 +434,14 @@ async function loadCharacterCustomization() {
 }
 
 // =======================================================
-// МАСТЕРСКАЯ — предпросмотр (исправлено: защита от дублей)
+// МАСТЕРСКАЯ — предпросмотр
 // =======================================================
 function updatePreviewCharacter(user) {
     const eqLayer = document.getElementById('preview-equipment');
     if (!eqLayer) return;
     eqLayer.innerHTML = '';
     const slots = ['hat', 'shirt', 'jeans', 'boots'];
-    const addedLogicalSlots = new Set(); // ← отслеживаем логические слоты
+    const addedLogicalSlots = new Set();
 
     slots.forEach(slot => {
         if (user.equipped[slot]) {
@@ -452,7 +463,6 @@ function updatePreviewCharacter(user) {
         if (previewCard) {
             const slot = previewCard.dataset.slot;
             const imgUrl = previewCard.dataset.image;
-            // Предпросматриваемый предмет может временно создать дубль, но это нормально
             const img = document.createElement('img');
             img.src = imgUrl;
             img.classList.add(slot);
@@ -1010,7 +1020,7 @@ function setupTalentsGlobalListeners() {
 }
 
 // =======================================================
-// 🆕 ФУНКЦИЯ СОЗДАНИЯ КНОПОК ТАЛАНТОВ (УЛУЧШЕННАЯ)
+// 🆕 ФУНКЦИЯ СОЗДАНИЯ КНОПОК ТАЛАНТОВ
 // =======================================================
 function createBattleTalentButtons() {
     const container = document.getElementById('talent-selector');
@@ -1022,7 +1032,6 @@ function createBattleTalentButtons() {
     }
     let html = '<div class="talent-buttons">';
 
-    // Обычные таланты
     Object.entries(user.talents).forEach(([type, talent]) => {
         if (talent.level > 0) {
             const charges = user.attackCharges[type]?.charges || 0;
@@ -1036,7 +1045,6 @@ function createBattleTalentButtons() {
         }
     });
 
-    // Крафтовые таланты
     Object.entries(user.craftedTalents).forEach(([type, data]) => {
         if (data.charges > 0) {
             const isSelected = user.selectedTalent === type;
@@ -1070,16 +1078,13 @@ function startPoisonEffect(damagePerSec, duration, guildId, userId) {
     const effectId = `${guildId}_${userId}_${Date.now()}`;
     const endTime = Date.now() + duration * 1000;
 
-    // ⏳ Таймер для отображения оставшегося времени (каждые 200 мс)
     const timerInterval = setInterval(() => {
         updatePoisonTimers(guildId);
     }, 200);
 
-    // 💀 Интервал нанесения урона (каждую секунду)
     let ticks = duration;
     const damageInterval = setInterval(async () => {
         if (!store.guild?.battleActive || store.guild?.id !== guildId || ticks <= 0) {
-            // удаляем эффект
             clearInterval(damageInterval);
             clearInterval(timerInterval);
             delete store.activePoisonEffects[effectId];
@@ -1087,7 +1092,6 @@ function startPoisonEffect(damagePerSec, duration, guildId, userId) {
             return;
         }
 
-        // Наносим урон и пишем в damageLog конкретного игрока
         const guildRef = db.collection('guilds').doc(guildId);
         await guildRef.update({
             bossHp: firebase.firestore.FieldValue.increment(-damagePerSec),
@@ -1107,7 +1111,6 @@ function startPoisonEffect(damagePerSec, duration, guildId, userId) {
         ticks--;
     }, 1000);
 
-    // Сохраняем эффект
     store.activePoisonEffects[effectId] = {
         interval: damageInterval,
         timerInterval,
@@ -1121,7 +1124,6 @@ function startPoisonEffect(damagePerSec, duration, guildId, userId) {
     updatePoisonTimers(guildId);
 }
 
-// 🔄 Обновление визуального таймера яда (отображает все активные эффекты для текущей гильдии)
 function updatePoisonTimers(guildId) {
     if (store.guild?.id !== guildId) return;
     const container = document.getElementById('poison-timer-container');
@@ -1145,7 +1147,6 @@ function updatePoisonTimers(guildId) {
     container.innerHTML = html;
 }
 
-// 🛑 Остановка всех эффектов яда для конкретной гильдии
 function stopPoisonEffectsForGuild(guildId) {
     Object.keys(store.activePoisonEffects).forEach(effectId => {
         const eff = store.activePoisonEffects[effectId];
@@ -1158,7 +1159,6 @@ function stopPoisonEffectsForGuild(guildId) {
     updatePoisonTimers(guildId);
 }
 
-// 🛑 Остановка эффектов для всех гильдий, кроме текущей
 function stopPoisonEffectsForOtherGuilds(currentGuildId) {
     Object.keys(store.activePoisonEffects).forEach(effectId => {
         const eff = store.activePoisonEffects[effectId];
@@ -1252,7 +1252,6 @@ async function loadGuildScreen() {
         store.listeners.guild();
         store.listeners.guild = null;
     }
-    // Очищаем все таймеры битв при переключении вкладки
     for (let key in store.listeners) {
         if (key.startsWith('battleTimer_') && store.listeners[key]) {
             console.log("Очищаем таймер битвы при переключении вкладки:", key);
@@ -1287,7 +1286,6 @@ async function loadGuildScreen() {
 
         document.getElementById('create-guild-btn').onclick = showCreateGuildModal;
     } else {
-        // 🧹 Останавливаем яды для чужих гильдий
         stopPoisonEffectsForOtherGuilds(user.guildId);
 
         const guildDoc = await db.collection('guilds').doc(user.guildId).get();
@@ -1306,20 +1304,15 @@ async function loadGuildScreen() {
                 store.guild = updatedGuild;
                 renderGuildPage(updatedGuild);
 
-                // 🔥 Защита: если бой активен, но время истекло — завершаем
                 if (updatedGuild.battleActive && updatedGuild.battleEndTime < Date.now()) {
                     endBattle(false, updatedGuild.id);
                 }
 
-                // ========== Обработка lastBattleResult ==========
                 if (updatedGuild.lastBattleResult) {
                     const res = updatedGuild.lastBattleResult;
-                    // Проверяем, участвовал ли текущий пользователь
                     if (res.participants && res.participants.includes(store.authUser.uid)) {
-                        // Получаем актуальные данные пользователя (с battleResultsSeen)
                         const currentUser = await getUser();
                         const seenTimestamp = currentUser.battleResultsSeen?.[updatedGuild.id];
-                        // Показываем, если результат новее последнего просмотра
                         if (!seenTimestamp || seenTimestamp < res.timestamp) {
                             setBattleResult(
                                 res.victory,
@@ -1332,7 +1325,6 @@ async function loadGuildScreen() {
                             );
                             updateBattleResultModalVisibility();
 
-                            // ========== ДОБАВЛЕНО: обновляем данные пользователя, чтобы увидеть начисленные монеты ==========
                             await loadUserFromFirestore(true);
                             updateMainUI();
                         }
@@ -1344,18 +1336,30 @@ async function loadGuildScreen() {
     updateBattleResultModalVisibility();
 }
 
-// Функция отрисовки страницы гильдии с учётом индивидуального выбора босса
+function getLevelFromXP(xp) {
+    return Math.floor(xp / 100) + 1;
+}
+function getXPForLevel(level) {
+    return (level - 1) * 100;
+}
+function getXPProgress(user) {
+    const currentLevelXP = getXPForLevel(user.level);
+    const nextLevelXP = getXPForLevel(user.level + 1);
+    const xpInThisLevel = user.xp - currentLevelXP;
+    const neededForNext = nextLevelXP - currentLevelXP;
+    return { xpInThisLevel, neededForNext, progress: (xpInThisLevel / neededForNext) * 100 };
+}
+
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
     guild.level = guild.level ?? 1;
     guild.rating = guild.rating ?? 0;
 
-    // расчёт прогресса уровня
     const currentLevel = guild.level || 1;
     const rating = guild.rating || 0;
-    const nextLevelRating = currentLevel * 100; // для 1 уровня нужно 100, для 2 - 200 и т.д.
-    const progress = rating % 100; // сколько очков до следующего уровня (0-99)
+    const nextLevelRating = currentLevel * 100;
+    const progress = rating % 100;
     const toNextLevel = nextLevelRating - rating;
     const expBarHtml = `
         <div style="margin: 15px 0;">
@@ -1372,16 +1376,14 @@ async function renderGuildPage(guild) {
         </div>
     `;
 
-    // Определяем, какого босса показывать
-    const user = store.user; // уже загружен
+    const user = store.user;
     const isBattleActive = guild.battleActive;
     const displayedBossId = isBattleActive ? guild.bossId : (user.preferredBoss || 'boss1');
     const canAccessBoss2 = (guild.keys?.boss2 || 0) >= 3;
 
     container.innerHTML = `
-         <!-- Шапка с кнопкой рейтинг справа -->
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <div style="width: 100px;"></div> <!-- пустой элемент для баланса -->
+            <div style="width: 100px;"></div>
             <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">${guild.name}</h1>
             <button onclick="showGuildRating()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
          </div>
@@ -1421,7 +1423,6 @@ async function renderGuildPage(guild) {
 
          <div id="talent-selector"></div>
 
-         <!-- 🆕 КОНТЕЙНЕР ДЛЯ ТАЙМЕРОВ ЯДА -->
          <div id="poison-timer-container" style="margin-top: 10px; text-align: center;"></div>
     `;
 
@@ -1436,13 +1437,11 @@ async function renderGuildPage(guild) {
         document.getElementById('start-battle-btn').onclick = () => startBattle(guild.id);
     }
 
-    // 🔥 ВАЖНО: если бой активен — запускаем таймер (если его нет)
     if (guild.battleActive && guild.battleEndTime) {
         const timerKey = `battleTimer_${guild.id}`;
         if (!store.listeners[timerKey]) {
             startBattleTimer(guild.battleEndTime, guild.id);
         }
-        // также проверяем, не истекло ли время прямо сейчас
         if (guild.battleEndTime < Date.now()) {
             endBattle(false, guild.id);
         }
@@ -1453,17 +1452,13 @@ async function renderGuildPage(guild) {
     }
 }
 
-// =======================================================
-// 🆕 ФУНКЦИЯ ОТРИСОВКИ БОССА С ДИНАМИЧЕСКОЙ КАРТИНКОЙ
-// =======================================================
 function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
 
-    // Определяем URL картинки в зависимости от текущего HP
     let bossImageUrl = `img/${currentBossId}.JPG`;
     if (isBattleActive && guild.bossHp / guild.maxBossHp <= 0.5) {
-        bossImageUrl = `img/${currentBossId}_half.JPG`;   // например, boss1_half.png
+        bossImageUrl = `img/${currentBossId}_half.JPG`;
     }
 
     let remainingSeconds = 0;
@@ -1471,9 +1466,8 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
         remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
     }
 
-    // Стрелки видны только когда битва не активна
     const showLeftArrow = !isBattleActive && currentBossId !== 'boss1';
-    const showRightArrow = !isBattleActive && currentBossId !== 'boss2'; // всегда показываем, если текущий не boss2
+    const showRightArrow = !isBattleActive && currentBossId !== 'boss2';
 
     return `
         <div class="boss-wrapper">
@@ -1504,26 +1498,19 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     `;
 }
 
-// Новая функция для смены предпочтительного босса (индивидуально)
 window.changePreferredBoss = async function(targetBossId) {
     if (!store.guild) return;
-
-    // Нельзя менять босса во время битвы
     if (store.guild.battleActive) {
         showNotification('Ошибка', 'Нельзя сменить босса во время битвы');
         return;
     }
-
-    // Убираем проверку ключей – переключение доступно всем всегда
     await updateUser({ preferredBoss: targetBossId });
-
-    // Перерисовываем гильдию
     renderGuildPage(store.guild);
 };
 
 async function startBattle(guildId) {
     const guildRef = db.collection('guilds').doc(guildId);
-    const user = await getUser(); // текущий пользователь (лидер)
+    const user = await getUser();
     try {
         let battleEndTime;
         await db.runTransaction(async (transaction) => {
@@ -1553,7 +1540,6 @@ async function startBattle(guildId) {
                 bossHp: maxBossHp,
                 maxBossHp: maxBossHp,
                 damageLog: {}
-                // lastBattleResult больше не обнуляется!
             });
         });
 
@@ -1567,12 +1553,8 @@ async function startBattle(guildId) {
     }
 }
 
-// =======================================================
-// ЗАВЕРШЕНИЕ БИТВЫ — ИСПРАВЛЕННАЯ ВЕРСИЯ (с увеличенной наградой для boss2)
-// =======================================================
-
 const finishedBattles = new Set();
-let isAttacking = false; // защита от множественных вызовов атаки
+let isAttacking = false;
 
 function startBattleTimer(endTime, guildId) {
     const timerKey = `battleTimer_${guildId}`;
@@ -1687,23 +1669,35 @@ async function endBattle(victory, guildId) {
                         updates['keys.boss2'] = firebase.firestore.FieldValue.increment(1);
                     }
 
-                    // ========== УВЕЛИЧЕННАЯ НАГРАДА ДЛЯ ВТОРОГО БОССА ==========
-                    const bossId = freshGuild.bossId; // 'boss1' или 'boss2'
+                    const bossId = freshGuild.bossId;
                     const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
+                    const xpReward = bossId === 'boss2' ? 100 : 50;
 
-                    // Начисляем монеты только участникам битвы
                     for (const uid of userIds) {
                         const memberRef = db.collection('users').doc(uid);
-                        transaction.update(memberRef, {
-                            money: firebase.firestore.FieldValue.increment(rewardAmount)
-                        });
+                        const memberDoc = await transaction.get(memberRef);
+                        if (memberDoc.exists) {
+                            const memberData = memberDoc.data();
+                            const newXP = (memberData.xp || 0) + xpReward;
+                            const damageDealt = damageLog[uid] || 0;
+                            const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
+                            const updatesForMember = {
+                                money: firebase.firestore.FieldValue.increment(rewardAmount),
+                                xp: newXP,
+                                totalDamage: newTotalDamage
+                            };
+                            const newLevel = getLevelFromXP(newXP);
+                            if (newLevel !== (memberData.level || 1)) {
+                                updatesForMember.level = newLevel;
+                            }
+                            transaction.update(memberRef, updatesForMember);
+                        }
                     }
 
                     finalRating = newRating;
                     finalLevel = updates.level;
                 }
 
-                // Сохраняем результат боя для участников
                 const lastBattleResult = {
                     victory: victory,
                     damageLog: damageLog,
@@ -1730,26 +1724,22 @@ async function endBattle(victory, guildId) {
     }
 
     if (success) {
-        // 🛑 Останавливаем все эффекты яда для этой гильдии
         stopPoisonEffectsForGuild(guildId);
-
         finishedBattles.add(guildId);
-        // Модальное окно не показываем напрямую — оно отобразится через snapshot для каждого участника
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
     }
 }
 
 // =======================================================
-// АТАКА БОССА (исправленная: защита от спама, множественные эффекты)
+// АТАКА БОССА
 // =======================================================
 window.attackBoss = async function() {
-    if (isAttacking) return; // если уже выполняется атака, игнорируем клик
+    if (isAttacking) return;
     isAttacking = true;
 
     try {
         const now = Date.now();
-        // кулдаун 2 секунды (без уведомления, просто пропускаем)
         if (now - store.lastTalentUse < 2000) {
             return;
         }
@@ -1774,7 +1764,6 @@ window.attackBoss = async function() {
         let talentType = user.selectedTalent;
         let needResetTalent = false;
 
-        // Проверка наличия зарядов
         if (user.talents[talentType]) {
             if ((user.attackCharges[talentType]?.charges || 0) <= 0) {
                 needResetTalent = true;
@@ -1828,10 +1817,9 @@ window.attackBoss = async function() {
             await updateUser({ craftedTalents: newCrafted });
         }
 
-        // Тратим энергию и наносим урон
         if (!(await spendEnergy(1))) return;
 
-        store.lastTalentUse = now; // запоминаем время последней успешной атаки
+        store.lastTalentUse = now;
 
         const guildRef = db.collection('guilds').doc(store.guild.id);
         await guildRef.update({
@@ -1847,12 +1835,12 @@ window.attackBoss = async function() {
             await endBattle(true, store.guild.id);
         }
 
-        createBattleTalentButtons(); // обновляем кнопки после атаки
+        createBattleTalentButtons();
     } catch (error) {
         console.error('Ошибка при атаке босса:', error);
         showNotification('Ошибка', 'Не удалось выполнить атаку');
     } finally {
-        isAttacking = false; // снимаем блокировку в любом случае
+        isAttacking = false;
     }
 };
 
@@ -1915,7 +1903,6 @@ async function leaveGuild(guildId) {
             transaction.update(userRef, { guildId: null });
         });
 
-        // 🛑 При выходе останавливаем все яды этой гильдии
         stopPoisonEffectsForGuild(guildId);
 
         await loadUserFromFirestore(true);
@@ -1952,90 +1939,103 @@ window.removeFromGuild = async function(guildId, memberId) {
 };
 
 // =======================================================
-// ДРУЗЬЯ — ИСПРАВЛЕН ПОИСК ПО TELEGRAM ID
+// НОВАЯ СИСТЕМА ДРУЗЕЙ (МОДАЛЬНОЕ ОКНО)
 // =======================================================
-async function loadFriendsScreen() {
-    const user = await getUser();
-    const container = document.getElementById('friends-view');
-    if (!container) return;
-    const myIdHtml = `
-         <div class="my-id-card">
-             <span>🆔 Ваш Telegram ID: </span>
-             <strong>${user.telegramId || 'Не указан'}</strong>
-             <button class="copy-btn" onclick="copyToClipboard('${user.telegramId || ''}')">📋 Копировать</button>
-         </div>
-    `;
 
+async function openFriendsModal() {
+    const modal = document.getElementById('friends-modal');
+    if (!modal) return;
+    await loadFriendsList();
+    await loadFriendRequests();
+    updateFriendsMyId();
+    modal.classList.remove('hidden');
+}
+function closeFriendsModal() {
+    document.getElementById('friends-modal').classList.add('hidden');
+}
+window.openFriendsModal = openFriendsModal;
+
+function updateFriendsMyId() {
+    const user = store.user;
+    if (user) {
+        document.getElementById('friends-my-id-value').innerText = user.telegramId || user.id.slice(0,8);
+    }
+}
+
+async function loadFriendsList() {
+    const container = document.getElementById('friends-list-container');
+    if (!container) return;
+    const user = store.user;
+    if (!user.friends || user.friends.length === 0) {
+        container.innerHTML = '<p class="empty-msg">У вас пока нет друзей</p>';
+        return;
+    }
     const friendDocs = await Promise.all(user.friends.map(fid => db.collection('users').doc(fid).get()));
     const friends = friendDocs.filter(doc => doc.exists).map(doc => ({ id: doc.id, ...doc.data() }));
 
+    let html = '';
+    for (const friend of friends) {
+        const lastSeen = friend.lastEnergyUpdate || 0;
+        const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
+        html += `
+            <div class="friend-item">
+                <div class="friend-status ${isOnline ? 'online' : 'offline'}"></div>
+                <div class="friend-info">
+                    <div class="friend-name">${friend.name || 'Без имени'}</div>
+                    <div class="friend-id">${friend.telegramId || friend.id.slice(0,8)}</div>
+                </div>
+                <button class="remove-friend-btn" onclick="removeFriend('${friend.id}')">❌</button>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+async function loadFriendRequests() {
+    const container = document.getElementById('friends-requests-container');
+    if (!container) return;
     const requestsSnap = await db.collection('friendRequests').where('to', '==', store.authUser.uid).get();
-    const incomingRequests = requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const requests = requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    container.innerHTML = `
-         <h2>👥 Друзья</h2>
-        ${myIdHtml}
-         <div id="friend-list">
-             <h3>Мои друзья</h3>
-            ${friends.length ? friends.map(f => `
-                 <div class="friend-item">
-                     <span>${f.name || 'Игрок'} (ID: ${f.telegramId || f.id.slice(0,6)})</span>
-                     <span class="${isOnline(f) ? 'online' : 'offline'}">${isOnline(f) ? '● в сети' : '○ офлайн'}</span>
-                     <button onclick="removeFriend('${f.id}')">❌ Удалить</button>
-                 </div>
-            `).join('') : '<p>У вас пока нет друзей</p>'}
-         </div>
+    if (requests.length === 0) {
+        container.innerHTML = '<p class="empty-msg">Нет входящих заявок</p>';
+        return;
+    }
 
-         <h3>Входящие заявки</h3>
-         <div id="incoming-requests">
-            ${incomingRequests.length ? incomingRequests.map(req => `
-                 <div class="friend-request">
-                     <span>${req.from}</span>
-                     <button onclick="acceptFriendRequest('${req.id}', '${req.from}')">✅ Принять</button>
-                     <button onclick="declineFriendRequest('${req.id}')">❌ Отклонить</button>
-                 </div>
-            `).join('') : '<p>Нет новых заявок</p>'}
-         </div>
-
-         <h3>Найти друга</h3>
-         <input type="text" id="search-friend" placeholder="Telegram ID">
-         <button id="search-btn">Поиск</button>
-         <div id="search-result"></div>
-    `;
-
-    document.getElementById('search-btn').onclick = async () => {
-        const searchId = document.getElementById('search-friend').value.trim();
-        if (!searchId) return;
-
-        const currentUser = await getUser();
-        if (searchId === currentUser.telegramId) {
-            showNotification('Ошибка', 'Это вы сами');
-            return;
-        }
-
-        const userQuery = await db.collection('users')
-            .where('telegramId', '==', searchId)
-            .get();
-
-        if (!userQuery.empty) {
-            const foundUserDoc = userQuery.docs[0];
-            const foundUser = foundUserDoc.data();
-            const resultDiv = document.getElementById('search-result');
-            resultDiv.innerHTML = `
-                 <div class="friend-item">
-                     <span>${foundUser.name || foundUser.telegramId || searchId}</span>
-                     <button onclick="sendFriendRequest('${foundUserDoc.id}')">➕ Добавить</button>
-                 </div>
-            `;
-        } else {
-            showNotification('Не найден', 'Пользователь с таким Telegram ID не найден');
-        }
-    };
+    let html = '';
+    for (const req of requests) {
+        const fromDoc = await db.collection('users').doc(req.from).get();
+        const fromName = fromDoc.exists ? fromDoc.data().name : req.from.slice(0,6);
+        html += `
+            <div class="friend-request">
+                <span>${fromName}</span>
+                <div>
+                    <button class="accept" onclick="acceptFriendRequest('${req.id}', '${req.from}')">✅</button>
+                    <button onclick="declineFriendRequest('${req.id}')">❌</button>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
 }
-function isOnline(user) {
-    const lastSeen = user.lastEnergyUpdate || 0;
-    return Date.now() - lastSeen < 5 * 60 * 1000;
+
+async function updateFriendsOnlineCount() {
+    if (!store.user || !store.user.friends || store.user.friends.length === 0) {
+        document.getElementById('friends-online-count').textContent = '0';
+        return;
+    }
+    let online = 0;
+    for (const friendId of store.user.friends) {
+        const friendDoc = await db.collection('users').doc(friendId).get();
+        if (friendDoc.exists) {
+            const friend = friendDoc.data();
+            const lastSeen = friend.lastEnergyUpdate || 0;
+            if (Date.now() - lastSeen < 5 * 60 * 1000) online++;
+        }
+    }
+    document.getElementById('friends-online-count').textContent = online;
 }
+
 window.sendFriendRequest = async function(targetId) {
     const user = await getUser();
     if (user.friends.includes(targetId)) {
@@ -2057,6 +2057,7 @@ window.sendFriendRequest = async function(targetId) {
     });
     showNotification('Заявка отправлена', '');
 };
+
 window.acceptFriendRequest = async function(requestId, fromId) {
     const user = await getUser();
     try {
@@ -2074,17 +2075,21 @@ window.acceptFriendRequest = async function(requestId, fromId) {
         });
 
         await loadUserFromFirestore(true);
-        loadFriendsScreen();
+        loadFriendsList();
+        loadFriendRequests();
+        updateFriendsOnlineCount();
         showNotification('Друг добавлен', '');
     } catch (e) {
         console.error(e);
         showNotification('Ошибка', 'Не удалось принять заявку');
     }
 };
+
 window.declineFriendRequest = async function(requestId) {
     await db.collection('friendRequests').doc(requestId).delete();
-    loadFriendsScreen();
+    loadFriendRequests();
 };
+
 window.removeFriend = async function(friendId) {
     const user = await getUser();
     if (!user.friends.includes(friendId)) return;
@@ -2101,13 +2106,15 @@ window.removeFriend = async function(friendId) {
         });
 
         store.user.friends = store.user.friends.filter(id => id !== friendId);
-        loadFriendsScreen();
+        loadFriendsList();
+        updateFriendsOnlineCount();
         showNotification('Удалён', 'Пользователь удалён из друзей');
     } catch (e) {
         console.error(e);
         showNotification('Ошибка', 'Не удалось удалить друга');
     }
 };
+
 window.copyToClipboard = function(text) {
     navigator.clipboard.writeText(text).then(() => {
         showNotification('Скопировано', 'ID скопирован в буфер обмена');
@@ -2136,12 +2143,44 @@ function showScreen(screenId) {
         case 'guild':
             loadGuildScreen();
             break;
-        case 'friends':
-            loadFriendsScreen();
-            break;
     }
-    // [NEW] Обновляем видимость модалки при смене экрана
     updateBattleResultModalVisibility();
+}
+
+// =======================================================
+// МОДАЛЬНОЕ ОКНО ПРОФИЛЯ
+// =======================================================
+function openProfileModal() {
+    const modal = document.getElementById('profile-modal');
+    if (!modal) return;
+    updateProfileModal();
+    modal.classList.remove('hidden');
+}
+function closeProfileModal() {
+    document.getElementById('profile-modal').classList.add('hidden');
+}
+function updateProfileModal() {
+    const user = store.user;
+    if (!user) return;
+
+    const avatarImg = document.getElementById('profile-avatar-img');
+    const tgUser = tg.initDataUnsafe?.user;
+    if (tgUser && tgUser.photo_url) {
+        avatarImg.src = tgUser.photo_url;
+    } else {
+        avatarImg.src = '';
+        avatarImg.alt = user.name?.[0] || '?';
+    }
+
+    document.getElementById('profile-name').textContent = user.name || 'Игрок';
+    document.getElementById('profile-id').textContent = user.telegramId || user.id.slice(0,8);
+    document.getElementById('profile-level').textContent = user.level;
+
+    const { xpInThisLevel, neededForNext, progress } = getXPProgress(user);
+    document.getElementById('profile-xp-current').textContent = xpInThisLevel;
+    document.getElementById('profile-xp-next').textContent = neededForNext;
+    document.getElementById('profile-xp-fill').style.width = progress + '%';
+    document.getElementById('profile-damage').textContent = user.totalDamage || 0;
 }
 
 // =======================================================
@@ -2193,11 +2232,10 @@ window.onload = async () => {
         await getUser();
         updateMainUI();
 
-        setUserAvatar(); // <-- загружаем аватар пользователя
+        setUserAvatar();
 
         setupTalentsGlobalListeners();
 
-        // [NEW] Восстанавливаем результат битвы из sessionStorage
         restoreBattleResultFromStorage();
 
         document.getElementById('confirm-create-guild').onclick = async () => {
@@ -2215,12 +2253,10 @@ window.onload = async () => {
         document.getElementById('close-battle-result').onclick = async () => {
             const res = store.battleResult;
             if (res && res.visible && res.timestamp && store.guild) {
-                // Записываем в Firestore, что пользователь видел этот результат
                 const userRef = db.collection('users').doc(store.authUser.uid);
                 await userRef.update({
                     [`battleResultsSeen.${store.guild.id}`]: res.timestamp
                 });
-                // Обновляем локальные данные
                 if (!store.user.battleResultsSeen) store.user.battleResultsSeen = {};
                 store.user.battleResultsSeen[store.guild.id] = res.timestamp;
             }
@@ -2245,7 +2281,7 @@ window.onload = async () => {
             document.getElementById(`tab-${tab}`).classList.add('active');
 
             if (tab === 'character') loadCharacterCustomization();
-            if ( tab === 'pets') loadPetsGrid();
+            if (tab === 'pets') loadPetsGrid();
             if (tab === 'talents') {
                 initTalentsTab();
             }
@@ -2260,14 +2296,65 @@ window.onload = async () => {
             renderItemsForSlot(currentCustomizationSlot);
         });
 
-        // Очищаем предыдущий интервал, если он был (на случай повторного вызова onload)
         if (window.energyUpdateInterval) {
             clearInterval(window.energyUpdateInterval);
         }
         window.energyUpdateInterval = setInterval(updateMainUI, 1000);
 
-        // [NEW] Проверяем видимость модалки при старте
         updateBattleResultModalVisibility();
+
+        // Инициализация модалок профиля и друзей
+        document.getElementById('user-avatar').onclick = openProfileModal;
+        document.getElementById('close-profile-modal').onclick = closeProfileModal;
+        document.getElementById('close-friends-modal').onclick = closeFriendsModal;
+
+        document.querySelectorAll('.friends-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.friends-tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const tabId = btn.dataset.tab;
+                document.querySelectorAll('.friends-tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(`friends-${tabId}-tab`).classList.add('active');
+            });
+        });
+
+        document.getElementById('friends-search-btn').onclick = async () => {
+            const searchId = document.getElementById('friends-search-input').value.trim();
+            if (!searchId) return;
+
+            const currentUser = await getUser();
+            if (searchId === currentUser.telegramId) {
+                showNotification('Ошибка', 'Это вы сами');
+                return;
+            }
+
+            const userQuery = await db.collection('users')
+                .where('telegramId', '==', searchId)
+                .get();
+
+            const resultDiv = document.getElementById('friends-search-result');
+            if (!userQuery.empty) {
+                const foundUserDoc = userQuery.docs[0];
+                const foundUser = foundUserDoc.data();
+                const lastSeen = foundUser.lastEnergyUpdate || 0;
+                const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
+                resultDiv.innerHTML = `
+                    <div class="friend-item">
+                        <div class="friend-status ${isOnline ? 'online' : 'offline'}"></div>
+                        <div class="friend-info">
+                            <div class="friend-name">${foundUser.name || foundUser.telegramId}</div>
+                            <div class="friend-id">${foundUser.telegramId}</div>
+                        </div>
+                        <button onclick="sendFriendRequest('${foundUserDoc.id}')">➕ Добавить</button>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = '<p class="empty-msg">Пользователь не найден</p>';
+            }
+        };
+
+        updateFriendsOnlineCount();
+        setInterval(updateFriendsOnlineCount, 10000);
 
         console.log('✅ Игра готова');
     } catch (e) {
