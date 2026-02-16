@@ -1740,11 +1740,23 @@ async function endBattle(victory, guildId) {
                     return;
                 }
 
+                // 1. Сначала читаем всех участников, если победа
+                const memberDocs = {};
+                if (victory) {
+                    const memberReadPromises = userIds.map(async (uid) => {
+                        const memberRef = db.collection('users').doc(uid);
+                        const doc = await transaction.get(memberRef);
+                        memberDocs[uid] = doc;
+                    });
+                    await Promise.all(memberReadPromises);
+                }
+
+                // 2. Теперь выполняем все обновления
                 const updates = {
                     battleActive: false,
                     bossHp: freshGuild.maxBossHp,
                     damageLog: {},
-                    poisonEffects: [] // очищаем эффекты
+                    poisonEffects: []
                 };
 
                 if (victory) {
@@ -1764,8 +1776,7 @@ async function endBattle(victory, guildId) {
                     const xpReward = bossId === 'boss2' ? 100 : 50;
 
                     for (const uid of userIds) {
-                        const memberRef = db.collection('users').doc(uid);
-                        const memberDoc = await transaction.get(memberRef);
+                        const memberDoc = memberDocs[uid];
                         if (memberDoc.exists) {
                             const memberData = memberDoc.data();
                             const newXP = (memberData.xp || 0) + xpReward;
@@ -1780,7 +1791,7 @@ async function endBattle(victory, guildId) {
                             if (newLevel !== (memberData.level || 1)) {
                                 updatesForMember.level = newLevel;
                             }
-                            transaction.update(memberRef, updatesForMember);
+                            transaction.update(db.collection('users').doc(uid), updatesForMember);
                         }
                     }
 
