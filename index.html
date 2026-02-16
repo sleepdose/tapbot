@@ -210,6 +210,33 @@
             </div>
         </div>
 
+        <!-- ========== НОВОЕ МОДАЛЬНОЕ ОКНО: РЕДАКТИРОВАНИЕ ГИЛЬДИИ ========== -->
+        <div id="edit-guild-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>⚙️ Редактирование гильдии</h3>
+                <input type="text" id="edit-guild-name" placeholder="Название гильдии (мин. 5 символов)">
+                <textarea id="edit-guild-desc" placeholder="Описание" rows="2"></textarea>
+                <input type="url" id="edit-guild-chat-link" placeholder="Ссылка на чат/канал">
+                <h4>Участники</h4>
+                <ul id="edit-members-list" class="member-list" style="max-height: 150px; overflow-y: auto;"></ul>
+                <div class="modal-buttons">
+                    <button id="save-guild-edit" class="glow-button">✅ Сохранить</button>
+                    <button id="cancel-guild-edit">❌ Отмена</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== НОВОЕ МОДАЛЬНОЕ ОКНО: РЕЙТИНГ ГИЛЬДИЙ ========== -->
+        <div id="guild-rating-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>🏆 Рейтинг гильдий</h3>
+                <div id="rating-list" style="max-height: 300px; overflow-y: auto;"></div>
+                <div class="modal-buttons">
+                    <button id="close-rating-modal" class="glow-button">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Плавающая кнопка друзей -->
         <div id="friends-fab" class="fab" onclick="openFriendsModal()">
             <span id="friends-online-count">0</span>в сети
