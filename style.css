@@ -875,7 +875,8 @@ body {
     font-size: 16px;
     cursor: pointer;
 }
-#cancel-create-guild {
+#cancel-create-guild,
+#cancel-guild-edit {
     background: #3a3a3a;
     border: 1px solid #5a5a5a;
     color: white;
