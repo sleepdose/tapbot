@@ -1629,7 +1629,7 @@ async function renderGuildPage(guild) {
 
         ${isLeader && !guild.battleActive && (displayedBossId !== 'boss2' || canAccessBoss2) ? `
              <div style="display: flex; justify-content: center; margin: 20px 0;">
-                 <button id="start-battle-btn" class="glow-button">⚔️ Начать сражение</button>
+                 <button class="glow-button" onclick="startBattle('${guild.id}')">⚔️ Начать сражение</button>
              </div>
         ` : ''}
 
@@ -1652,10 +1652,6 @@ async function renderGuildPage(guild) {
 
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
     document.getElementById('invite-friend-btn')?.addEventListener('click', showInviteMenu);
-
-    if (isLeader && !guild.battleActive && (displayedBossId !== 'boss2' || canAccessBoss2)) {
-        document.getElementById('start-battle-btn').onclick = () => startBattle(guild.id);
-    }
 
     if (guild.battleActive && guild.battleEndTime) {
         const timerKey = `battleTimer_${guild.id}`;
@@ -2590,6 +2586,112 @@ window.copyToClipboard = function(text) {
 };
 
 // =======================================================
+// ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ ГИЛЬДИЕЙ (ВЫХОД, ИСКЛЮЧЕНИЕ, ПРИГЛАШЕНИЕ)
+// =======================================================
+
+/**
+ * Покинуть гильдию (для рядового участника)
+ */
+async function leaveGuild(guildId) {
+    if (!store.authUser) return;
+    const user = await getUser();
+    if (!user.guildId || user.guildId !== guildId) {
+        showNotification('Ошибка', 'Вы не в этой гильдии');
+        return;
+    }
+    const guildRef = db.collection('guilds').doc(guildId);
+    try {
+        await db.runTransaction(async (transaction) => {
+            const guildDoc = await transaction.get(guildRef);
+            if (!guildDoc.exists) throw new Error('Гильдия не найдена');
+            const guild = guildDoc.data();
+            if (guild.leaderId === store.authUser.uid) {
+                throw new Error('Лидер не может покинуть гильдию. Передайте права или распустите гильдию.');
+            }
+            if (!guild.members.includes(store.authUser.uid)) {
+                throw new Error('Вы не состоите в гильдии');
+            }
+            transaction.update(guildRef, {
+                members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
+            });
+            const userRef = db.collection('users').doc(store.authUser.uid);
+            transaction.update(userRef, { guildId: null });
+        });
+        await loadUserFromFirestore(true);
+        loadGuildScreen();
+        showNotification('Вы покинули гильдию', '');
+    } catch (e) {
+        console.error(e);
+        showNotification('Ошибка', e.message || 'Не удалось покинуть гильдию');
+    }
+}
+
+/**
+ * Исключить участника из гильдии (только для лидера)
+ */
+async function removeFromGuild(guildId, memberId) {
+    if (!store.authUser) return;
+    const user = await getUser();
+    if (user.guildId !== guildId) {
+        showNotification('Ошибка', 'Вы не в этой гильдии');
+        return;
+    }
+    const guildRef = db.collection('guilds').doc(guildId);
+    try {
+        await db.runTransaction(async (transaction) => {
+            const guildDoc = await transaction.get(guildRef);
+            if (!guildDoc.exists) throw new Error('Гильдия не найдена');
+            const guild = guildDoc.data();
+            if (guild.leaderId !== store.authUser.uid) {
+                throw new Error('Только лидер может исключать участников');
+            }
+            if (memberId === store.authUser.uid) {
+                throw new Error('Нельзя удалить самого себя. Используйте "Покинуть гильдию".');
+            }
+            if (!guild.members.includes(memberId)) {
+                throw new Error('Участник не найден');
+            }
+            transaction.update(guildRef, {
+                members: firebase.firestore.FieldValue.arrayRemove(memberId)
+            });
+            const memberRef = db.collection('users').doc(memberId);
+            transaction.update(memberRef, { guildId: null });
+        });
+        showNotification('Участник исключён', '');
+        loadGuildScreen(); // обновим экран
+    } catch (e) {
+        console.error(e);
+        showNotification('Ошибка', e.message || 'Не удалось исключить');
+    }
+}
+
+/**
+ * Показать меню приглашения в гильдию (копирование ID гильдии)
+ */
+function showInviteMenu() {
+    const guild = store.guild;
+    if (!guild) return;
+    if (tg && typeof tg.showPopup === 'function') {
+        tg.showPopup({
+            title: 'Приглашение в гильдию',
+            message: `ID гильдии: ${guild.id}\n\nОтправьте этот ID другу, он сможет вступить, нажав "Вступить" в списке гильдий или через поиск.`,
+            buttons: [
+                { type: 'default', text: 'Скопировать ID' },
+                { type: 'cancel', text: 'Закрыть' }
+            ]
+        }, (btnId) => {
+            if (btnId === '0') {
+                copyToClipboard(guild.id);
+            }
+        });
+    } else {
+        // fallback для браузеров вне Telegram
+        const id = prompt('ID гильдии (скопируйте и отправьте другу):', guild.id);
+        if (id) copyToClipboard(id);
+    }
+}
+
+// =======================================================
 // ЗАПУСК ПРИЛОЖЕНИЯ
 // =======================================================
 window.onload = async () => {
@@ -2758,9 +2860,8 @@ window.selectBattleTalent = window.selectBattleTalent;
 window.attackBoss = window.attackBoss;
 window.joinGuild = window.joinGuild;
 window.leaveGuild = leaveGuild;
-window.startBattle = window.startBattle;
-window.showGuildRating = showGuildRating;
-window.showGuildRatingModal = showGuildRatingModal;
+window.startBattle = startBattle;
+window.showGuildRatingModal = showGuildRatingModal; // ✅ правильное название
 window.toggleEditMode = toggleEditMode;
 window.updateGuildInfo = updateGuildInfo;
 window.removeFriend = window.removeFriend;
@@ -2768,8 +2869,9 @@ window.sendFriendRequest = window.sendFriendRequest;
 window.acceptFriendRequest = window.acceptFriendRequest;
 window.declineFriendRequest = window.declineFriendRequest;
 window.copyToClipboard = window.copyToClipboard;
-window.removeFromGuild = window.removeFromGuild;
+window.removeFromGuild = removeFromGuild;
 window.showCreateGuildModal = window.showCreateGuildModal;
 window.hideCreateGuildModal = window.hideCreateGuildModal;
 window.openDailyBonusModal = openDailyBonusModal;
 window.closeDailyBonusModal = closeDailyBonusModal;
+window.showInviteMenu = showInviteMenu;
