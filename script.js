@@ -1699,7 +1699,7 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
 
             <div class="boss-container">
                 <h3>${currentBossId}</h3>
-                <img class="boss-image" src="${bossImageUrl}" onclick="attackBoss()">
+                <img class="boss-image" src="${bossImageUrl}" ${isBattleActive ? 'onclick="attackBoss()"' : ''} style="${isBattleActive ? 'cursor: pointer;' : 'cursor: default;'}">
                 ${isBattleActive ? `
                     <div class="boss-hp-bar">
                         <div class="boss-hp-fill" style="width: ${hpPercent}%;"></div>
