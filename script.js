@@ -104,6 +104,7 @@ function showLoader(containerId, show = true) {
     }
 }
 
+// [NEW] Сохранить результат битвы в store и sessionStorage
 function setBattleResult(victory, damageLog, userNames, guildName, rating, level, timestamp) {
     store.battleResult = {
         visible: true,
@@ -118,6 +119,7 @@ function setBattleResult(victory, damageLog, userNames, guildName, rating, level
     sessionStorage.setItem('battleResult', JSON.stringify(store.battleResult));
 }
 
+// [NEW] Восстановить результат из sessionStorage при загрузке страницы
 function restoreBattleResultFromStorage() {
     const saved = sessionStorage.getItem('battleResult');
     if (saved) {
@@ -132,6 +134,7 @@ function restoreBattleResultFromStorage() {
     }
 }
 
+// [NEW] Функция управления видимостью модалки (с выделением текущего игрока)
 function updateBattleResultModalVisibility() {
     const modal = document.getElementById('battle-result-modal');
     const guildScreenActive = document.getElementById('screen-guild').classList.contains('active');
@@ -1073,18 +1076,13 @@ window.selectBattleTalent = async function(talentType) {
 // 🆕 НОВАЯ СИСТЕМА МНОЖЕСТВЕННЫХ ЭФФЕКТОВ ЯДА (с сохранением в Firestore)
 // =======================================================
 
-// FIX: Вспомогательная функция для получения ключа эффекта
-function getEffectKey(effect) {
-    return `${effect.guildId}_${effect.userId}_${effect.endTime}`;
-}
-
-// Функция запуска эффекта из данных (используется при загрузке) – теперь только для визуального таймера, урон наносится через processPoisonEffects
+// Функция запуска эффекта из данных (используется при загрузке)
 function startPoisonEffectFromData(effect, guildId) {
     const { userId, damage, endTime, duration } = effect;
     if (!guildId || !userId) return;
     if (store.guild?.id !== guildId) return;
 
-    const effectId = getEffectKey({ ...effect, guildId });
+    const effectId = `${guildId}_${userId}_${endTime}`;
     if (store.activePoisonEffects[effectId]) return; // уже запущен
 
     const now = Date.now();
@@ -1095,7 +1093,34 @@ function startPoisonEffectFromData(effect, guildId) {
         updatePoisonTimers(guildId);
     }, 200);
 
+    let ticks = Math.ceil(remaining / 1000);
+    const damageInterval = setInterval(async () => {
+        if (!store.guild?.battleActive || store.guild?.id !== guildId || ticks <= 0) {
+            clearInterval(damageInterval);
+            clearInterval(timerInterval);
+            delete store.activePoisonEffects[effectId];
+            updatePoisonTimers(guildId);
+            return;
+        }
+
+        const guildRef = db.collection('guilds').doc(guildId);
+        await guildRef.update({
+            bossHp: firebase.firestore.FieldValue.increment(-damage),
+            [`damageLog.${userId}`]: firebase.firestore.FieldValue.increment(damage)
+        });
+
+        showDamageEffect(damage, '☠️');
+
+        const updatedGuildDoc = await guildRef.get();
+        if (updatedGuildDoc.exists && updatedGuildDoc.data().bossHp <= 0) {
+            await endBattle(true, guildId);
+        }
+
+        ticks--;
+    }, 1000);
+
     store.activePoisonEffects[effectId] = {
+        interval: damageInterval,
         timerInterval,
         userId,
         guildId,
@@ -1107,34 +1132,21 @@ function startPoisonEffectFromData(effect, guildId) {
     updatePoisonTimers(guildId);
 }
 
-// FIX: Обновление таймеров с удалением истекших
 function updatePoisonTimers(guildId) {
     if (store.guild?.id !== guildId) return;
     const container = document.getElementById('poison-timer-container');
     if (!container) return;
 
-    const now = Date.now();
     const effects = Object.values(store.activePoisonEffects).filter(e => e.guildId === guildId);
 
-    // Удаляем истекшие эффекты и очищаем их интервалы
-    const activeEffects = [];
-    effects.forEach(eff => {
-        if (eff.endTime > now) {
-            activeEffects.push(eff);
-        } else {
-            clearInterval(eff.timerInterval);
-            delete store.activePoisonEffects[getEffectKey(eff)];
-        }
-    });
-
-    if (activeEffects.length === 0) {
+    if (effects.length === 0) {
         container.innerHTML = '';
         return;
     }
 
     let html = '<div style="display: flex; flex-direction: column; gap: 5px;">';
-    activeEffects.forEach(eff => {
-        const remaining = Math.max(0, Math.floor((eff.endTime - now) / 1000));
+    effects.forEach(eff => {
+        const remaining = Math.max(0, Math.floor((eff.endTime - Date.now()) / 1000));
         html += `<div style="background: #2a3a4a; padding: 6px; border-radius: 20px; font-size: 13px;">
                     ☠️ Игрок: ${eff.userId.slice(0,6)} — урон ${eff.damage}/с, ост. ${remaining}с
                  </div>`;
@@ -1147,6 +1159,7 @@ function stopPoisonEffectsForGuild(guildId) {
     Object.keys(store.activePoisonEffects).forEach(effectId => {
         const eff = store.activePoisonEffects[effectId];
         if (eff.guildId === guildId) {
+            clearInterval(eff.interval);
             clearInterval(eff.timerInterval);
             delete store.activePoisonEffects[effectId];
         }
@@ -1158,86 +1171,12 @@ function stopPoisonEffectsForOtherGuilds(currentGuildId) {
     Object.keys(store.activePoisonEffects).forEach(effectId => {
         const eff = store.activePoisonEffects[effectId];
         if (eff.guildId !== currentGuildId) {
+            clearInterval(eff.interval);
             clearInterval(eff.timerInterval);
             delete store.activePoisonEffects[effectId];
         }
     });
     updatePoisonTimers(currentGuildId);
-}
-
-// =======================================================
-// НОВАЯ ФУНКЦИЯ: обработка тиков яда (вызывается из onSnapshot)
-// =======================================================
-async function processPoisonEffects(guild) {
-    if (!guild.battleActive || !guild.poisonEffects?.length) return;
-
-    const now = Date.now();
-    const effectsToProcess = guild.poisonEffects.filter(e => now >= e.nextTick);
-
-    for (const effect of effectsToProcess) {
-        const guildRef = db.collection('guilds').doc(guild.id);
-        try {
-            await db.runTransaction(async (transaction) => {
-                const guildDoc = await transaction.get(guildRef);
-                if (!guildDoc.exists) return;
-                const freshGuild = guildDoc.data();
-                if (!freshGuild.battleActive) return; // бой уже закончен
-
-                // Находим этот эффект в актуальном массиве
-                const effectIndex = freshGuild.poisonEffects?.findIndex(e =>
-                    e.userId === effect.userId && e.endTime === effect.endTime && e.nextTick === effect.nextTick
-                );
-                if (effectIndex === -1 || effectIndex === undefined) return; // эффект уже удалён или изменён
-
-                const currentEffect = freshGuild.poisonEffects[effectIndex];
-
-                // Наносим урон
-                const damage = currentEffect.damage;
-                const newHp = freshGuild.bossHp - damage;
-                const updates = {
-                    bossHp: firebase.firestore.FieldValue.increment(-damage),
-                    [`damageLog.${effect.userId}`]: firebase.firestore.FieldValue.increment(damage)
-                };
-
-                // Определяем следующий тик
-                const nextTick = currentEffect.nextTick + 1000;
-                if (nextTick >= currentEffect.endTime) {
-                    // Эффект закончен – удаляем
-                    updates.poisonEffects = firebase.firestore.FieldValue.arrayRemove(currentEffect);
-                } else {
-                    // Обновляем nextTick
-                    const updatedEffect = { ...currentEffect, nextTick };
-                    updates.poisonEffects = firebase.firestore.FieldValue.arrayRemove(currentEffect);
-                    // Нельзя одновременно удалить и добавить в одной операции arrayUnion? Используем set с заменой массива.
-                    // Проще: полностью перезаписать массив
-                    const newEffects = freshGuild.poisonEffects.map(e =>
-                        e.userId === effect.userId && e.endTime === effect.endTime && e.nextTick === effect.nextTick
-                            ? { ...e, nextTick }
-                            : e
-                    );
-                    updates.poisonEffects = newEffects;
-                }
-
-                transaction.update(guildRef, updates);
-
-                // Если босс убит, завершаем битву
-                if (freshGuild.bossHp - damage <= 0) {
-                    // Здесь нельзя просто завершить, потому что транзакция уже выполнена.
-                    // Можно вызвать endBattle после транзакции.
-                    // Для простоты: после транзакции проверим и завершим.
-                }
-            });
-
-            // После транзакции проверим, не умер ли босс (можно через повторное чтение или использовать результат)
-            const freshGuild = await guildRef.get();
-            if (freshGuild.exists && freshGuild.data().bossHp <= 0) {
-                await endBattle(true, guild.id);
-            }
-
-        } catch (error) {
-            console.warn('Poison tick transaction failed', error);
-        }
-    }
 }
 
 // =======================================================
@@ -1390,19 +1329,14 @@ async function loadGuildScreen() {
             if (doc.exists) {
                 const updatedGuild = { id: doc.id, ...doc.data() };
                 store.guild = updatedGuild;
+                renderGuildPage(updatedGuild);
 
-                // FIX: Синхронизация ядов: сначала остановить все для этой гильдии, потом запустить новые
-                stopPoisonEffectsForGuild(updatedGuild.id);
+                // Восстанавливаем эффекты яда из поля poisonEffects
                 if (updatedGuild.poisonEffects && Array.isArray(updatedGuild.poisonEffects)) {
                     updatedGuild.poisonEffects.forEach(effect => {
                         startPoisonEffectFromData(effect, updatedGuild.id);
                     });
                 }
-
-                renderGuildPage(updatedGuild);
-
-                // Обрабатываем тики яда
-                await processPoisonEffects(updatedGuild);
 
                 if (updatedGuild.battleActive && updatedGuild.battleEndTime < Date.now()) {
                     endBattle(false, updatedGuild.id);
@@ -1507,16 +1441,12 @@ async function renderGuildPage(guild) {
     });
     const membersData = await Promise.all(memberPromises);
 
-    // Кнопка редактирования для лидера
-    const editButton = isLeader ? `<button onclick="editGuild()" class="glow-button" style="width: auto; padding: 8px 16px; margin-left: 10px;">⚙️ Редактировать</button>` : '';
+    const leaderData = membersData.find(m => m.id === guild.leaderId) || { name: 'Неизвестный', telegramId: guild.leaderId.slice(0,6) };
 
     container.innerHTML = `
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="width: 100px;"></div>
-            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0; display: flex; align-items: center; gap: 10px;">
-                ${guild.name}
-                ${editButton}
-            </h1>
+            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">${guild.name}</h1>
             <button onclick="showGuildRating()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
          </div>
 
@@ -1531,8 +1461,8 @@ async function renderGuildPage(guild) {
                     const avatarHtml = member.photoUrl
                         ? `<img src="${member.photoUrl}" class="member-avatar-img" alt="avatar">`
                         : `<span class="member-avatar-initials">${member.name[0]?.toUpperCase() || '?'}</span>`;
-                    const isThisMemberLeader = member.id === guild.leaderId;
-                    const leaderStar = isThisMemberLeader ? ' 👑' : '';
+                    const isLeader = member.id === guild.leaderId;
+                    const leaderStar = isLeader ? ' 👑' : '';
                     return `
                         <li>
                             <div style="display: flex; align-items: center; gap: 10px;">
@@ -1545,6 +1475,9 @@ async function renderGuildPage(guild) {
                                     <div style="font-size: 12px; color: #aaa;">${member.telegramId}</div>
                                 </div>
                             </div>
+                            ${isLeader && member.id !== store.authUser.uid ?
+                                `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${member.id}')">❌ Удалить</button>`
+                                : ''}
                         </li>
                     `;
                 }).join('') || '<li>Нет участников</li>'}
@@ -1596,12 +1529,12 @@ async function renderGuildPage(guild) {
         createBattleTalentButtons();
     }
 
-    // Восстанавливаем визуальные эффекты яда (уже сделано в onSnapshot, но на всякий случай оставим)
-    // if (guild.poisonEffects && Array.isArray(guild.poisonEffects)) {
-    //     guild.poisonEffects.forEach(effect => {
-    //         startPoisonEffectFromData(effect, guild.id);
-    //     });
-    // }
+    // Восстанавливаем эффекты яда
+    if (guild.poisonEffects && Array.isArray(guild.poisonEffects)) {
+        guild.poisonEffects.forEach(effect => {
+            startPoisonEffectFromData(effect, guild.id);
+        });
+    }
 }
 
 function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
@@ -1621,9 +1554,6 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const showLeftArrow = !isBattleActive && currentBossId !== 'boss1';
     const showRightArrow = !isBattleActive && currentBossId !== 'boss2';
 
-    // 🔥 Исправление пункта 1: onclick добавляется только если битва активна
-    const bossClickHandler = isBattleActive ? 'attackBoss()' : '';
-
     return `
         <div class="boss-wrapper">
             ${showLeftArrow ?
@@ -1632,7 +1562,7 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
 
             <div class="boss-container">
                 <h3>${currentBossId}</h3>
-                <img class="boss-image" src="${bossImageUrl}" ${bossClickHandler ? `onclick="${bossClickHandler}"` : ''}>
+                <img class="boss-image" src="${bossImageUrl}" onclick="attackBoss()">
                 ${isBattleActive ? `
                     <div class="boss-hp-bar">
                         <div class="boss-hp-fill" style="width: ${hpPercent}%;"></div>
@@ -1812,23 +1742,11 @@ async function endBattle(victory, guildId) {
                     return;
                 }
 
-                // 1. Сначала читаем всех участников, если победа
-                const memberDocs = {};
-                if (victory) {
-                    const memberReadPromises = userIds.map(async (uid) => {
-                        const memberRef = db.collection('users').doc(uid);
-                        const doc = await transaction.get(memberRef);
-                        memberDocs[uid] = doc;
-                    });
-                    await Promise.all(memberReadPromises);
-                }
-
-                // 2. Теперь выполняем все обновления
                 const updates = {
                     battleActive: false,
                     bossHp: freshGuild.maxBossHp,
                     damageLog: {},
-                    poisonEffects: []
+                    poisonEffects: [] // очищаем эффекты
                 };
 
                 if (victory) {
@@ -1848,7 +1766,8 @@ async function endBattle(victory, guildId) {
                     const xpReward = bossId === 'boss2' ? 100 : 50;
 
                     for (const uid of userIds) {
-                        const memberDoc = memberDocs[uid];
+                        const memberRef = db.collection('users').doc(uid);
+                        const memberDoc = await transaction.get(memberRef);
                         if (memberDoc.exists) {
                             const memberData = memberDoc.data();
                             const newXP = (memberData.xp || 0) + xpReward;
@@ -1863,7 +1782,7 @@ async function endBattle(victory, guildId) {
                             if (newLevel !== (memberData.level || 1)) {
                                 updatesForMember.level = newLevel;
                             }
-                            transaction.update(db.collection('users').doc(uid), updatesForMember);
+                            transaction.update(memberRef, updatesForMember);
                         }
                     }
 
@@ -1978,91 +1897,49 @@ window.attackBoss = async function() {
         if (!(await spendEnergy(1))) return;
 
         const guildRef = db.collection('guilds').doc(store.guild.id);
-        const userRef = db.collection('users').doc(store.authUser.uid);
         let finalDamage = 0;
         let bossKilled = false;
 
-        // FIX: Транзакция с повторными попытками
-        let success = false;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                await db.runTransaction(async (transaction) => {
-                    const guildDoc = await transaction.get(guildRef);
-                    if (!guildDoc.exists) throw new Error('Гильдия не найдена');
-                    const guild = guildDoc.data();
-                    if (!guild.battleActive) throw new Error('Битва уже закончилась');
+        await db.runTransaction(async (transaction) => {
+            const guildDoc = await transaction.get(guildRef);
+            if (!guildDoc.exists) throw new Error('Гильдия не найдена');
+            const guild = guildDoc.data();
+            if (!guild.battleActive) throw new Error('Битва уже закончилась');
 
-                    const remainingHp = guild.bossHp;
-                    finalDamage = Math.min(damage, remainingHp);
+            const remainingHp = guild.bossHp;
+            finalDamage = Math.min(damage, remainingHp);
 
-                    // Читаем пользователя, чтобы проверить и обновить заряды
-                    const userDoc = await transaction.get(userRef);
-                    if (!userDoc.exists) throw new Error('Пользователь не найден');
-                    const userData = userDoc.data();
+            transaction.update(guildRef, {
+                bossHp: firebase.firestore.FieldValue.increment(-finalDamage),
+                [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(finalDamage)
+            });
 
-                    // Проверяем, что у пользователя еще есть заряды (могли измениться с момента начала атаки)
-                    let talentChargesOk = false;
-                    if (userData.talents[talentType]) {
-                        if ((userData.attackCharges[talentType]?.charges || 0) > 0) talentChargesOk = true;
-                    } else if (userData.craftedTalents[talentType]) {
-                        if ((userData.craftedTalents[talentType]?.charges || 0) > 0) talentChargesOk = true;
-                    }
-                    if (!talentChargesOk) {
-                        throw new Error('Недостаточно зарядов');
-                    }
-
-                    // Обновляем заряды
-                    const updates = {};
-                    if (userData.talents[talentType]) {
-                        const newCharges = { ...userData.attackCharges };
-                        newCharges[talentType].charges -= 1;
-                        updates.attackCharges = newCharges;
-                    } else if (userData.craftedTalents[talentType]) {
-                        const newCrafted = { ...userData.craftedTalents };
-                        newCrafted[talentType].charges -= 1;
-                        updates.craftedTalents = newCrafted;
-                    }
-
-                    transaction.update(userRef, updates);
-
-                    // Обновляем босса
-                    transaction.update(guildRef, {
-                        bossHp: firebase.firestore.FieldValue.increment(-finalDamage),
-                        [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(finalDamage)
-                    });
-
-                    if (isPoison && finalDamage > 0) {
-                        const now = Date.now();
-                        const endTime = now + poisonDuration * 1000;
-                        const poisonEffect = {
-                            userId: store.authUser.uid,
-                            damage: poisonDamage,
-                            endTime,
-                            duration: poisonDuration,
-                            nextTick: now + 1000 // первый тик через 1 секунду
-                        };
-                        transaction.update(guildRef, {
-                            poisonEffects: firebase.firestore.FieldValue.arrayUnion(poisonEffect)
-                        });
-                    }
-
-                    if (guild.bossHp - finalDamage <= 0) {
-                        bossKilled = true;
-                    }
+            if (isPoison && finalDamage > 0) {
+                const endTime = Date.now() + poisonDuration * 1000;
+                const poisonEffect = {
+                    userId: store.authUser.uid,
+                    damage: poisonDamage,
+                    endTime,
+                    duration: poisonDuration
+                };
+                transaction.update(guildRef, {
+                    poisonEffects: firebase.firestore.FieldValue.arrayUnion(poisonEffect)
                 });
-                success = true;
-                break;
-            } catch (error) {
-                console.warn(`Attack transaction attempt ${attempt} failed:`, error);
-                if (attempt === 3) {
-                    throw error;
-                }
-                await new Promise(resolve => setTimeout(resolve, 500 * attempt));
             }
-        }
 
-        if (!success) {
-            throw new Error('Не удалось выполнить атаку после нескольких попыток');
+            if (guild.bossHp - finalDamage <= 0) {
+                bossKilled = true;
+            }
+        });
+
+        if (user.talents[talentType]) {
+            const newCharges = { ...user.attackCharges };
+            newCharges[talentType].charges -= 1;
+            await updateUser({ attackCharges: newCharges });
+        } else if (user.craftedTalents[talentType]) {
+            const newCrafted = { ...user.craftedTalents };
+            newCrafted[talentType].charges -= 1;
+            await updateUser({ craftedTalents: newCrafted });
         }
 
         store.lastTalentUse = now;
@@ -2077,8 +1954,7 @@ window.attackBoss = async function() {
 
     } catch (error) {
         console.error('Ошибка при атаке босса:', error);
-        showNotification('Ошибка', error.message || 'Не удалось выполнить атаку');
-        // Возможно, нужно вернуть энергию? Но пока не будем.
+        showNotification('Ошибка', 'Не удалось выполнить атаку');
     } finally {
         isAttacking = false;
     }
@@ -2101,107 +1977,18 @@ function showDamageEffect(amount, icon = '💥') {
     setTimeout(() => div.remove(), 1000);
 }
 
-// =======================================================
-// УЛУЧШЕННОЕ ОКНО РЕЙТИНГА (МОДАЛЬНОЕ)
-// =======================================================
 async function showGuildRating() {
-    const modal = document.getElementById('guild-rating-modal');
-    const listDiv = document.getElementById('rating-list');
-    listDiv.innerHTML = '<div class="loader"></div>';
-    modal.classList.remove('hidden');
-
     const guildsSnap = await db.collection('guilds').orderBy('rating', 'desc').get();
-    const guilds = guildsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    let html = '<ol style="list-style: none; padding: 0;">';
-    guilds.forEach((g, index) => {
-        html += `
-            <li style="background: #242424; border: 1px solid #3f3f3f; border-radius: 16px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 20px; font-weight: bold; color: #ffd966;">#${index+1}</span>
-                <div style="flex:1;">
-                    <div style="font-weight: 600;">${g.name}</div>
-                    <div style="font-size: 12px; color: #aaa;">Уровень ${g.level || 1}</div>
-                </div>
-                <div style="font-size: 18px; color: #ffaa00;">${g.rating || 0} ⭐</div>
-            </li>
-        `;
+    const guilds = guildsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let msg = '🏆 Рейтинг гильдий:\n';
+    guilds.forEach((g, i) => {
+        msg += `${i+1}. ${g.name} — ур.${g.level} (${g.rating || 0} очков)\n`;
     });
-    html += '</ol>';
-
-    listDiv.innerHTML = guilds.length ? html : '<p class="empty-msg">Пока нет гильдий</p>';
+    showNotification('Рейтинг', msg);
 }
-
-function closeGuildRatingModal() {
-    document.getElementById('guild-rating-modal').classList.add('hidden');
-}
-
-// =======================================================
-// РЕДАКТИРОВАНИЕ ГИЛЬДИИ
-// =======================================================
-window.editGuild = async function() {
-    const guild = store.guild;
-    if (!guild || guild.leaderId !== store.authUser.uid) return;
-
-    // Заполняем поля
-    document.getElementById('edit-guild-name').value = guild.name || '';
-    document.getElementById('edit-guild-desc').value = guild.description || '';
-    document.getElementById('edit-guild-chat-link').value = guild.chatLink || '';
-
-    // Загружаем участников с кнопками удаления
-    const membersList = document.getElementById('edit-members-list');
-    const memberPromises = guild.members.map(async (memberId) => {
-        const memberDoc = await db.collection('users').doc(memberId).get();
-        const memberData = memberDoc.exists ? memberDoc.data() : { name: 'Неизвестный' };
-        const isLeader = memberId === guild.leaderId;
-        return `
-            <li style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #2a2a2a; border-radius: 8px; margin-bottom: 5px;">
-                <span>${memberData.name || memberId.slice(0,6)} ${isLeader ? '👑' : ''}</span>
-                ${!isLeader ? `<button class="remove-member-btn" onclick="removeMemberFromEdit('${memberId}')">❌</button>` : ''}
-            </li>
-        `;
-    });
-    const membersHtml = await Promise.all(memberPromises);
-    membersList.innerHTML = membersHtml.join('');
-
-    document.getElementById('edit-guild-modal').classList.remove('hidden');
-};
-
-window.saveGuildEdit = async function() {
-    const name = document.getElementById('edit-guild-name').value.trim();
-    if (name.length < 5) {
-        showNotification('Ошибка', 'Название должно быть минимум 5 символов');
-        return;
-    }
-    const description = document.getElementById('edit-guild-desc').value.trim();
-    const chatLink = document.getElementById('edit-guild-chat-link').value.trim();
-
-    await db.collection('guilds').doc(store.guild.id).update({
-        name,
-        description,
-        chatLink
-    });
-
-    document.getElementById('edit-guild-modal').classList.add('hidden');
-    showNotification('Успех', 'Данные гильдии обновлены');
-};
-
-window.cancelGuildEdit = function() {
-    document.getElementById('edit-guild-modal').classList.add('hidden');
-};
-
-window.removeMemberFromEdit = async function(memberId) {
-    if (!confirm('Удалить участника?')) return;
-    await removeFromGuild(store.guild.id, memberId);
-    // Перерисуем список в модалке
-    editGuild();
-};
-
-// =======================================================
-// ДРУГИЕ ФУНКЦИИ ГИЛЬДИИ
-// =======================================================
-async function showInviteMenu() {
+window.showInviteMenu = function() {
     showNotification('Пригласить друга', 'Функция в разработке');
-}
+};
 async function leaveGuild(guildId) {
     const user = await getUser();
     const guildRef = db.collection('guilds').doc(guildId);
@@ -2320,7 +2107,6 @@ async function loadFriendsList() {
     container.innerHTML = html;
 }
 
-// FIX: Оптимизировано с Promise.all
 async function loadFriendRequests() {
     const container = document.getElementById('friends-requests-container');
     if (!container) return;
@@ -2332,20 +2118,10 @@ async function loadFriendRequests() {
         return;
     }
 
-    const fromIds = requests.map(req => req.from);
-    const userDocs = await Promise.all(fromIds.map(id => db.collection('users').doc(id).get()));
-    const userMap = {};
-    userDocs.forEach((doc, index) => {
-        if (doc.exists) {
-            userMap[fromIds[index]] = doc.data().name || fromIds[index].slice(0,6);
-        } else {
-            userMap[fromIds[index]] = fromIds[index].slice(0,6);
-        }
-    });
-
     let html = '';
     for (const req of requests) {
-        const fromName = userMap[req.from];
+        const fromDoc = await db.collection('users').doc(req.from).get();
+        const fromName = fromDoc.exists ? fromDoc.data().name : req.from.slice(0,6);
         html += `
             <div class="friend-request">
                 <span>${fromName}</span>
@@ -2359,23 +2135,20 @@ async function loadFriendRequests() {
     container.innerHTML = html;
 }
 
-// FIX: Оптимизировано с Promise.all
 async function updateFriendsOnlineCount() {
     if (!store.user || !store.user.friends || store.user.friends.length === 0) {
         document.getElementById('friends-online-count').textContent = '0';
         return;
     }
-    const now = Date.now();
-    const friendIds = store.user.friends;
-    const userDocs = await Promise.all(friendIds.map(id => db.collection('users').doc(id).get()));
     let online = 0;
-    userDocs.forEach(doc => {
-        if (doc.exists) {
-            const friend = doc.data();
+    for (const friendId of store.user.friends) {
+        const friendDoc = await db.collection('users').doc(friendId).get();
+        if (friendDoc.exists) {
+            const friend = friendDoc.data();
             const lastSeen = friend.lastEnergyUpdate || 0;
-            if (now - lastSeen < 5 * 60 * 1000) online++;
+            if (Date.now() - lastSeen < 5 * 60 * 1000) online++;
         }
-    });
+    }
     document.getElementById('friends-online-count').textContent = online;
 }
 
@@ -2581,7 +2354,6 @@ window.onload = async () => {
 
         restoreBattleResultFromStorage();
 
-        // Обработчики кнопок гильдии
         document.getElementById('confirm-create-guild').onclick = async () => {
             const name = document.getElementById('guild-name').value.trim();
             const desc = document.getElementById('guild-desc').value.trim();
@@ -2656,7 +2428,6 @@ window.onload = async () => {
         document.getElementById('close-profile-modal').onclick = closeProfileModal;
         document.getElementById('close-friends-modal').onclick = closeFriendsModal;
 
-        // Обработчики вкладок друзей
         document.querySelectorAll('.friends-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.friends-tab-btn').forEach(b => b.classList.remove('active'));
@@ -2702,13 +2473,6 @@ window.onload = async () => {
             }
         };
 
-        // Обработчики для окна редактирования гильдии
-        document.getElementById('save-guild-edit').onclick = saveGuildEdit;
-        document.getElementById('cancel-guild-edit').onclick = cancelGuildEdit;
-
-        // Обработчик закрытия рейтинга
-        document.getElementById('close-rating-modal').onclick = closeGuildRatingModal;
-
         updateFriendsOnlineCount();
         setInterval(updateFriendsOnlineCount, 10000);
 
@@ -2720,14 +2484,28 @@ window.onload = async () => {
 };
 
 // =======================================================
-// ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ (только необходимые)
+// ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ
 // =======================================================
-// FIX: Удалены дублирующие присваивания
+window.buyItem = window.buyItem;
+window.equipItem = window.equipItem;
+window.unequipItem = window.unequipItem;
+window.previewItem = window.previewItem;
+window.buyPet = window.buyPet;
+window.activatePet = window.activatePet;
+window.buyCharges = window.buyCharges;
+window.upgradeTalent = window.upgradeTalent;
+window.craftTalent = window.craftTalent;
+window.selectBattleTalent = window.selectBattleTalent;
+window.attackBoss = window.attackBoss;
+window.joinGuild = window.joinGuild;
 window.leaveGuild = leaveGuild;
-window.removeFromGuild = removeFromGuild;
-window.showCreateGuildModal = showCreateGuildModal;
-window.hideCreateGuildModal = hideCreateGuildModal;
-window.editGuild = editGuild;
-window.saveGuildEdit = saveGuildEdit;
-window.cancelGuildEdit = cancelGuildEdit;
-window.removeMemberFromEdit = removeMemberFromEdit;
+window.startBattle = window.startBattle;
+window.showGuildRating = window.showGuildRating;
+window.removeFriend = window.removeFriend;
+window.sendFriendRequest = window.sendFriendRequest;
+window.acceptFriendRequest = window.acceptFriendRequest;
+window.declineFriendRequest = window.declineFriendRequest;
+window.copyToClipboard = window.copyToClipboard;
+window.removeFromGuild = window.removeFromGuild;
+window.showCreateGuildModal = window.showCreateGuildModal;
+window.hideCreateGuildModal = window.hideCreateGuildModal;
