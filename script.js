@@ -2593,40 +2593,78 @@ window.copyToClipboard = function(text) {
 /**
  * Покинуть гильдию (для рядового участника)
  */
-async function leaveGuild(guildId) {
-    if (!store.authUser) return;
-    const user = await getUser();
-    if (!user.guildId || user.guildId !== guildId) {
-        showNotification('Ошибка', 'Вы не в этой гильдии');
-        return;
-    }
-    const guildRef = db.collection('guilds').doc(guildId);
-    try {
-        await db.runTransaction(async (transaction) => {
-            const guildDoc = await transaction.get(guildRef);
-            if (!guildDoc.exists) throw new Error('Гильдия не найдена');
-            const guild = guildDoc.data();
-            if (guild.leaderId === store.authUser.uid) {
-                throw new Error('Лидер не может покинуть гильдию. Передайте права или распустите гильдию.');
-            }
-            if (!guild.members.includes(store.authUser.uid)) {
-                throw new Error('Вы не состоите в гильдии');
-            }
-            transaction.update(guildRef, {
-                members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
-            });
-            const userRef = db.collection('users').doc(store.authUser.uid);
-            transaction.update(userRef, { guildId: null });
-        });
-        await loadUserFromFirestore(true);
-        loadGuildScreen();
-        showNotification('Вы покинули гильдию', '');
-    } catch (e) {
-        console.error(e);
-        showNotification('Ошибка', e.message || 'Не удалось покинуть гильдию');
-    }
-}
+ /**
+  * Покинуть гильдию (для рядового участника) или распустить гильдию (для лидера)
+  */
+ async function leaveGuild(guildId) {
+     if (!store.authUser) return;
+     const user = await getUser();
+     if (!user.guildId || user.guildId !== guildId) {
+         showNotification('Ошибка', 'Вы не в этой гильдии');
+         return;
+     }
 
+     const guildRef = db.collection('guilds').doc(guildId);
+     const userRef = db.collection('users').doc(store.authUser.uid);
+
+     try {
+         // Получаем актуальные данные гильдии
+         const guildDoc = await guildRef.get();
+         if (!guildDoc.exists) {
+             // Гильдии уже нет – просто очищаем у пользователя
+             await userRef.update({ guildId: null });
+             await loadUserFromFirestore(true);
+             loadGuildScreen();
+             showNotification('Гильдия уже расформирована', '');
+             return;
+         }
+
+         const guild = guildDoc.data();
+         const isLeader = guild.leaderId === store.authUser.uid;
+
+         if (isLeader) {
+             // Лидер распускает гильдию
+             const batch = db.batch();
+
+             // Удаляем документ гильдии
+             batch.delete(guildRef);
+
+             // Обновляем всех участников: устанавливаем guildId = null
+             const members = guild.members || [];
+             for (const memberId of members) {
+                 const memberRef = db.collection('users').doc(memberId);
+                 batch.update(memberRef, { guildId: null });
+             }
+
+             await batch.commit();
+             showNotification('Гильдия расформирована', '');
+         } else {
+             // Обычный участник покидает гильдию
+             await db.runTransaction(async (transaction) => {
+                 const freshGuildDoc = await transaction.get(guildRef);
+                 if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
+                 const freshGuild = freshGuildDoc.data();
+
+                 if (!freshGuild.members.includes(store.authUser.uid)) {
+                     throw new Error('Вы не состоите в гильдии');
+                 }
+
+                 transaction.update(guildRef, {
+                     members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
+                 });
+                 transaction.update(userRef, { guildId: null });
+             });
+             showNotification('Вы покинули гильдию', '');
+         }
+
+         // Обновляем данные пользователя и экран
+         await loadUserFromFirestore(true);
+         loadGuildScreen();
+     } catch (e) {
+         console.error(e);
+         showNotification('Ошибка', e.message || 'Не удалось выполнить действие');
+     }
+ }
 /**
  * Исключить участника из гильдии (только для лидера)
  */
