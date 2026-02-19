@@ -68,7 +68,9 @@ const store = {
         level: 0,
         timestamp: 0
     },
-    lastTalentUse: 0
+    lastTalentUse: 0,
+    guildEditing: false, // флаг режима редактирования гильдии
+    guildInfoVisible: false // флаг видимости информационной панели гильдии
 };
 
 // =======================================================
@@ -1193,9 +1195,24 @@ window.hideCreateGuildModal = function() {
     document.getElementById('guild-chat-link').value = '';
 };
 
+// Валидация ссылки
+function validateUrl(url) {
+    if (!url) return true; // пустая ссылка допустима
+    try {
+        new URL(url);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 async function createGuild(name, description, chatLink) {
     if (name.length < 5) {
         showNotification('Ошибка', 'Название гильдии должно содержать минимум 5 символов');
+        return;
+    }
+    if (!validateUrl(chatLink)) {
+        showNotification('Ошибка', 'Ссылка на чат/канал некорректна. Введите полный URL (например, https://t.me/...)');
         return;
     }
 
@@ -1268,6 +1285,96 @@ function getGuildLevelAndMaxMembersFromRating(rating) {
         return { level: 2, maxMembers: 40 };
     } else {
         return { level: 1, maxMembers: 20 };
+    }
+}
+
+// ========== НОВАЯ ФУНКЦИЯ ПОКАЗА РЕЙТИНГА В МОДАЛКЕ ==========
+async function showGuildRatingModal() {
+    const modal = document.getElementById('guild-rating-modal');
+    if (!modal) return;
+    const contentDiv = document.getElementById('guild-rating-content');
+    showLoader('guild-rating-content', true);
+    const guildsSnap = await db.collection('guilds').orderBy('rating', 'desc').get();
+    const guilds = guildsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    showLoader('guild-rating-content', false);
+
+    if (guilds.length === 0) {
+        contentDiv.innerHTML = '<p class="empty-msg">Гильдий пока нет</p>';
+    } else {
+        let html = '<table class="rating-table">';
+        html += '<tr><th>#</th><th>Гильдия</th><th>Ур.</th><th>👥</th><th>🏆</th></tr>';
+        guilds.forEach((g, index) => {
+            html += `<tr>
+                <td>${index + 1}</td>
+                <td>${g.name}</td>
+                <td>${g.level || 1}</td>
+                <td>${g.members?.length || 0}</td>
+                <td>${g.rating || 0}</td>
+            </tr>`;
+        });
+        html += '</table>';
+        contentDiv.innerHTML = html;
+    }
+
+    modal.classList.remove('hidden');
+    document.getElementById('close-guild-rating').onclick = () => {
+        modal.classList.add('hidden');
+    };
+}
+window.showGuildRatingModal = showGuildRatingModal;
+
+// ========== ФУНКЦИИ РЕДАКТИРОВАНИЯ ГИЛЬДИИ ==========
+function toggleEditMode(event) {
+    if (event) {
+        event.stopPropagation(); // чтобы клик по иконке не раскрывал/скрывал панель
+    }
+    store.guildEditing = !store.guildEditing;
+    if (store.guild) {
+        // Если включаем редактирование, убедимся, что панель видна
+        if (store.guildEditing) {
+            store.guildInfoVisible = true; // раскрываем панель
+        }
+        renderGuildPage(store.guild); // перерисовать страницу с учётом режима
+    }
+}
+
+async function updateGuildInfo() {
+    const guild = store.guild;
+    if (!guild) return;
+
+    const nameInput = document.getElementById('edit-guild-name');
+    const descInput = document.getElementById('edit-guild-desc');
+    const linkInput = document.getElementById('edit-guild-chatLink');
+
+    const newName = nameInput.value.trim();
+    const newDesc = descInput.value.trim();
+    const newLink = linkInput.value.trim();
+
+    if (newName.length < 5) {
+        showNotification('Ошибка', 'Название должно быть не менее 5 символов');
+        return;
+    }
+    if (!validateUrl(newLink)) {
+        showNotification('Ошибка', 'Некорректная ссылка на чат/канал');
+        return;
+    }
+
+    try {
+        const guildRef = db.collection('guilds').doc(guild.id);
+        await guildRef.update({
+            name: newName,
+            description: newDesc,
+            chatLink: newLink
+        });
+        showNotification('Успех', 'Информация обновлена');
+        store.guildEditing = false;
+        // Перезагрузить гильдию
+        const updatedDoc = await guildRef.get();
+        store.guild = { id: updatedDoc.id, ...updatedDoc.data() };
+        renderGuildPage(store.guild);
+    } catch (e) {
+        console.error(e);
+        showNotification('Ошибка', 'Не удалось обновить данные');
     }
 }
 
@@ -1387,6 +1494,8 @@ function getXPProgress(user) {
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
+    const editing = store.guildEditing;
+    const guildInfoVisible = store.guildInfoVisible;
 
     const { level: computedLevel, maxMembers: computedMaxMembers } = getGuildLevelAndMaxMembersFromRating(guild.rating || 0);
     guild.level = computedLevel;
@@ -1446,26 +1555,43 @@ async function renderGuildPage(guild) {
     container.innerHTML = `
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="width: 100px;"></div>
-            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">${guild.name}</h1>
-            <button onclick="showGuildRating()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
+            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0; display: flex; align-items: center; gap: 8px;">
+                ${guild.name}
+                ${isLeader ? '<span class="edit-icon" onclick="toggleEditMode(event)">✏️</span>' : ''}
+            </h1>
+            <button onclick="showGuildRatingModal()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
          </div>
 
-         <div id="guild-info-panel" class="guild-info-panel hidden">
+         <div id="guild-info-panel" class="guild-info-panel ${editing ? 'editing' : ''} ${!guildInfoVisible ? 'hidden' : ''}">
              <h3>📋 Информация о гильдии</h3>
-             <p><strong>Описание:</strong> ${guild.description || '—'}</p>
-             ${guild.chatLink ? `<p><strong>Чат/канал:</strong> <a href="${guild.chatLink}" target="_blank" style="color: #8ab3ff;">${guild.chatLink}</a></p>` : ''}
-             ${expBarHtml}
+             ${editing ? `
+                 <div class="edit-fields">
+                     <input type="text" id="edit-guild-name" class="edit-input" value="${guild.name}" placeholder="Название (мин. 5 симв.)" autofocus>
+                     <textarea id="edit-guild-desc" class="edit-input" placeholder="Описание">${guild.description || ''}</textarea>
+                     <input type="url" id="edit-guild-chatLink" class="edit-input" value="${guild.chatLink || ''}" placeholder="Ссылка на чат/канал">
+                     <div class="edit-actions">
+                         <button onclick="updateGuildInfo()" class="glow-button save-btn">💾 Сохранить</button>
+                         <button onclick="toggleEditMode()" class="glow-button cancel-btn">❌ Отмена</button>
+                     </div>
+                 </div>
+             ` : `
+                 <p><strong>Описание:</strong> ${guild.description || '—'}</p>
+                 ${guild.chatLink ? `<p><strong>Чат/канал:</strong> <a href="${guild.chatLink}" target="_blank" style="color: #8ab3ff;">${guild.chatLink}</a></p>` : ''}
+                 ${expBarHtml}
+             `}
+
              <h4>Участники (${guild.members?.length || 0} / ${guild.maxMembers || 20})</h4>
              <ul class="member-list">
                 ${membersData.map(member => {
                     const avatarHtml = member.photoUrl
                         ? `<img src="${member.photoUrl}" class="member-avatar-img" alt="avatar">`
                         : `<span class="member-avatar-initials">${member.name[0]?.toUpperCase() || '?'}</span>`;
-                    const isLeader = member.id === guild.leaderId;
-                    const leaderStar = isLeader ? ' 👑' : '';
+                    const isLeaderMember = member.id === guild.leaderId;
+                    const leaderStar = isLeaderMember ? ' 👑' : '';
+                    const removeBtn = (editing && !isLeaderMember) ? `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${member.id}')">❌ Удалить</button>` : '';
                     return `
                         <li>
-                            <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex:1;">
                                 <div class="member-avatar">
                                     ${avatarHtml}
                                     <span class="member-level-badge">${member.level}</span>
@@ -1475,9 +1601,7 @@ async function renderGuildPage(guild) {
                                     <div style="font-size: 12px; color: #aaa;">${member.telegramId}</div>
                                 </div>
                             </div>
-                            ${isLeader && member.id !== store.authUser.uid ?
-                                `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${member.id}')">❌ Удалить</button>`
-                                : ''}
+                            ${removeBtn}
                         </li>
                     `;
                 }).join('') || '<li>Нет участников</li>'}
@@ -1505,7 +1629,15 @@ async function renderGuildPage(guild) {
     `;
 
     document.getElementById('guild-title').onclick = () => {
-        document.getElementById('guild-info-panel').classList.toggle('hidden');
+        store.guildInfoVisible = !store.guildInfoVisible;
+        const panel = document.getElementById('guild-info-panel');
+        if (panel) {
+            if (store.guildInfoVisible) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
     };
 
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
@@ -1977,14 +2109,9 @@ function showDamageEffect(amount, icon = '💥') {
     setTimeout(() => div.remove(), 1000);
 }
 
+// Функция showGuildRating заменена на модальное окно, оставим для совместимости
 async function showGuildRating() {
-    const guildsSnap = await db.collection('guilds').orderBy('rating', 'desc').get();
-    const guilds = guildsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    let msg = '🏆 Рейтинг гильдий:\n';
-    guilds.forEach((g, i) => {
-        msg += `${i+1}. ${g.name} — ур.${g.level} (${g.rating || 0} очков)\n`;
-    });
-    showNotification('Рейтинг', msg);
+    showGuildRatingModal();
 }
 window.showInviteMenu = function() {
     showNotification('Пригласить друга', 'Функция в разработке');
@@ -2500,7 +2627,10 @@ window.attackBoss = window.attackBoss;
 window.joinGuild = window.joinGuild;
 window.leaveGuild = leaveGuild;
 window.startBattle = window.startBattle;
-window.showGuildRating = window.showGuildRating;
+window.showGuildRating = showGuildRating;
+window.showGuildRatingModal = showGuildRatingModal;
+window.toggleEditMode = toggleEditMode;
+window.updateGuildInfo = updateGuildInfo;
 window.removeFriend = window.removeFriend;
 window.sendFriendRequest = window.sendFriendRequest;
 window.acceptFriendRequest = window.acceptFriendRequest;

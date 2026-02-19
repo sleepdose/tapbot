@@ -1209,3 +1209,146 @@ body {
     position: relative;
     z-index: 2;
 }
+
+/* ========== НОВЫЕ СТИЛИ ДЛЯ РЕДАКТИРОВАНИЯ И РЕЙТИНГА ========== */
+
+/* Кнопка редактирования */
+.edit-mode-btn {
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #ffd966;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+.edit-mode-btn:hover {
+    background: #3a5a7a;
+}
+
+/* Поля ввода в режиме редактирования */
+.edit-input {
+    width: 100%;
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 30px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+.edit-input:focus {
+    outline: none;
+    border-color: #8ab3ff;
+    box-shadow: 0 0 8px #4a6c8f;
+}
+
+/* Модальное окно рейтинга */
+.rating-modal {
+    max-width: 440px;
+    width: 95%;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+.rating-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #e0e0e0;
+    font-size: 14px;
+}
+.rating-table th {
+    background: #2a3a4a;
+    color: #ffd966;
+    padding: 10px 5px;
+    position: sticky;
+    top: 0;
+}
+.rating-table td {
+    padding: 8px 5px;
+    border-bottom: 1px solid #3f3f3f;
+    text-align: center;
+}
+.rating-table tr:last-child td {
+    border-bottom: none;
+}
+.rating-table td:first-child,
+.rating-table th:first-child {
+    text-align: left;
+    padding-left: 10px;
+}
+.rating-table td:last-child {
+    font-weight: 600;
+    color: #ffaa00;
+}
+
+/* Кнопка "Закрыть" в модалке рейтинга */
+#close-guild-rating {
+    background: #4a6c8f;
+}
+/* Иконка карандаша рядом с названием */
+.edit-icon {
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+    display: inline-block;
+    margin-left: 5px;
+}
+.edit-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Панель информации в режиме редактирования */
+.guild-info-panel.editing {
+    /* можно добавить подсветку, если нужно */
+    border-color: #8ab3ff;
+}
+
+/* Анимация появления полей редактирования */
+.edit-fields {
+    animation: fadeSlide 0.3s ease-out;
+}
+@keyframes fadeSlide {
+    0% { opacity: 0; transform: translateY(-10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Поля ввода в режиме редактирования */
+.edit-input {
+    width: 100%;
+    background: #2d2d2d;
+    border: 1px solid #5a5a5a;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 30px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    transition: border 0.2s, box-shadow 0.2s;
+}
+.edit-input:focus {
+    outline: none;
+    border-color: #8ab3ff;
+    box-shadow: 0 0 10px #4a6c8f;
+}
+
+/* Кнопки сохранения и отмены */
+.edit-actions {
+    display: flex;
+    gap: 12px;
+    margin: 15px 0 10px;
+}
+.save-btn, .cancel-btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+}
+.cancel-btn {
+    background: #3a3a3a;
+    border-color: #5a5a5a;
+}
+.cancel-btn:hover {
+    background: #4a4a4a;
+}
