@@ -129,6 +129,29 @@ body {
 .level-badge {
     display: none;
 }
+/* Иконка бонуса в верхней панели */
+.bonus-icon {
+    font-size: 24px;
+    cursor: pointer;
+    background: #2a3a4a;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #4a6c8f;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    margin-left: 5px;
+    flex-shrink: 0;
+}
+.bonus-icon:hover {
+    transform: scale(1.05);
+    background: #3a5a7a;
+    border-color: #8ab3ff;
+}
+
 /* ========== ПЕРСОНАЖ В ГЛАВНОМ МЕНЮ ========== */
 #character-area {
     display: flex;
@@ -1213,38 +1236,61 @@ body {
 /* ========== НОВЫЕ СТИЛИ ДЛЯ РЕДАКТИРОВАНИЯ И РЕЙТИНГА ========== */
 
 /* Кнопка редактирования */
-.edit-mode-btn {
-    background: #2d2d2d;
-    border: 1px solid #5a5a5a;
-    color: #ffd966;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
+.edit-icon {
+    font-size: 20px;
     cursor: pointer;
-    margin-left: 10px;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+    display: inline-block;
+    margin-left: 5px;
 }
-.edit-mode-btn:hover {
-    background: #3a5a7a;
+.edit-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
-
-/* Поля ввода в режиме редактирования */
+.guild-info-panel.editing {
+    border-color: #8ab3ff;
+}
+.edit-fields {
+    animation: fadeSlide 0.3s ease-out;
+}
+@keyframes fadeSlide {
+    0% { opacity: 0; transform: translateY(-10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
 .edit-input {
     width: 100%;
     background: #2d2d2d;
     border: 1px solid #5a5a5a;
     color: #fff;
-    padding: 8px 12px;
+    padding: 10px 16px;
     border-radius: 30px;
     margin-bottom: 12px;
-    font-size: 14px;
+    font-size: 15px;
+    transition: border 0.2s, box-shadow 0.2s;
 }
 .edit-input:focus {
     outline: none;
     border-color: #8ab3ff;
-    box-shadow: 0 0 8px #4a6c8f;
+    box-shadow: 0 0 10px #4a6c8f;
 }
-
-/* Модальное окно рейтинга */
+.edit-actions {
+    display: flex;
+    gap: 12px;
+    margin: 15px 0 10px;
+}
+.save-btn, .cancel-btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+}
+.cancel-btn {
+    background: #3a3a3a;
+    border-color: #5a5a5a;
+}
+.cancel-btn:hover {
+    background: #4a4a4a;
+}
 .rating-modal {
     max-width: 440px;
     width: 95%;
@@ -1282,73 +1328,160 @@ body {
     font-weight: 600;
     color: #ffaa00;
 }
-
-/* Кнопка "Закрыть" в модалке рейтинга */
 #close-guild-rating {
     background: #4a6c8f;
 }
-/* Иконка карандаша рядом с названием */
-.edit-icon {
-    font-size: 20px;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s, transform 0.2s;
-    display: inline-block;
-    margin-left: 5px;
-}
-.edit-icon:hover {
-    opacity: 1;
-    transform: scale(1.1);
+
+/* ========== СТИЛИ ДЛЯ ЕЖЕДНЕВНЫХ БОНУСОВ (ГОРИЗОНТАЛЬНЫЙ СПИСОК) ========== */
+
+/* Модальное окно бонусов */
+.bonus-modal {
+    max-width: 400px;
+    width: 95%;
+    text-align: center;
 }
 
-/* Панель информации в режиме редактирования */
-.guild-info-panel.editing {
-    /* можно добавить подсветку, если нужно */
-    border-color: #8ab3ff;
-}
-
-/* Анимация появления полей редактирования */
-.edit-fields {
-    animation: fadeSlide 0.3s ease-out;
-}
-@keyframes fadeSlide {
-    0% { opacity: 0; transform: translateY(-10px); }
-    100% { opacity: 1; transform: translateY(0); }
-}
-
-/* Поля ввода в режиме редактирования */
-.edit-input {
-    width: 100%;
-    background: #2d2d2d;
-    border: 1px solid #5a5a5a;
-    color: #fff;
-    padding: 10px 16px;
-    border-radius: 30px;
-    margin-bottom: 12px;
-    font-size: 15px;
-    transition: border 0.2s, box-shadow 0.2s;
-}
-.edit-input:focus {
-    outline: none;
-    border-color: #8ab3ff;
-    box-shadow: 0 0 10px #4a6c8f;
-}
-
-/* Кнопки сохранения и отмены */
-.edit-actions {
+/* Календарь (горизонтальный скролл) */
+.bonus-calendar {
     display: flex;
-    gap: 12px;
-    margin: 15px 0 10px;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding: 10px;
+    background: #1a1a1a;
+    border-radius: 16px;
+    border: 1px solid #3a3a3a;
+    scrollbar-width: thin;
+    scrollbar-color: #4a6c8f #1a1a1a;
+    margin: 20px 0;
+    width: 100%;
 }
-.save-btn, .cancel-btn {
-    flex: 1;
+
+.bonus-calendar::-webkit-scrollbar {
+    height: 6px;
+}
+.bonus-calendar::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+.bonus-calendar::-webkit-scrollbar-thumb {
+    background: #4a6c8f;
+    border-radius: 3px;
+}
+
+/* Ячейка дня */
+.bonus-day {
+    min-width: 80px;
+    flex-shrink: 0;
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    border-radius: 12px;
+    padding: 10px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 14px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 0 #2a2a2a;
+}
+
+.bonus-day .day-number {
+    font-weight: bold;
+    color: #ffd966;
+    margin-bottom: 5px;
+}
+
+.bonus-day .reward {
+    font-size: 12px;
+    color: #e0e0e0;
+}
+
+/* Доступный для получения день */
+.bonus-day.available {
+    background: #2a4a6a;
+    border-color: #8ab3ff;
+    box-shadow: 0 0 15px #4a6c8f;
+    transform: scale(1.02);
+    cursor: pointer;
+}
+
+.bonus-day.available:hover {
+    transform: scale(1.05);
+    background: #3a5a7a;
+}
+
+/* Уже полученный день */
+.bonus-day.claimed {
+    background: #1e3a2a;
+    border-color: #6ab04c;
+    opacity: 0.8;
+}
+
+.bonus-day.claimed .day-number {
+    color: #6ab04c;
+}
+
+/* Будущий день (ещё не доступен) */
+.bonus-day.future {
+    opacity: 0.5;
+}
+
+/* Информация о текущей серии и таймер */
+.bonus-info {
+    background: #242424;
+    border: 1px solid #3f3f3f;
+    border-radius: 12px;
     padding: 12px;
+    margin: 15px 0;
+    color: #e0e0e0;
     font-size: 16px;
 }
-.cancel-btn {
+
+.bonus-info p {
+    margin: 5px 0;
+}
+
+/* Кнопка "Забрать" */
+#claim-bonus-btn {
+    background: linear-gradient(145deg, #2a4a6a, #1e3a4a);
+    border: 1px solid #8ab3ff;
+    color: white;
+    font-weight: bold;
+    padding: 12px 24px;
+    border-radius: 40px;
+    box-shadow: 0 0 15px #4a6c8f, 0 4px 0 #1a2a3a;
+    transition: all 0.1s;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+#claim-bonus-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px #6a8caf, 0 6px 0 #1a2a3a;
+}
+
+#claim-bonus-btn:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: 0 0 10px #4a6c8f, 0 2px 0 #1a2a3a;
+}
+
+#claim-bonus-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Кнопка "Закрыть" в модальном окне бонусов */
+.bonus-modal .cancel-btn {
     background: #3a3a3a;
     border-color: #5a5a5a;
+    width: 100%;
 }
-.cancel-btn:hover {
-    background: #4a4a4a;
+
+/* Расположение кнопок друг под другом */
+.bonus-modal .modal-buttons {
+    flex-direction: column;
+    gap: 10px;
 }

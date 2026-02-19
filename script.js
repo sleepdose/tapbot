@@ -20,7 +20,6 @@ function setUserAvatar() {
     if (user && user.photo_url) {
         avatarImg.src = user.photo_url;
     } else {
-        // Если фото нет – показываем инициалы
         avatarImg.style.display = 'none';
         const avatarDiv = document.getElementById('user-avatar');
         const initials = user ? (user.first_name?.[0] || '').toUpperCase() : '?';
@@ -69,8 +68,8 @@ const store = {
         timestamp: 0
     },
     lastTalentUse: 0,
-    guildEditing: false, // флаг режима редактирования гильдии
-    guildInfoVisible: false // флаг видимости информационной панели гильдии
+    guildEditing: false,
+    guildInfoVisible: false
 };
 
 // =======================================================
@@ -106,7 +105,7 @@ function showLoader(containerId, show = true) {
     }
 }
 
-// [NEW] Сохранить результат битвы в store и sessionStorage
+// Сохранить результат битвы в store и sessionStorage
 function setBattleResult(victory, damageLog, userNames, guildName, rating, level, timestamp) {
     store.battleResult = {
         visible: true,
@@ -121,7 +120,7 @@ function setBattleResult(victory, damageLog, userNames, guildName, rating, level
     sessionStorage.setItem('battleResult', JSON.stringify(store.battleResult));
 }
 
-// [NEW] Восстановить результат из sessionStorage при загрузке страницы
+// Восстановить результат из sessionStorage при загрузке страницы
 function restoreBattleResultFromStorage() {
     const saved = sessionStorage.getItem('battleResult');
     if (saved) {
@@ -136,7 +135,7 @@ function restoreBattleResultFromStorage() {
     }
 }
 
-// [NEW] Функция управления видимостью модалки (с выделением текущего игрока)
+// Функция управления видимостью модалки (с выделением текущего игрока)
 function updateBattleResultModalVisibility() {
     const modal = document.getElementById('battle-result-modal');
     const guildScreenActive = document.getElementById('screen-guild').classList.contains('active');
@@ -214,6 +213,17 @@ const defaultTalents = {
     totalDamage: 0
 };
 
+// Конфигурация ежедневных бонусов — только монеты (без энергии)
+const dailyBonusConfig = [
+    { day: 1, reward: { money: 100 } },
+    { day: 2, reward: { money: 150 } },
+    { day: 3, reward: { money: 200 } },
+    { day: 4, reward: { money: 250 } },
+    { day: 5, reward: { money: 300 } },
+    { day: 6, reward: { money: 350 } },
+    { day: 7, reward: { money: 500 } }
+];
+
 async function getUser(forceReload = false) {
     if (!store.user || forceReload) {
         await loadUserFromFirestore();
@@ -246,7 +256,12 @@ async function loadUserFromFirestore() {
             friends: [],
             pendingRequests: [],
             battleResultsSeen: {},
-            ...defaultTalents
+            ...defaultTalents,
+            dailyBonus: {
+                currentDay: 1,
+                lastClaim: null,
+                streak: 0
+            }
         };
         await userRef.set(newUser);
         store.user = newUser;
@@ -280,6 +295,7 @@ async function loadUserFromFirestore() {
     if (data.level === undefined) { data.level = 1; needsUpdate = true; }
     if (data.xp === undefined) { data.xp = 0; needsUpdate = true; }
     if (data.totalDamage === undefined) { data.totalDamage = 0; needsUpdate = true; }
+    if (!data.dailyBonus) { data.dailyBonus = { currentDay: 1, lastClaim: null, streak: 0 }; needsUpdate = true; }
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -310,7 +326,8 @@ async function loadUserFromFirestore() {
             lastEnergyUpdate: data.lastEnergyUpdate,
             level: data.level,
             xp: data.xp,
-            totalDamage: data.totalDamage
+            totalDamage: data.totalDamage,
+            dailyBonus: data.dailyBonus
         };
         await userRef.update(updateData);
     }
@@ -1027,7 +1044,7 @@ function setupTalentsGlobalListeners() {
 }
 
 // =======================================================
-// 🆕 ФУНКЦИЯ СОЗДАНИЯ КНОПОК ТАЛАНТОВ
+// ФУНКЦИЯ СОЗДАНИЯ КНОПОК ТАЛАНТОВ
 // =======================================================
 function createBattleTalentButtons() {
     const container = document.getElementById('talent-selector');
@@ -1075,7 +1092,7 @@ window.selectBattleTalent = async function(talentType) {
 };
 
 // =======================================================
-// 🆕 НОВАЯ СИСТЕМА МНОЖЕСТВЕННЫХ ЭФФЕКТОВ ЯДА (с сохранением в Firestore)
+// НОВАЯ СИСТЕМА МНОЖЕСТВЕННЫХ ЭФФЕКТОВ ЯДА (с сохранением в Firestore)
 // =======================================================
 
 // Функция запуска эффекта из данных (используется при загрузке)
@@ -1233,7 +1250,7 @@ async function createGuild(name, description, chatLink) {
         battleEndTime: null,
         keys: { boss2: 0 },
         damageLog: {},
-        poisonEffects: [] // новый массив для хранения активных ядов
+        poisonEffects: []
     };
     try {
         const docRef = await db.collection('guilds').add(newGuild);
@@ -1326,15 +1343,14 @@ window.showGuildRatingModal = showGuildRatingModal;
 // ========== ФУНКЦИИ РЕДАКТИРОВАНИЯ ГИЛЬДИИ ==========
 function toggleEditMode(event) {
     if (event) {
-        event.stopPropagation(); // чтобы клик по иконке не раскрывал/скрывал панель
+        event.stopPropagation();
     }
     store.guildEditing = !store.guildEditing;
     if (store.guild) {
-        // Если включаем редактирование, убедимся, что панель видна
         if (store.guildEditing) {
-            store.guildInfoVisible = true; // раскрываем панель
+            store.guildInfoVisible = true;
         }
-        renderGuildPage(store.guild); // перерисовать страницу с учётом режима
+        renderGuildPage(store.guild);
     }
 }
 
@@ -1368,7 +1384,6 @@ async function updateGuildInfo() {
         });
         showNotification('Успех', 'Информация обновлена');
         store.guildEditing = false;
-        // Перезагрузить гильдию
         const updatedDoc = await guildRef.get();
         store.guild = { id: updatedDoc.id, ...updatedDoc.data() };
         renderGuildPage(store.guild);
@@ -1438,7 +1453,6 @@ async function loadGuildScreen() {
                 store.guild = updatedGuild;
                 renderGuildPage(updatedGuild);
 
-                // Восстанавливаем эффекты яда из поля poisonEffects
                 if (updatedGuild.poisonEffects && Array.isArray(updatedGuild.poisonEffects)) {
                     updatedGuild.poisonEffects.forEach(effect => {
                         startPoisonEffectFromData(effect, updatedGuild.id);
@@ -1504,7 +1518,6 @@ async function renderGuildPage(guild) {
 
     const currentLevel = guild.level || 1;
     const rating = guild.rating || 0;
-    const nextLevelRating = currentLevel === 1 ? 100 : (currentLevel === 2 ? 300 : 300);
     const progress = currentLevel === 3 ? 100 : (rating % (currentLevel === 1 ? 100 : 200)) / ((currentLevel === 1 ? 100 : 200)) * 100;
     const toNextLevel = currentLevel === 3 ? 0 : (currentLevel === 1 ? 100 - rating : 300 - rating);
     const expBarHtml = `
@@ -1550,20 +1563,17 @@ async function renderGuildPage(guild) {
     });
     const membersData = await Promise.all(memberPromises);
 
-    const leaderData = membersData.find(m => m.id === guild.leaderId) || { name: 'Неизвестный', telegramId: guild.leaderId.slice(0,6) };
-
     container.innerHTML = `
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="width: 100px;"></div>
-            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">
                 ${guild.name}
-                ${isLeader ? '<span class="edit-icon" onclick="toggleEditMode(event)">✏️</span>' : ''}
             </h1>
             <button onclick="showGuildRatingModal()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
          </div>
 
          <div id="guild-info-panel" class="guild-info-panel ${editing ? 'editing' : ''} ${!guildInfoVisible ? 'hidden' : ''}">
-             <h3>📋 Информация о гильдии</h3>
+             <h3>📋 Информация о гильдии ${isLeader && !editing ? '<span class="edit-icon" onclick="toggleEditMode(event)">✏️</span>' : ''}</h3>
              ${editing ? `
                  <div class="edit-fields">
                      <input type="text" id="edit-guild-name" class="edit-input" value="${guild.name}" placeholder="Название (мин. 5 симв.)" autofocus>
@@ -1661,7 +1671,6 @@ async function renderGuildPage(guild) {
         createBattleTalentButtons();
     }
 
-    // Восстанавливаем эффекты яда
     if (guild.poisonEffects && Array.isArray(guild.poisonEffects)) {
         guild.poisonEffects.forEach(effect => {
             startPoisonEffectFromData(effect, guild.id);
@@ -1757,7 +1766,7 @@ async function startBattle(guildId) {
                 bossHp: maxBossHp,
                 maxBossHp: maxBossHp,
                 damageLog: {},
-                poisonEffects: [] // очищаем старые эффекты
+                poisonEffects: []
             });
         });
 
@@ -1765,6 +1774,8 @@ async function startBattle(guildId) {
         startBattleTimer(battleEndTime, guildId);
         await updateUser({ selectedTalent: null });
         createBattleTalentButtons();
+        // Отправляем уведомление о начале битвы
+        notifyGuildBattleStart(guildId, battleEndTime);
     } catch (e) {
         console.error(e);
         showNotification('Ошибка', e.message || 'Не удалось начать битву');
@@ -1841,7 +1852,6 @@ async function endBattle(victory, guildId) {
     }
 
     const damageLog = guild.damageLog || {};
-    const guildName = guild.name;
     let userNames = {};
 
     const userIds = Object.keys(damageLog);
@@ -1878,7 +1888,7 @@ async function endBattle(victory, guildId) {
                     battleActive: false,
                     bossHp: freshGuild.maxBossHp,
                     damageLog: {},
-                    poisonEffects: [] // очищаем эффекты
+                    poisonEffects: []
                 };
 
                 if (victory) {
@@ -1949,6 +1959,8 @@ async function endBattle(victory, guildId) {
 
     if (success) {
         finishedBattles.add(guildId);
+        // Отправляем уведомление о завершении битвы
+        notifyGuildBattleEnd(guildId, victory);
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
     }
@@ -2109,82 +2121,293 @@ function showDamageEffect(amount, icon = '💥') {
     setTimeout(() => div.remove(), 1000);
 }
 
-// Функция showGuildRating заменена на модальное окно, оставим для совместимости
-async function showGuildRating() {
-    showGuildRatingModal();
-}
-window.showInviteMenu = function() {
-    showNotification('Пригласить друга', 'Функция в разработке');
-};
-async function leaveGuild(guildId) {
-    const user = await getUser();
-    const guildRef = db.collection('guilds').doc(guildId);
-    const userRef = db.collection('users').doc(store.authUser.uid);
+// =======================================================
+// УВЕДОМЛЕНИЯ ЧЕРЕЗ БОТА
+// =======================================================
+async function notifyGuildBattleStart(guildId, battleEndTime) {
+    if (!store.guild) return;
+    const members = store.guild.members;
+    const guildName = store.guild.name;
     try {
-        await db.runTransaction(async (transaction) => {
-            const guildDoc = await transaction.get(guildRef);
-            const userDoc = await transaction.get(userRef);
-            if (!guildDoc.exists) return;
-            const guild = guildDoc.data();
-            if (!guild.members.includes(store.authUser.uid)) return;
+        await fetch('https://us-central1-hiko-ca02d.cloudfunctions.net/sendBattleNotification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'start',
+                guildId,
+                guildName,
+                members,
+                battleEndTime
+            })
+        });
+    } catch (e) {
+        console.error('Ошибка отправки уведомления о начале битвы:', e);
+    }
+}
 
-            if (guild.leaderId === store.authUser.uid) {
-                const otherMembers = guild.members.filter(id => id !== store.authUser.uid);
-                if (otherMembers.length === 0) {
-                    transaction.delete(guildRef);
-                } else {
-                    transaction.update(guildRef, {
-                        leaderId: otherMembers[0],
-                        members: otherMembers
-                    });
-                }
-            } else {
-                transaction.update(guildRef, {
-                    members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
-                });
+async function notifyGuildBattleEnd(guildId, victory) {
+    if (!store.guild) return;
+    const members = store.guild.members;
+    const guildName = store.guild.name;
+    try {
+        await fetch('https://us-central1-hiko-ca02d.cloudfunctions.net/sendBattleNotification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'end',
+                guildId,
+                guildName,
+                members,
+                victory
+            })
+        });
+    } catch (e) {
+        console.error('Ошибка отправки уведомления о завершении битвы:', e);
+    }
+}
+
+// =======================================================
+// СИСТЕМА ЕЖЕДНЕВНЫХ БОНУСОВ (ТОЛЬКО МОНЕТЫ + ТАЙМЕР)
+// =======================================================
+function getCurrentDailyBonus(user) {
+    const now = new Date();
+    const lastClaim = user.dailyBonus.lastClaim ? new Date(user.dailyBonus.lastClaim) : null;
+    const today = now.toDateString();
+    const lastClaimDate = lastClaim ? lastClaim.toDateString() : null;
+
+    // Проверка сброса серии при пропуске дня
+    if (lastClaim) {
+        const diffDays = Math.floor((now - lastClaim) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 2) {
+            // Пропущен день, сбрасываем
+            user.dailyBonus.streak = 0;
+            user.dailyBonus.currentDay = 1;
+        }
+    }
+
+    const canClaim = lastClaimDate !== today;
+    return {
+        canClaim,
+        currentDay: user.dailyBonus.currentDay,
+        streak: user.dailyBonus.streak,
+        nextReward: dailyBonusConfig[(user.dailyBonus.currentDay - 1) % dailyBonusConfig.length]
+    };
+}
+
+async function claimDailyBonus() {
+    const user = await getUser();
+    const bonusInfo = getCurrentDailyBonus(user);
+    if (!bonusInfo.canClaim) {
+        showNotification('Уже получено', 'Вы уже получили бонус сегодня');
+        return;
+    }
+
+    const reward = bonusInfo.nextReward.reward;
+    const updates = {
+        money: user.money + reward.money,
+        dailyBonus: {
+            currentDay: (user.dailyBonus.currentDay % dailyBonusConfig.length) + 1,
+            lastClaim: Date.now(),
+            streak: user.dailyBonus.streak + 1
+        }
+    };
+
+    await updateUser(updates);
+    showNotification('Бонус получен!', `Вы получили ${reward.money} 🪙`);
+    updateDailyBonusModal();
+    stopBonusTimer();
+    startBonusTimer(); // запускаем отсчёт до следующего дня
+}
+
+let bonusTimerInterval = null;
+
+function getTimeToNextBonus() {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    return tomorrow - now;
+}
+
+function formatTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    // секунды не выводим
+    return `${hours}ч ${minutes}м`;
+}
+
+function updateBonusTimer() {
+    const user = store.user;
+    if (!user) return;
+    const info = getCurrentDailyBonus(user);
+    const timerElement = document.getElementById('bonus-info');
+    if (!timerElement) return;
+
+    if (info.canClaim) {
+        timerElement.innerHTML = `<p>✅ Бонус доступен!</p>`;
+    } else {
+        const timeLeft = getTimeToNextBonus();
+        timerElement.innerHTML = `<p>⏳ Следующий бонус через: ${formatTime(timeLeft)}</p>`;
+    }
+}
+
+function startBonusTimer() {
+    if (bonusTimerInterval) clearInterval(bonusTimerInterval);
+    updateBonusTimer();
+    bonusTimerInterval = setInterval(updateBonusTimer, 60000); // обновляем каждую минуту
+}
+
+function stopBonusTimer() {
+    if (bonusTimerInterval) {
+        clearInterval(bonusTimerInterval);
+        bonusTimerInterval = null;
+    }
+}
+
+window.openDailyBonusModal = async function() {
+    const modal = document.getElementById('daily-bonus-modal');
+    if (!modal) return;
+    await getUser(true); // принудительно загружаем пользователя
+    updateDailyBonusModal();
+    modal.classList.remove('hidden');
+    startBonusTimer();
+};
+
+window.closeDailyBonusModal = function() {
+    document.getElementById('daily-bonus-modal').classList.add('hidden');
+    stopBonusTimer();
+};
+
+function updateDailyBonusModal() {
+    const user = store.user;
+    if (!user) return;
+    const info = getCurrentDailyBonus(user);
+    const calendar = document.getElementById('bonus-calendar');
+    let html = '<div class="bonus-calendar">'; // изменено: обёртка уже есть, используем класс
+    for (let i = 0; i < dailyBonusConfig.length; i++) {
+        const dayConfig = dailyBonusConfig[i];
+        const dayNum = i + 1;
+        let statusClass = 'future';
+
+        if (dayNum < user.dailyBonus.currentDay) {
+            statusClass = 'claimed';
+        } else if (dayNum === user.dailyBonus.currentDay && info.canClaim) {
+            statusClass = 'available';
+        } // иначе остаётся future
+
+        html += `<div class="bonus-day ${statusClass}" data-day="${dayNum}">
+            <div class="day-number">${dayNum}</div>
+            <div class="reward">${dayConfig.reward.money}🪙</div>
+        </div>`;
+    }
+    html += '</div>';
+    calendar.innerHTML = html;
+
+    const infoDiv = document.getElementById('bonus-info');
+    infoDiv.innerHTML = info.canClaim
+        ? `<p>Текущая серия: ${info.streak} дней</p><p>✅ Бонус доступен!</p>`
+        : `<p>Текущая серия: ${info.streak} дней</p><p>⏳ Уже получено сегодня</p>`;
+
+    const claimBtn = document.getElementById('claim-bonus-btn');
+    claimBtn.disabled = !info.canClaim;
+    claimBtn.onclick = claimDailyBonus;
+}
+
+// =======================================================
+// НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ
+// =======================================================
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(`screen-${screenId}`).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.nav-btn[data-screen="${screenId}"]`).classList.add('active');
+    switch (screenId) {
+        case 'workshop':
+            const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'character';
+            if (activeTab === 'character') loadCharacterCustomization();
+            if (activeTab === 'pets') loadPetsGrid();
+            if (activeTab === 'talents') {
+                initTalentsTab();
             }
-            transaction.update(userRef, { guildId: null });
-        });
+            break;
+        case 'guild':
+            loadGuildScreen();
+            break;
+    }
+    updateBattleResultModalVisibility();
+}
 
-        stopPoisonEffectsForGuild(guildId);
+// =======================================================
+// МОДАЛЬНОЕ ОКНО ПРОФИЛЯ
+// =======================================================
+function openProfileModal() {
+    const modal = document.getElementById('profile-modal');
+    if (!modal) return;
+    updateProfileModal();
+    modal.classList.remove('hidden');
+}
+function closeProfileModal() {
+    document.getElementById('profile-modal').classList.add('hidden');
+}
+function updateProfileModal() {
+    const user = store.user;
+    if (!user) return;
 
-        await loadUserFromFirestore(true);
-        loadGuildScreen();
-        showNotification('Успех', 'Вы покинули гильдию.');
-    } catch (e) {
-        console.error(e);
-        showNotification('Ошибка', e.message || 'Не удалось покинуть гильдию');
+    const avatarImg = document.getElementById('profile-avatar-img');
+    const tgUser = tg.initDataUnsafe?.user;
+    if (tgUser && tgUser.photo_url) {
+        avatarImg.src = tgUser.photo_url;
+    } else {
+        avatarImg.src = '';
+        avatarImg.alt = user.name?.[0] || '?';
+    }
+
+    document.getElementById('profile-name').textContent = user.name || 'Игрок';
+    document.getElementById('profile-id').textContent = user.telegramId || user.id.slice(0,8);
+    document.getElementById('profile-level').textContent = user.level;
+
+    const { xpInThisLevel, neededForNext, progress } = getXPProgress(user);
+    document.getElementById('profile-xp-current').textContent = xpInThisLevel;
+    document.getElementById('profile-xp-next').textContent = neededForNext;
+    document.getElementById('profile-xp-fill').style.width = progress + '%';
+    document.getElementById('profile-damage').textContent = user.totalDamage || 0;
+}
+
+// =======================================================
+// ТЕСТОВЫЕ ДАННЫЕ
+// =======================================================
+async function initTestData() {
+    const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').limit(1).get();
+    if (clothesSnap.empty) {
+        const items = [
+            { name: 'Ковбойская шляпа', type: 'clothes', slot: 'hat', price: 100, imageUrl: 'img/skin1.png', damage: 0 },
+            { name: 'Бейсболка', type: 'clothes', slot: 'hat', price: 80, imageUrl: 'img/skin2.png', damage: 0 },
+            { name: 'Кожаная куртка', type: 'clothes', slot: 'shirt', price: 200, imageUrl: 'img/skin6.png', damage: 0 },
+            { name: 'Джинсы', type: 'clothes', slot: 'jeans', price: 150, imageUrl: 'img/skin5.png', damage: 0 },
+            { name: 'Спортивки', type: 'clothes', slot: 'boots', price: 120, imageUrl: 'img/skin4.png', damage: 0 }
+        ];
+        for (const item of items) {
+            await db.collection('shop_items').add(item);
+        }
+        console.log('➕ Тестовая одежда добавлена');
+    }
+    const petsSnap = await db.collection('shop_items').where('type', '==', 'pet').limit(1).get();
+    if (petsSnap.empty) {
+        const pets = [
+            { name: 'Собака', type: 'pet', price: 250, imageUrl: 'https://via.placeholder.com/80/964B00/FFFFFF?text=Dog' },
+            { name: 'Кошка', type: 'pet', price: 200, imageUrl: 'https://via.placeholder.com/80/FFA500/FFFFFF?text=Cat' }
+        ];
+        for (const pet of pets) {
+            await db.collection('shop_items').add(pet);
+        }
+        console.log('➕ Тестовые питомцы добавлены');
     }
 }
-window.removeFromGuild = async function(guildId, memberId) {
-    const user = await getUser();
-    const guildRef = db.collection('guilds').doc(guildId);
-    const memberRef = db.collection('users').doc(memberId);
-    try {
-        await db.runTransaction(async (transaction) => {
-            const guildDoc = await transaction.get(guildRef);
-            if (!guildDoc.exists) throw new Error('Гильдия не найдена');
-            const guild = guildDoc.data();
-            if (guild.leaderId !== store.authUser.uid) throw new Error('Только лидер может удалять');
-            if (memberId === store.authUser.uid) throw new Error('Нельзя удалить себя');
-
-            transaction.update(guildRef, {
-                members: firebase.firestore.FieldValue.arrayRemove(memberId)
-            });
-            transaction.update(memberRef, { guildId: null });
-        });
-
-        showNotification('Успех', 'Участник удалён');
-    } catch (e) {
-        console.error(e);
-        showNotification('Ошибка', e.message || 'Не удалось удалить участника');
-    }
-};
 
 // =======================================================
-// НОВАЯ СИСТЕМА ДРУЗЕЙ (МОДАЛЬНОЕ ОКНО)
+// СИСТЕМА ДРУЗЕЙ
 // =======================================================
-
 async function openFriendsModal() {
     const modal = document.getElementById('friends-modal');
     if (!modal) return;
@@ -2365,97 +2588,6 @@ window.copyToClipboard = function(text) {
         showNotification('Ошибка', 'Не удалось скопировать');
     });
 };
-
-// =======================================================
-// НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ
-// =======================================================
-function showScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(`screen-${screenId}`).classList.add('active');
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.nav-btn[data-screen="${screenId}"]`).classList.add('active');
-    switch (screenId) {
-        case 'workshop':
-            const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'character';
-            if (activeTab === 'character') loadCharacterCustomization();
-            if (activeTab === 'pets') loadPetsGrid();
-            if (activeTab === 'talents') {
-                initTalentsTab();
-            }
-            break;
-        case 'guild':
-            loadGuildScreen();
-            break;
-    }
-    updateBattleResultModalVisibility();
-}
-
-// =======================================================
-// МОДАЛЬНОЕ ОКНО ПРОФИЛЯ
-// =======================================================
-function openProfileModal() {
-    const modal = document.getElementById('profile-modal');
-    if (!modal) return;
-    updateProfileModal();
-    modal.classList.remove('hidden');
-}
-function closeProfileModal() {
-    document.getElementById('profile-modal').classList.add('hidden');
-}
-function updateProfileModal() {
-    const user = store.user;
-    if (!user) return;
-
-    const avatarImg = document.getElementById('profile-avatar-img');
-    const tgUser = tg.initDataUnsafe?.user;
-    if (tgUser && tgUser.photo_url) {
-        avatarImg.src = tgUser.photo_url;
-    } else {
-        avatarImg.src = '';
-        avatarImg.alt = user.name?.[0] || '?';
-    }
-
-    document.getElementById('profile-name').textContent = user.name || 'Игрок';
-    document.getElementById('profile-id').textContent = user.telegramId || user.id.slice(0,8);
-    document.getElementById('profile-level').textContent = user.level;
-
-    const { xpInThisLevel, neededForNext, progress } = getXPProgress(user);
-    document.getElementById('profile-xp-current').textContent = xpInThisLevel;
-    document.getElementById('profile-xp-next').textContent = neededForNext;
-    document.getElementById('profile-xp-fill').style.width = progress + '%';
-    document.getElementById('profile-damage').textContent = user.totalDamage || 0;
-}
-
-// =======================================================
-// ТЕСТОВЫЕ ДАННЫЕ
-// =======================================================
-async function initTestData() {
-    const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').limit(1).get();
-    if (clothesSnap.empty) {
-        const items = [
-            { name: 'Ковбойская шляпа', type: 'clothes', slot: 'hat', price: 100, imageUrl: 'img/skin1.png', damage: 0 },
-            { name: 'Бейсболка', type: 'clothes', slot: 'hat', price: 80, imageUrl: 'img/skin2.png', damage: 0 },
-            { name: 'Кожаная куртка', type: 'clothes', slot: 'shirt', price: 200, imageUrl: 'img/skin6.png', damage: 0 },
-            { name: 'Джинсы', type: 'clothes', slot: 'jeans', price: 150, imageUrl: 'img/skin5.png', damage: 0 },
-            { name: 'Спортивки', type: 'clothes', slot: 'boots', price: 120, imageUrl: 'img/skin4.png', damage: 0 }
-        ];
-        for (const item of items) {
-            await db.collection('shop_items').add(item);
-        }
-        console.log('➕ Тестовая одежда добавлена');
-    }
-    const petsSnap = await db.collection('shop_items').where('type', '==', 'pet').limit(1).get();
-    if (petsSnap.empty) {
-        const pets = [
-            { name: 'Собака', type: 'pet', price: 250, imageUrl: 'https://via.placeholder.com/80/964B00/FFFFFF?text=Dog' },
-            { name: 'Кошка', type: 'pet', price: 200, imageUrl: 'https://via.placeholder.com/80/FFA500/FFFFFF?text=Cat' }
-        ];
-        for (const pet of pets) {
-            await db.collection('shop_items').add(pet);
-        }
-        console.log('➕ Тестовые питомцы добавлены');
-    }
-}
 
 // =======================================================
 // ЗАПУСК ПРИЛОЖЕНИЯ
@@ -2639,3 +2771,5 @@ window.copyToClipboard = window.copyToClipboard;
 window.removeFromGuild = window.removeFromGuild;
 window.showCreateGuildModal = window.showCreateGuildModal;
 window.hideCreateGuildModal = window.hideCreateGuildModal;
+window.openDailyBonusModal = openDailyBonusModal;
+window.closeDailyBonusModal = closeDailyBonusModal;

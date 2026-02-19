@@ -17,6 +17,8 @@
             </div>
             <span id="energy-display">⚡ 100/100</span>
             <span id="money">0</span> 🪙
+            <!-- Кнопка ежедневных бонусов -->
+            <div class="bonus-icon" onclick="openDailyBonusModal()">🎁</div>
         </div>
 
         <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
@@ -217,6 +219,19 @@
                 <div id="guild-rating-content" style="max-height: 60vh; overflow-y: auto; margin-bottom: 16px;"></div>
                 <div class="modal-buttons">
                     <button id="close-guild-rating" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО ЕЖЕДНЕВНЫХ БОНУСОВ ========== -->
+        <div id="daily-bonus-modal" class="modal hidden">
+            <div class="modal-content bonus-modal">
+                <h3>🎁 Ежедневный бонус</h3>
+                <div id="bonus-calendar" class="bonus-calendar"></div>
+                <div id="bonus-info" class="bonus-info"></div>
+                <div class="modal-buttons">
+                    <button id="claim-bonus-btn" class="glow-button">Забрать</button>
+                    <button onclick="closeDailyBonusModal()" class="glow-button cancel-btn">Закрыть</button>
                 </div>
             </div>
         </div>
