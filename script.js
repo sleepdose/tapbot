@@ -2118,7 +2118,7 @@ function showDamageEffect(amount, icon = '💥') {
 }
 
 // =======================================================
-// УВЕДОМЛЕНИЯ ЧЕРЕЗ БОТА
+// УВЕДОМЛЕНИЯ ЧЕРЕЗ БОТА (с обработкой CORS)
 // =======================================================
 async function notifyGuildBattleStart(guildId, battleEndTime) {
     if (!store.guild) return;
@@ -2137,7 +2137,8 @@ async function notifyGuildBattleStart(guildId, battleEndTime) {
             })
         });
     } catch (e) {
-        console.error('Ошибка отправки уведомления о начале битвы:', e);
+        // Игнорируем ошибки CORS — они не критичны для игрового процесса
+        console.warn('Не удалось отправить уведомление о начале битвы (возможно, CORS)', e);
     }
 }
 
@@ -2158,7 +2159,7 @@ async function notifyGuildBattleEnd(guildId, victory) {
             })
         });
     } catch (e) {
-        console.error('Ошибка отправки уведомления о завершении битвы:', e);
+        console.warn('Не удалось отправить уведомление о завершении битвы (возможно, CORS)', e);
     }
 }
 
@@ -2671,23 +2672,33 @@ async function removeFromGuild(guildId, memberId) {
 function showInviteMenu() {
     const guild = store.guild;
     if (!guild) return;
-    if (tg && typeof tg.showPopup === 'function') {
-        tg.showPopup({
-            title: 'Приглашение в гильдию',
-            message: `ID гильдии: ${guild.id}\n\nОтправьте этот ID другу, он сможет вступить, нажав "Вступить" в списке гильдий или через поиск.`,
-            buttons: [
-                { type: 'default', text: 'Скопировать ID' },
-                { type: 'cancel', text: 'Закрыть' }
-            ]
-        }, (btnId) => {
-            if (btnId === '0') {
-                copyToClipboard(guild.id);
-            }
-        });
-    } else {
-        // fallback для браузеров вне Telegram
+
+    function fallbackInvite() {
         const id = prompt('ID гильдии (скопируйте и отправьте другу):', guild.id);
         if (id) copyToClipboard(id);
+    }
+
+    // Проверяем, доступен ли Telegram WebApp и метод showPopup
+    if (tg && typeof tg.showPopup === 'function') {
+        try {
+            tg.showPopup({
+                title: 'Приглашение в гильдию',
+                message: `ID гильдии: ${guild.id}\n\nОтправьте этот ID другу, он сможет вступить, нажав "Вступить" в списке гильдий или через поиск.`,
+                buttons: [
+                    { type: 'default', text: 'Скопировать ID' },
+                    { type: 'cancel', text: 'Закрыть' }
+                ]
+            }, (btnId) => {
+                if (btnId === '0') {
+                    copyToClipboard(guild.id);
+                }
+            });
+        } catch (e) {
+            console.warn('Telegram WebApp showPopup не поддерживается, используем prompt', e);
+            fallbackInvite();
+        }
+    } else {
+        fallbackInvite();
     }
 }
 
@@ -2861,7 +2872,7 @@ window.attackBoss = window.attackBoss;
 window.joinGuild = window.joinGuild;
 window.leaveGuild = leaveGuild;
 window.startBattle = startBattle;
-window.showGuildRatingModal = showGuildRatingModal; // ✅ правильное название
+window.showGuildRatingModal = showGuildRatingModal;
 window.toggleEditMode = toggleEditMode;
 window.updateGuildInfo = updateGuildInfo;
 window.removeFriend = window.removeFriend;
