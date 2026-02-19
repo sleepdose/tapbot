@@ -1770,8 +1770,6 @@ async function startBattle(guildId) {
         startBattleTimer(battleEndTime, guildId);
         await updateUser({ selectedTalent: null });
         createBattleTalentButtons();
-        // Отправляем уведомление о начале битвы
-        notifyGuildBattleStart(guildId, battleEndTime);
     } catch (e) {
         console.error(e);
         showNotification('Ошибка', e.message || 'Не удалось начать битву');
@@ -1955,8 +1953,6 @@ async function endBattle(victory, guildId) {
 
     if (success) {
         finishedBattles.add(guildId);
-        // Отправляем уведомление о завершении битвы
-        notifyGuildBattleEnd(guildId, victory);
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
     }
@@ -2115,52 +2111,6 @@ function showDamageEffect(amount, icon = '💥') {
     div.style.animation = 'flyUp 1s ease-out';
     document.getElementById('guild-view').appendChild(div);
     setTimeout(() => div.remove(), 1000);
-}
-
-// =======================================================
-// УВЕДОМЛЕНИЯ ЧЕРЕЗ БОТА (с обработкой CORS)
-// =======================================================
-async function notifyGuildBattleStart(guildId, battleEndTime) {
-    if (!store.guild) return;
-    const members = store.guild.members;
-    const guildName = store.guild.name;
-    try {
-        await fetch('https://us-central1-hiko-ca02d.cloudfunctions.net/sendBattleNotification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'start',
-                guildId,
-                guildName,
-                members,
-                battleEndTime
-            })
-        });
-    } catch (e) {
-        // Игнорируем ошибки CORS — они не критичны для игрового процесса
-        console.warn('Не удалось отправить уведомление о начале битвы (возможно, CORS)', e);
-    }
-}
-
-async function notifyGuildBattleEnd(guildId, victory) {
-    if (!store.guild) return;
-    const members = store.guild.members;
-    const guildName = store.guild.name;
-    try {
-        await fetch('https://us-central1-hiko-ca02d.cloudfunctions.net/sendBattleNotification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'end',
-                guildId,
-                guildName,
-                members,
-                victory
-            })
-        });
-    } catch (e) {
-        console.warn('Не удалось отправить уведомление о завершении битвы (возможно, CORS)', e);
-    }
 }
 
 // =======================================================
@@ -2591,80 +2541,77 @@ window.copyToClipboard = function(text) {
 // =======================================================
 
 /**
- * Покинуть гильдию (для рядового участника)
+ * Покинуть гильдию (для рядового участника) или распустить гильдию (для лидера)
  */
- /**
-  * Покинуть гильдию (для рядового участника) или распустить гильдию (для лидера)
-  */
- async function leaveGuild(guildId) {
-     if (!store.authUser) return;
-     const user = await getUser();
-     if (!user.guildId || user.guildId !== guildId) {
-         showNotification('Ошибка', 'Вы не в этой гильдии');
-         return;
-     }
+async function leaveGuild(guildId) {
+    if (!store.authUser) return;
+    const user = await getUser();
+    if (!user.guildId || user.guildId !== guildId) {
+        showNotification('Ошибка', 'Вы не в этой гильдии');
+        return;
+    }
 
-     const guildRef = db.collection('guilds').doc(guildId);
-     const userRef = db.collection('users').doc(store.authUser.uid);
+    const guildRef = db.collection('guilds').doc(guildId);
+    const userRef = db.collection('users').doc(store.authUser.uid);
 
-     try {
-         // Получаем актуальные данные гильдии
-         const guildDoc = await guildRef.get();
-         if (!guildDoc.exists) {
-             // Гильдии уже нет – просто очищаем у пользователя
-             await userRef.update({ guildId: null });
-             await loadUserFromFirestore(true);
-             loadGuildScreen();
-             showNotification('Гильдия уже расформирована', '');
-             return;
-         }
+    try {
+        // Получаем актуальные данные гильдии
+        const guildDoc = await guildRef.get();
+        if (!guildDoc.exists) {
+            // Гильдии уже нет – просто очищаем у пользователя
+            await userRef.update({ guildId: null });
+            await loadUserFromFirestore(true);
+            loadGuildScreen();
+            showNotification('Гильдия уже расформирована', '');
+            return;
+        }
 
-         const guild = guildDoc.data();
-         const isLeader = guild.leaderId === store.authUser.uid;
+        const guild = guildDoc.data();
+        const isLeader = guild.leaderId === store.authUser.uid;
 
-         if (isLeader) {
-             // Лидер распускает гильдию
-             const batch = db.batch();
+        if (isLeader) {
+            // Лидер распускает гильдию
+            const batch = db.batch();
 
-             // Удаляем документ гильдии
-             batch.delete(guildRef);
+            // Удаляем документ гильдии
+            batch.delete(guildRef);
 
-             // Обновляем всех участников: устанавливаем guildId = null
-             const members = guild.members || [];
-             for (const memberId of members) {
-                 const memberRef = db.collection('users').doc(memberId);
-                 batch.update(memberRef, { guildId: null });
-             }
+            // Обновляем всех участников: устанавливаем guildId = null
+            const members = guild.members || [];
+            for (const memberId of members) {
+                const memberRef = db.collection('users').doc(memberId);
+                batch.update(memberRef, { guildId: null });
+            }
 
-             await batch.commit();
-             showNotification('Гильдия расформирована', '');
-         } else {
-             // Обычный участник покидает гильдию
-             await db.runTransaction(async (transaction) => {
-                 const freshGuildDoc = await transaction.get(guildRef);
-                 if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
-                 const freshGuild = freshGuildDoc.data();
+            await batch.commit();
+            showNotification('Гильдия расформирована', '');
+        } else {
+            // Обычный участник покидает гильдию
+            await db.runTransaction(async (transaction) => {
+                const freshGuildDoc = await transaction.get(guildRef);
+                if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
+                const freshGuild = freshGuildDoc.data();
 
-                 if (!freshGuild.members.includes(store.authUser.uid)) {
-                     throw new Error('Вы не состоите в гильдии');
-                 }
+                if (!freshGuild.members.includes(store.authUser.uid)) {
+                    throw new Error('Вы не состоите в гильдии');
+                }
 
-                 transaction.update(guildRef, {
-                     members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
-                 });
-                 transaction.update(userRef, { guildId: null });
-             });
-             showNotification('Вы покинули гильдию', '');
-         }
+                transaction.update(guildRef, {
+                    members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
+                });
+                transaction.update(userRef, { guildId: null });
+            });
+            showNotification('Вы покинули гильдию', '');
+        }
 
-         // Обновляем данные пользователя и экран
-         await loadUserFromFirestore(true);
-         loadGuildScreen();
-     } catch (e) {
-         console.error(e);
-         showNotification('Ошибка', e.message || 'Не удалось выполнить действие');
-     }
- }
+        // Обновляем данные пользователя и экран
+        await loadUserFromFirestore(true);
+        loadGuildScreen();
+    } catch (e) {
+        console.error(e);
+        showNotification('Ошибка', e.message || 'Не удалось выполнить действие');
+    }
+}
 /**
  * Исключить участника из гильдии (только для лидера)
  */
