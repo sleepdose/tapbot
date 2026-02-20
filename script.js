@@ -72,6 +72,9 @@ const store = {
     guildInfoVisible: false
 };
 
+// MUSIC ADDITION: глобальная переменная для аудио
+let backgroundMusic = null;
+
 // =======================================================
 // УВЕДОМЛЕНИЯ — поддержка старых версий Telegram
 // =======================================================
@@ -261,7 +264,9 @@ async function loadUserFromFirestore() {
                 currentDay: 1,
                 lastClaim: null,
                 streak: 0
-            }
+            },
+            // MUSIC ADDITION: новое поле для настройки музыки
+            musicEnabled: true
         };
         await userRef.set(newUser);
         store.user = newUser;
@@ -296,6 +301,8 @@ async function loadUserFromFirestore() {
     if (data.xp === undefined) { data.xp = 0; needsUpdate = true; }
     if (data.totalDamage === undefined) { data.totalDamage = 0; needsUpdate = true; }
     if (!data.dailyBonus) { data.dailyBonus = { currentDay: 1, lastClaim: null, streak: 0 }; needsUpdate = true; }
+    // MUSIC ADDITION: проверка наличия поля musicEnabled
+    if (data.musicEnabled === undefined) { data.musicEnabled = false; needsUpdate = true; }
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -327,7 +334,9 @@ async function loadUserFromFirestore() {
             level: data.level,
             xp: data.xp,
             totalDamage: data.totalDamage,
-            dailyBonus: data.dailyBonus
+            dailyBonus: data.dailyBonus,
+            // MUSIC ADDITION: добавляем musicEnabled в обновление
+            musicEnabled: data.musicEnabled
         };
         await userRef.update(updateData);
     }
@@ -361,6 +370,52 @@ async function spendEnergy(amount = 1) {
     });
     return true;
 }
+
+// =======================================================
+// МУЗЫКАЛЬНАЯ СИСТЕМА
+// =======================================================
+// MUSIC ADDITION: функции управления музыкой
+function initMusic() {
+    if (!backgroundMusic) {
+        backgroundMusic = new Audio('audio/background.mp3'); // Убедитесь, что файл существует
+        backgroundMusic.loop = true;
+        backgroundMusic.volume = 0.5;
+    }
+}
+
+function playMusic() {
+    if (!backgroundMusic) return;
+    backgroundMusic.play().catch(e => {
+        console.log('Автовоспроизведение заблокировано браузером');
+    });
+}
+
+function stopMusic() {
+    if (!backgroundMusic) return;
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;
+}
+
+function toggleMusic() {
+    if (!store.user) return;
+    const newState = !store.user.musicEnabled;
+    updateUser({ musicEnabled: newState }).then(() => {
+        if (newState) {
+            initMusic();
+            playMusic();
+        } else {
+            stopMusic();
+        }
+        updateMusicToggleButton();
+    });
+}
+
+function updateMusicToggleButton() {
+    const btn = document.getElementById('music-toggle-btn');
+    if (!btn || !store.user) return;
+    btn.textContent = store.user.musicEnabled ? '🎵 Музыка: Выкл' : '🎵 Музыка: Вкл';
+}
+// =======================================================
 
 // =======================================================
 // ГЛАВНЫЙ ЭКРАН
@@ -2317,6 +2372,9 @@ function updateProfileModal() {
     document.getElementById('profile-xp-next').textContent = neededForNext;
     document.getElementById('profile-xp-fill').style.width = progress + '%';
     document.getElementById('profile-damage').textContent = user.totalDamage || 0;
+
+    // MUSIC ADDITION: обновляем текст кнопки музыки при открытии профиля
+    updateMusicToggleButton();
 }
 
 // =======================================================
@@ -2830,6 +2888,18 @@ window.onload = async () => {
 
         updateFriendsOnlineCount();
         setInterval(updateFriendsOnlineCount, 10000);
+
+        // MUSIC ADDITION: инициализация музыки, если включена
+        if (store.user.musicEnabled) {
+            initMusic();
+            playMusic();
+        }
+
+        // MUSIC ADDITION: обработчик кнопки музыки
+        const musicBtn = document.getElementById('music-toggle-btn');
+        if (musicBtn) {
+            musicBtn.addEventListener('click', toggleMusic);
+        }
 
         console.log('✅ Игра готова');
     } catch (e) {
