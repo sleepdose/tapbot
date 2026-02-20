@@ -375,9 +375,9 @@ function updateMainUI() {
     if (avatarLevel) avatarLevel.textContent = user.level;
 
     const eqLayer = document.getElementById('equipment-layer');
-    const petLayer = document.getElementById('pet-layer');
+    const petContainer = document.getElementById('pet-main-container');
     if (eqLayer) eqLayer.innerHTML = '';
-    if (petLayer) petLayer.innerHTML = '';
+    if (petContainer) petContainer.innerHTML = '';
 
     const slots = ['hat', 'shirt', 'jeans', 'boots'];
     const addedLogicalSlots = new Set();
@@ -401,7 +401,7 @@ function updateMainUI() {
         const activePet = user.pets[0];
         const img = document.createElement('img');
         img.src = activePet.imageUrl;
-        petLayer?.appendChild(img);
+        petContainer?.appendChild(img);
     }
 }
 async function onCharacterClick() {
@@ -663,10 +663,8 @@ async function loadPetsGrid() {
     const user = await getUser();
     const container = document.getElementById('pets-grid');
     if (!container) return;
-    showLoader('pets-grid', true);
     const snapshot = await db.collection('shop_items').where('type', '==', 'pet').get();
     const pets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    showLoader('pets-grid', false);
 
     if (pets.length === 0) {
         container.innerHTML = '<p class="empty-msg">Питомцы пока не доступны</p>';
