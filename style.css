@@ -604,13 +604,13 @@ body {
 .guild-card button:hover {
     background: #3a5a7a;
 }
-/* Босс со стрелками */
+/* Босс со стрелками — улучшенная версия для крупного босса */
 .boss-wrapper {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 15px;
-    margin: 20px 0;
+    gap: 10px;
+    margin: 10px 0;
 }
 .boss-arrow {
     background: #2d2d2d;
@@ -637,12 +637,14 @@ body {
     background: #1a1a1a;
     border: 1px solid #4a4a4a;
     border-radius: 20px;
-    padding: 20px;
+    padding: 20px 20px 15px;
     text-align: center;
+    width: fit-content;
 }
 .boss-image {
-    width: 140px;
-    height: 140px;
+    width: 280px;
+    height: 280px;
+    max-width: 90vw;
     object-fit: contain;
     cursor: pointer;
     border: 2px solid #b33e3e;
@@ -659,7 +661,7 @@ body {
     height: 20px;
     background: #2a2a2a;
     border: 1px solid #4a4a4a;
-    margin: 15px 0;
+    margin: 15px 0 10px;
     border-radius: 10px;
     overflow: hidden;
 }
@@ -673,14 +675,14 @@ body {
     font-size: 16px;
     font-weight: 600;
     color: #ffd966;
-    margin-top: 5px;
+    margin-bottom: 5px;
     text-shadow: 1px 1px 0 #000;
 }
 #battle-timer {
     font-size: 18px;
     font-weight: 600;
     color: #ffd966;
-    margin: 10px 0;
+    margin: 5px 0 0;
 }
 .boss-keys {
     text-align: center;
@@ -692,6 +694,13 @@ body {
     margin-top: 15px;
     border: 1px solid #4a6c8f;
 }
+
+/* Контейнер талантов под боссом */
+#talent-selector {
+    margin-top: 15px;
+    padding: 0 5px;
+}
+
 .talent-buttons {
     display: flex;
     gap: 10px;
@@ -700,6 +709,7 @@ body {
     scrollbar-width: thin;
     scrollbar-color: #4a6c8f #1a1a1a;
     white-space: nowrap;
+    justify-content: flex-start; /* выравнивание по левому краю */
 }
 .talent-buttons::-webkit-scrollbar {
     height: 4px;
@@ -761,8 +771,8 @@ body {
     background: #1a1a1a;
     border: 1px solid #4a6c8f;
     border-radius: 16px;
-    padding: 20px;
-    margin: 15px 0;
+    padding: 15px;
+    margin: 10px 0 15px;
     box-shadow: 0 6px 0 #2a3a4a;
     transition: all 0.2s;
 }
@@ -1204,6 +1214,11 @@ body {
     #pet-main-container {
         width: 160px;
         height: 160px;
+    }
+    /* Уменьшаем босса на совсем маленьких экранах */
+    .boss-image {
+        width: 220px;
+        height: 220px;
     }
 }
 .exp-bar-container {

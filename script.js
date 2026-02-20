@@ -1406,7 +1406,7 @@ function toggleEditMode(event) {
     store.guildEditing = !store.guildEditing;
     if (store.guild) {
         if (store.guildEditing) {
-            store.guildInfoVisible = true;
+            store.guildInfoVisible = false;
         }
         renderGuildPage(store.guild);
     }
