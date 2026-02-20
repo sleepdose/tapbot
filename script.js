@@ -460,6 +460,11 @@ function updateMainUI() {
     }
 }
 async function onCharacterClick() {
+    // Анимация клика
+    const container = document.getElementById('character-container');
+    container.classList.add('clicked');
+    setTimeout(() => container.classList.remove('clicked'), 200);
+
     const user = await getUser();
     const currentEnergy = getCurrentEnergy();
     if (currentEnergy >= 1) {
