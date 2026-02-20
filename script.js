@@ -2342,7 +2342,7 @@ async function initTestData() {
     const petsSnap = await db.collection('shop_items').where('type', '==', 'pet').limit(1).get();
     if (petsSnap.empty) {
         const pets = [
-            { name: 'Собака', type: 'pet', price: 250, imageUrl: 'img/pet1' },
+            { name: 'Собака', type: 'pet', price: 250, imageUrl: 'img/pet1.png'},
             { name: 'Кошка', type: 'pet', price: 200, imageUrl: 'https://via.placeholder.com/80/FFA500/FFFFFF?text=Cat' }
         ];
         for (const pet of pets) {
