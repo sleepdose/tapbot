@@ -604,13 +604,13 @@ body {
 .guild-card button:hover {
     background: #3a5a7a;
 }
-/* Босс со стрелками — улучшенная версия для крупного босса */
+/* Босс со стрелками */
 .boss-wrapper {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin: 10px 0;
+    gap: 15px;
+    margin: 20px 0;
 }
 .boss-arrow {
     background: #2d2d2d;
@@ -637,20 +637,15 @@ body {
     background: #1a1a1a;
     border: 1px solid #4a4a4a;
     border-radius: 20px;
-    padding: 20px 20px 15px;
+    padding: 20px;
     text-align: center;
-    width: fit-content;
 }
 .boss-image {
-    width: 280px;
-    height: 280px;
-    max-width: 90vw;
+    width: 140px;
+    height: 140px;
     object-fit: contain;
     cursor: pointer;
-    border: 2px solid #b33e3e;
-    border-radius: 50%;
     padding: 10px;
-    background: #2a2a2a;
     transition: 0.1s;
 }
 .boss-image:active {
@@ -661,7 +656,7 @@ body {
     height: 20px;
     background: #2a2a2a;
     border: 1px solid #4a4a4a;
-    margin: 15px 0 10px;
+    margin: 15px 0;
     border-radius: 10px;
     overflow: hidden;
 }
@@ -675,14 +670,14 @@ body {
     font-size: 16px;
     font-weight: 600;
     color: #ffd966;
-    margin-bottom: 5px;
+    margin-top: 5px;
     text-shadow: 1px 1px 0 #000;
 }
 #battle-timer {
     font-size: 18px;
     font-weight: 600;
     color: #ffd966;
-    margin: 5px 0 0;
+    margin: 10px 0;
 }
 .boss-keys {
     text-align: center;
@@ -694,13 +689,6 @@ body {
     margin-top: 15px;
     border: 1px solid #4a6c8f;
 }
-
-/* Контейнер талантов под боссом */
-#talent-selector {
-    margin-top: 15px;
-    padding: 0 5px;
-}
-
 .talent-buttons {
     display: flex;
     gap: 10px;
@@ -709,7 +697,6 @@ body {
     scrollbar-width: thin;
     scrollbar-color: #4a6c8f #1a1a1a;
     white-space: nowrap;
-    justify-content: flex-start; /* выравнивание по левому краю */
 }
 .talent-buttons::-webkit-scrollbar {
     height: 4px;
@@ -771,8 +758,8 @@ body {
     background: #1a1a1a;
     border: 1px solid #4a6c8f;
     border-radius: 16px;
-    padding: 15px;
-    margin: 10px 0 15px;
+    padding: 20px;
+    margin: 15px 0;
     box-shadow: 0 6px 0 #2a3a4a;
     transition: all 0.2s;
 }
@@ -1215,11 +1202,6 @@ body {
         width: 160px;
         height: 160px;
     }
-    /* Уменьшаем босса на совсем маленьких экранах */
-    .boss-image {
-        width: 220px;
-        height: 220px;
-    }
 }
 .exp-bar-container {
     width: 100%;
@@ -1534,4 +1516,305 @@ body {
 
 #character-container.clicked {
     animation: clickPulse 0.2s ease;
+}
+
+/* ========== ПОЛНЫЙ СТИЛЬ БОЕВОГО ЭКРАНА ========== */
+
+/* Сам боевой контейнер — занимает весь экран гильдии */
+.battle-view {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  display: flex;
+  flex-direction: column;
+  background-size: cover;
+  background-position: center;
+  z-index: 10;
+}
+
+/* Убираем стандартный отступ экрана гильдии (padding-top:80px) */
+#screen-guild.active .battle-view {
+  margin-top: 60px; /* компенсируем padding-top */
+}
+
+/* Верхняя панель с информацией о боссе */
+.battle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border-bottom: 2px solid #4a6c8f;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 0; /* убираем возможные внешние отступы */
+}
+
+/* Название босса */
+.boss-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffd966;
+  white-space: nowrap;
+}
+
+/* Полоска здоровья */
+.hp-bar-container {
+  flex: 2;
+  min-width: 150px;
+  height: 20px;
+  background: #2a2a2a;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #4a4a4a;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #b33e3e, #e66a6a);
+  transition: width 0.2s;
+}
+
+/* Текст здоровья */
+.hp-text {
+  color: #ffd966;
+  font-weight: bold;
+  min-width: 80px;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Таймер */
+.timer {
+  color: #ffd966;
+  font-weight: bold;
+  min-width: 70px;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Кнопка сдаться */
+.surrender-btn {
+  background: #b33e3e;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 30px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 3px 0 #6b2b2b;
+  transition: 0.1s;
+}
+
+.surrender-btn:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+/* Контейнер с картинкой босса — занимает всё доступное место */
+.boss-image-container {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 0; /* важно для правильной работы flex */
+  padding: 10px;
+  cursor: pointer;
+}
+
+/* Сама картинка босса — большая, сохраняет пропорции */
+.boss-image {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.8));
+  transition: transform 0.1s;
+}
+
+.boss-image:active {
+  transform: scale(0.95);
+}
+
+/* Контейнер для талантов — прижат к низу */
+.talents-container {
+  padding: 15px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  border-top: 2px solid #4a6c8f;
+  margin-bottom: 0; /* убираем возможные отступы */
+}
+
+/* Кнопки талантов */
+.talent-buttons {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 5px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #4a6c8f #1a1a1a;
+}
+
+.talent-buttons::-webkit-scrollbar {
+  height: 4px;
+}
+.talent-buttons::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+.talent-buttons::-webkit-scrollbar-thumb {
+  background: #4a6c8f;
+  border-radius: 4px;
+}
+
+.talent-btn {
+  flex: 0 0 auto;
+  min-width: 90px;
+  padding: 12px 8px;
+  background: #2a3a4a;
+  border: 2px solid #4a6c8f;
+  border-radius: 16px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.1s;
+  box-shadow: 0 4px 0 #1a2a3a;
+}
+
+.talent-btn.active {
+  background: #4a6c8f;
+  border-color: #8ab3ff;
+  box-shadow: 0 0 15px #4a6c8f, 0 4px 0 #1a2a3a;
+  transform: translateY(-2px);
+}
+
+.talent-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #1a2a3a;
+}
+
+.talent-icon {
+  font-size: 24px;
+}
+.talent-name {
+  font-size: 12px;
+  text-align: center;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.2;
+}
+.talent-charges {
+  font-size: 14px;
+  background: #1e1e1e;
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: #ffd966;
+}
+
+/* Адаптация для узких экранов */
+@media (max-width: 480px) {
+  .battle-header {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  .boss-name {
+    font-size: 16px;
+  }
+  .hp-bar-container {
+    height: 16px;
+    min-width: 100px;
+  }
+  .hp-text, .timer {
+    font-size: 12px;
+    min-width: auto;
+  }
+  .surrender-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .boss-image {
+    max-width: 95%;
+    max-height: 85%;
+  }
+  .talents-container {
+    padding: 10px 5px;
+  }
+  .talent-btn {
+    min-width: 80px;
+    padding: 8px 5px;
+    font-size: 12px;
+  }
+  .talent-icon {
+    font-size: 20px;
+  }
+}
+/* ========== КОРРЕКТИРОВКА БОЕВОГО ЭКРАНА ========== */
+.battle-view {
+  /* гарантируем, что содержимое не выходит за пределы */
+  overflow: hidden;
+}
+
+.battle-header {
+  padding: 6px 10px;          /* уменьшаем вертикальные отступы */
+  font-size: 14px;
+}
+
+.hp-bar-container {
+  height: 14px;               /* более тонкая полоска здоровья */
+  min-width: 120px;
+}
+
+.hp-text, .timer {
+  font-size: 13px;
+}
+
+.surrender-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Ограничиваем высоту области с изображением босса */
+.boss-image-container {
+  max-height: 38vh;           /* не более 38% высоты экрана */
+  padding: 5px;
+}
+
+.boss-image {
+  max-height: 100%;           /* чтобы картинка не выходила за пределы контейнера */
+  width: auto;
+}
+
+/* Уменьшаем панель талантов */
+.talents-container {
+  padding: 8px 5px;
+  margin-top: 360px;
+}
+
+.talent-btn {
+  min-width: 75px;
+  padding: 8px 4px;
+  font-size: 12px;
+}
+
+.talent-icon {
+  font-size: 22px;
+}
+
+/* Адаптация для очень маленьких экранов */
+@media (max-width: 380px) {
+  .boss-image-container {
+    max-height: 30vh;
+  }
+  .talent-btn {
+    min-width: 70px;
+    padding: 6px 2px;
+  }
 }

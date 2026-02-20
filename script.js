@@ -374,10 +374,9 @@ async function spendEnergy(amount = 1) {
 // =======================================================
 // МУЗЫКАЛЬНАЯ СИСТЕМА
 // =======================================================
-// MUSIC ADDITION: функции управления музыкой
 function initMusic() {
     if (!backgroundMusic) {
-        backgroundMusic = new Audio('audio/background.mp3'); // Убедитесь, что файл существует
+        backgroundMusic = new Audio('audio/background.mp3');
         backgroundMusic.loop = true;
         backgroundMusic.volume = 0.5;
     }
@@ -415,7 +414,6 @@ function updateMusicToggleButton() {
     if (!btn || !store.user) return;
     btn.textContent = store.user.musicEnabled ? '🎵 Музыка: Выкл' : '🎵 Музыка: Вкл';
 }
-// =======================================================
 
 // =======================================================
 // ГЛАВНЫЙ ЭКРАН
@@ -460,7 +458,6 @@ function updateMainUI() {
     }
 }
 async function onCharacterClick() {
-    // Анимация клика
     const container = document.getElementById('character-container');
     container.classList.add('clicked');
     setTimeout(() => container.classList.remove('clicked'), 200);
@@ -1406,7 +1403,7 @@ function toggleEditMode(event) {
     store.guildEditing = !store.guildEditing;
     if (store.guild) {
         if (store.guildEditing) {
-            store.guildInfoVisible = false;
+            store.guildInfoVisible = true;
         }
         renderGuildPage(store.guild);
     }
@@ -1563,12 +1560,68 @@ function getXPProgress(user) {
     return { xpInThisLevel, neededForNext, progress: (xpInThisLevel / neededForNext) * 100 };
 }
 
+// ========== НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ БОЕВОГО ЭКРАНА ==========
+function generateBattleHTML(guild) {
+    const bossId = guild.bossId;
+    const bossNames = {
+        boss1: '🌲 Лесной страж',
+        boss2: '🔥 Огненный дракон'
+    };
+    const bossName = bossNames[bossId] || bossId;
+    const bossImageUrl = `img/battleboss1.png`;
+    const bgImageUrl = `img/battle1.png`; // фоновое изображение для босса
+    const hpPercent = (guild.bossHp / guild.maxBossHp) * 100;
+    const remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
+
+    return `
+        <div class="battle-view" style="background-image: url('${bgImageUrl}');">
+            <div class="battle-header">
+                <div class="boss-name">${bossName}</div>
+                <div class="hp-bar-container">
+                    <div class="hp-bar-fill" style="width: ${hpPercent}%;"></div>
+                </div>
+                <div class="hp-text">${guild.bossHp}/${guild.maxBossHp}</div>
+                <div class="timer" id="battle-timer">⏳ ${remainingSeconds}с</div>
+                <button class="surrender-btn" onclick="surrenderBattle('${guild.id}')">Сдаться</button>
+            </div>
+            <div class="boss-image-container" onclick="attackBoss()">
+                <img src="${bossImageUrl}" class="boss-image">
+            </div>
+            <div class="talents-container">
+                <div id="talent-selector"></div>
+            </div>
+        </div>
+    `;
+}
+
+// ========== ФУНКЦИЯ СДАЧИ В БОЮ ==========
+window.surrenderBattle = async function(guildId) {
+    await endBattle(false, guildId);
+};
+
+// ========== ОБНОВЛЁННАЯ ФУНКЦИЯ РЕНДЕРИНГА ГИЛЬДИИ ==========
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
     const editing = store.guildEditing;
     const guildInfoVisible = store.guildInfoVisible;
+    const user = store.user;
 
+    // Если битва активна – показываем боевой экран
+    if (guild.battleActive) {
+        container.innerHTML = generateBattleHTML(guild);
+        // Таймер будет обновляться в startBattleTimer
+        if (guild.battleEndTime) {
+            const timerKey = `battleTimer_${guild.id}`;
+            if (!store.listeners[timerKey]) {
+                startBattleTimer(guild.battleEndTime, guild.id);
+            }
+        }
+        createBattleTalentButtons();
+        return;
+    }
+
+    // Иначе – обычный вид гильдии
     const { level: computedLevel, maxMembers: computedMaxMembers } = getGuildLevelAndMaxMembersFromRating(guild.rating || 0);
     guild.level = computedLevel;
     guild.maxMembers = computedMaxMembers;
@@ -1593,11 +1646,10 @@ async function renderGuildPage(guild) {
         </div>
     `;
 
-    const user = store.user;
-    const isBattleActive = guild.battleActive;
-    const displayedBossId = isBattleActive ? guild.bossId : (user.preferredBoss || 'boss1');
+    const displayedBossId = guild.battleActive ? guild.bossId : (user.preferredBoss || 'boss1');
     const canAccessBoss2 = (guild.keys?.boss2 || 0) >= 3;
 
+    // Загружаем данные участников только если не в бою (уже проверили выше)
     const memberPromises = guild.members.map(async (memberId) => {
         const memberDoc = await db.collection('users').doc(memberId).get();
         if (memberDoc.exists) {
@@ -1692,7 +1744,6 @@ async function renderGuildPage(guild) {
         ` : ''}
 
          <div id="talent-selector"></div>
-
          <div id="poison-timer-container" style="margin-top: 10px; text-align: center;"></div>
     `;
 
@@ -1710,26 +1761,6 @@ async function renderGuildPage(guild) {
 
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
     document.getElementById('invite-friend-btn')?.addEventListener('click', showInviteMenu);
-
-    if (guild.battleActive && guild.battleEndTime) {
-        const timerKey = `battleTimer_${guild.id}`;
-        if (!store.listeners[timerKey]) {
-            startBattleTimer(guild.battleEndTime, guild.id);
-        }
-        if (guild.battleEndTime < Date.now()) {
-            endBattle(false, guild.id);
-        }
-    }
-
-    if (guild.battleActive) {
-        createBattleTalentButtons();
-    }
-
-    if (guild.poisonEffects && Array.isArray(guild.poisonEffects)) {
-        guild.poisonEffects.forEach(effect => {
-            startPoisonEffectFromData(effect, guild.id);
-        });
-    }
 }
 
 function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
@@ -2616,10 +2647,8 @@ async function leaveGuild(guildId) {
     const userRef = db.collection('users').doc(store.authUser.uid);
 
     try {
-        // Получаем актуальные данные гильдии
         const guildDoc = await guildRef.get();
         if (!guildDoc.exists) {
-            // Гильдии уже нет – просто очищаем у пользователя
             await userRef.update({ guildId: null });
             await loadUserFromFirestore(true);
             loadGuildScreen();
@@ -2631,32 +2660,23 @@ async function leaveGuild(guildId) {
         const isLeader = guild.leaderId === store.authUser.uid;
 
         if (isLeader) {
-            // Лидер распускает гильдию
             const batch = db.batch();
-
-            // Удаляем документ гильдии
             batch.delete(guildRef);
-
-            // Обновляем всех участников: устанавливаем guildId = null
             const members = guild.members || [];
             for (const memberId of members) {
                 const memberRef = db.collection('users').doc(memberId);
                 batch.update(memberRef, { guildId: null });
             }
-
             await batch.commit();
             showNotification('Гильдия расформирована', '');
         } else {
-            // Обычный участник покидает гильдию
             await db.runTransaction(async (transaction) => {
                 const freshGuildDoc = await transaction.get(guildRef);
                 if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
                 const freshGuild = freshGuildDoc.data();
-
                 if (!freshGuild.members.includes(store.authUser.uid)) {
                     throw new Error('Вы не состоите в гильдии');
                 }
-
                 transaction.update(guildRef, {
                     members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
                 });
@@ -2665,7 +2685,6 @@ async function leaveGuild(guildId) {
             showNotification('Вы покинули гильдию', '');
         }
 
-        // Обновляем данные пользователя и экран
         await loadUserFromFirestore(true);
         loadGuildScreen();
     } catch (e) {
@@ -2673,6 +2692,7 @@ async function leaveGuild(guildId) {
         showNotification('Ошибка', e.message || 'Не удалось выполнить действие');
     }
 }
+
 /**
  * Исключить участника из гильдии (только для лидера)
  */
@@ -2705,7 +2725,7 @@ async function removeFromGuild(guildId, memberId) {
             transaction.update(memberRef, { guildId: null });
         });
         showNotification('Участник исключён', '');
-        loadGuildScreen(); // обновим экран
+        loadGuildScreen();
     } catch (e) {
         console.error(e);
         showNotification('Ошибка', e.message || 'Не удалось исключить');
@@ -2724,7 +2744,6 @@ function showInviteMenu() {
         if (id) copyToClipboard(id);
     }
 
-    // Проверяем, доступен ли Telegram WebApp и метод showPopup
     if (tg && typeof tg.showPopup === 'function') {
         try {
             tg.showPopup({
