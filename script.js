@@ -266,7 +266,9 @@ async function loadUserFromFirestore() {
                 streak: 0
             },
             // MUSIC ADDITION: новое поле для настройки музыки
-            musicEnabled: true
+            musicEnabled: true,
+            // TUTORIAL ADDITION: флаг прохождения туториала
+            tutorialCompleted: false
         };
         await userRef.set(newUser);
         store.user = newUser;
@@ -303,6 +305,8 @@ async function loadUserFromFirestore() {
     if (!data.dailyBonus) { data.dailyBonus = { currentDay: 1, lastClaim: null, streak: 0 }; needsUpdate = true; }
     // MUSIC ADDITION: проверка наличия поля musicEnabled
     if (data.musicEnabled === undefined) { data.musicEnabled = false; needsUpdate = true; }
+    // TUTORIAL ADDITION: проверка поля tutorialCompleted
+    if (data.tutorialCompleted === undefined) { data.tutorialCompleted = false; needsUpdate = true; }
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -335,8 +339,8 @@ async function loadUserFromFirestore() {
             xp: data.xp,
             totalDamage: data.totalDamage,
             dailyBonus: data.dailyBonus,
-            // MUSIC ADDITION: добавляем musicEnabled в обновление
-            musicEnabled: data.musicEnabled
+            musicEnabled: data.musicEnabled,
+            tutorialCompleted: data.tutorialCompleted
         };
         await userRef.update(updateData);
     }
@@ -374,9 +378,10 @@ async function spendEnergy(amount = 1) {
 // =======================================================
 // МУЗЫКАЛЬНАЯ СИСТЕМА
 // =======================================================
+// MUSIC ADDITION: функции управления музыкой
 function initMusic() {
     if (!backgroundMusic) {
-        backgroundMusic = new Audio('audio/background.mp3');
+        backgroundMusic = new Audio('audio/background.mp3'); // Убедитесь, что файл существует
         backgroundMusic.loop = true;
         backgroundMusic.volume = 0.5;
     }
@@ -414,6 +419,7 @@ function updateMusicToggleButton() {
     if (!btn || !store.user) return;
     btn.textContent = store.user.musicEnabled ? '🎵 Музыка: Выкл' : '🎵 Музыка: Вкл';
 }
+// =======================================================
 
 // =======================================================
 // ГЛАВНЫЙ ЭКРАН
@@ -458,6 +464,7 @@ function updateMainUI() {
     }
 }
 async function onCharacterClick() {
+    // Анимация клика
     const container = document.getElementById('character-container');
     container.classList.add('clicked');
     setTimeout(() => container.classList.remove('clicked'), 200);
@@ -1116,7 +1123,7 @@ function createBattleTalentButtons() {
             const charges = user.attackCharges[type]?.charges || 0;
             if (charges <= 0) return;
             const isSelected = user.selectedTalent === type;
-            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
+            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')" data-tooltip="${getTalentDescription(type)}">
                 <span class="talent-icon">${getTalentIcon(type)}</span>
                 <span class="talent-name">${getTalentName(type)}</span>
                 <span class="talent-charges">${charges}</span>
@@ -1127,7 +1134,7 @@ function createBattleTalentButtons() {
     Object.entries(user.craftedTalents).forEach(([type, data]) => {
         if (data.charges > 0) {
             const isSelected = user.selectedTalent === type;
-            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
+            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')" data-tooltip="${getTalentDescription(type)}">
                 <span class="talent-icon">${getTalentIcon(type)}</span>
                 <span class="talent-name">${getTalentName(type)}</span>
                 <span class="talent-charges">${data.charges}</span>
@@ -1137,6 +1144,18 @@ function createBattleTalentButtons() {
 
     html += '</div>';
     container.innerHTML = html;
+}
+
+function getTalentDescription(type) {
+    const desc = {
+        basic: 'Базовый удар, тратит 1 заряд',
+        critical: 'Шанс удвоить урон',
+        poison: 'Накладывает яд, наносящий урон каждую секунду',
+        sonic: 'Мощный звуковой удар',
+        fire: 'Огненный удар, высокий урон',
+        ice: 'Ледяной удар, замедляет (пока нет эффекта)'
+    };
+    return desc[type] || type;
 }
 
 window.selectBattleTalent = async function(talentType) {
@@ -1560,106 +1579,12 @@ function getXPProgress(user) {
     return { xpInThisLevel, neededForNext, progress: (xpInThisLevel / neededForNext) * 100 };
 }
 
-// ========== НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ БОЕВОГО ЭКРАНА (ИЗМЕНЁННАЯ) ==========
-function generateBattleHTML(guild) {
-    const bossId = guild.bossId;
-    const bossNames = {
-        boss1: '🌲 Лесной страж',
-        boss2: '🔥 Огненный дракон'
-    };
-    const bossName = bossNames[bossId] || bossId;
-    const bossImageUrl = `img/battleboss1.png`;
-    const bgImageUrl = `img/battle1.png`;
-    const hpPercent = (guild.bossHp / guild.maxBossHp) * 100;
-    const remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
-
-    // Генерируем 28 искр-частиц
-    let embersHTML = '';
-    for (let i = 0; i < 28; i++) {
-        embersHTML += `<span class="battle-ember hiko-e${i}"></span>`;
-    }
-
-    return `
-        <div class="battle-view" style="background-image: url('${bgImageUrl}');">
-
-            <!-- Вспышка при ударе -->
-            <div class="battle-hit-flash" id="battle-hit-flash" style="display:none; pointer-events:none;"></div>
-
-            <!-- Частицы-искры -->
-            <div class="battle-embers" aria-hidden="true">${embersHTML}</div>
-
-            <!-- Радиальное свечение -->
-            <div class="battle-zone-glow" id="battle-zone-glow"></div>
-
-            <!-- Расширяющиеся кольца -->
-            <div class="battle-ring battle-ring-1"></div>
-            <div class="battle-ring battle-ring-2"></div>
-            <div class="battle-ring battle-ring-3"></div>
-
-            <!-- Заголовок с названием гильдии (кликабельно) -->
-            <div class="battle-guild-title" onclick="showGuildInfoModal('${guild.id}')">
-                <span>🏰 ${guild.name}</span>
-                <span class="info-icon">ℹ️</span>
-            </div>
-
-            <!-- Название босса по центру -->
-            <div class="battle-boss-name">${bossName}</div>
-
-            <!-- Строка с HP, прогресс-баром и таймером -->
-            <div class="battle-hp-row">
-                <span class="battle-hp-text" id="boss-hp-text">${guild.bossHp}/${guild.maxBossHp}</span>
-                <div class="hp-bar-container">
-                    <div class="hp-bar-fill" id="boss-hp-fill" style="width: ${hpPercent}%;"></div>
-                    <div class="hp-bar-gloss"></div>
-                </div>
-                <span class="battle-timer" id="battle-timer">⏳ ${remainingSeconds}с</span>
-            </div>
-
-            <!-- Босс -->
-            <div class="boss-image-container" onclick="attackBoss()">
-                <div class="boss-aura" id="boss-aura"></div>
-                <img src="${bossImageUrl}" class="boss-image" id="boss-battle-img">
-            </div>
-
-            <!-- Таланты -->
-            <div class="talents-container">
-                <div id="talent-selector"></div>
-            </div>
-
-            <!-- Кнопка сдаться -->
-            <button class="surrender-btn" onclick="surrenderBattle('${guild.id}')">Сдаться</button>
-        </div>
-    `;
-}
-
-// ========== ФУНКЦИЯ СДАЧИ В БОЮ ==========
-window.surrenderBattle = async function(guildId) {
-    await endBattle(false, guildId);
-};
-
-// ========== ОБНОВЛЁННАЯ ФУНКЦИЯ РЕНДЕРИНГА ГИЛЬДИИ ==========
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
     const editing = store.guildEditing;
     const guildInfoVisible = store.guildInfoVisible;
-    const user = store.user;
 
-    // Если битва активна – показываем боевой экран
-    if (guild.battleActive) {
-        container.innerHTML = generateBattleHTML(guild);
-        // Таймер будет обновляться в startBattleTimer
-        if (guild.battleEndTime) {
-            const timerKey = `battleTimer_${guild.id}`;
-            if (!store.listeners[timerKey]) {
-                startBattleTimer(guild.battleEndTime, guild.id);
-            }
-        }
-        createBattleTalentButtons();
-        return;
-    }
-
-    // Иначе – обычный вид гильдии (остаётся без изменений)
     const { level: computedLevel, maxMembers: computedMaxMembers } = getGuildLevelAndMaxMembersFromRating(guild.rating || 0);
     guild.level = computedLevel;
     guild.maxMembers = computedMaxMembers;
@@ -1684,10 +1609,11 @@ async function renderGuildPage(guild) {
         </div>
     `;
 
-    const displayedBossId = guild.battleActive ? guild.bossId : (user.preferredBoss || 'boss1');
+    const user = store.user;
+    const isBattleActive = guild.battleActive;
+    const displayedBossId = isBattleActive ? guild.bossId : (user.preferredBoss || 'boss1');
     const canAccessBoss2 = (guild.keys?.boss2 || 0) >= 3;
 
-    // Загружаем данные участников только если не в бою (уже проверили выше)
     const memberPromises = guild.members.map(async (memberId) => {
         const memberDoc = await db.collection('users').doc(memberId).get();
         if (memberDoc.exists) {
@@ -1782,6 +1708,7 @@ async function renderGuildPage(guild) {
         ` : ''}
 
          <div id="talent-selector"></div>
+
          <div id="poison-timer-container" style="margin-top: 10px; text-align: center;"></div>
     `;
 
@@ -1799,6 +1726,26 @@ async function renderGuildPage(guild) {
 
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
     document.getElementById('invite-friend-btn')?.addEventListener('click', showInviteMenu);
+
+    if (guild.battleActive && guild.battleEndTime) {
+        const timerKey = `battleTimer_${guild.id}`;
+        if (!store.listeners[timerKey]) {
+            startBattleTimer(guild.battleEndTime, guild.id);
+        }
+        if (guild.battleEndTime < Date.now()) {
+            endBattle(false, guild.id);
+        }
+    }
+
+    if (guild.battleActive) {
+        createBattleTalentButtons();
+    }
+
+    if (guild.poisonEffects && Array.isArray(guild.poisonEffects)) {
+        guild.poisonEffects.forEach(effect => {
+            startPoisonEffectFromData(effect, guild.id);
+        });
+    }
 }
 
 function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
@@ -1925,11 +1872,10 @@ function startBattleTimer(endTime, guildId) {
         const seconds = Math.floor(remaining / 1000);
         const timerDiv = document.getElementById('battle-timer');
         if (timerDiv) {
-            timerDiv.innerText = (seconds <= 30 ? '⚠️ ' : '⏳ ') + seconds + 'с';
-            if (seconds <= 30) {
-                timerDiv.classList.add('timer-urgent');
+            timerDiv.innerText = `⏳ ${seconds}с`;
+            if (seconds <= 10) {
+                timerDiv.style.color = '#ff6b6b';
             } else {
-                timerDiv.classList.remove('timer-urgent');
                 timerDiv.style.color = '#ffd966';
             }
         }
@@ -2225,83 +2171,20 @@ window.attackBoss = async function() {
 };
 
 function showDamageEffect(amount, icon = '💥') {
-    const container = document.querySelector('.boss-image-container');
-    if (!container) return;
-
-    // Определяем тип удара по иконке
-    let dmgType = 'normal';
-    if (icon.includes('💥⚡')) dmgType = 'crit';
-    else if (icon.includes('🔥')) dmgType = 'fire';
-    else if (icon.includes('☠') || icon.includes('poison')) dmgType = 'poison';
-    else if (icon.includes('❄') || icon.includes('ice')) dmgType = 'ice';
-
-    // Позиция: случайная в зоне босса
-    const x = 25 + Math.random() * 50;
-    const y = 10 + Math.random() * 40;
-
+    const bossImg = document.querySelector('.boss-image');
+    if (!bossImg) return;
     const div = document.createElement('div');
-    div.className = `hiko-damage-number hiko-dmg-${dmgType}`;
-    if (dmgType === 'crit') {
-        div.innerHTML = `<span style="font-size:0.75em;vertical-align:middle;">✦ </span>-${amount}`;
-    } else {
-        div.textContent = `-${amount}`;
-    }
-    div.style.left = x + '%';
-    div.style.top  = y + '%';
-    container.style.position = 'relative';
-    container.appendChild(div);
-    setTimeout(() => div.remove(), 1200);
-
-    // Тряска изображения босса
-    const bossImg = document.getElementById('boss-battle-img');
-    if (bossImg) {
-        bossImg.classList.remove('boss-hit-shake');
-        void bossImg.offsetWidth;
-        bossImg.classList.add('boss-hit-shake');
-        setTimeout(() => bossImg.classList.remove('boss-hit-shake'), 300);
-    }
-
-    // Вспышка экрана
-    const flash = document.getElementById('battle-hit-flash');
-    if (flash) {
-        const colors = {
-            crit:   'rgba(255,200,0,0.22)',
-            fire:   'rgba(255,80,0,0.2)',
-            ice:    'rgba(100,200,255,0.18)',
-            poison: 'rgba(80,200,50,0.15)',
-            normal: 'rgba(255,255,255,0.12)',
-        };
-        flash.style.background = colors[dmgType] || colors.normal;
-        flash.style.display = 'block';
-        setTimeout(() => { flash.style.display = 'none'; }, 100);
-    }
-
-    // Обновляем ауру + свечение если HP низкое
-    updateBossVisualState();
-}
-
-function updateBossVisualState() {
-    if (!store.guild) return;
-    const pct = store.guild.bossHp / store.guild.maxBossHp;
-    const isRage = pct < 0.3 && pct > 0;
-
-    const aura = document.getElementById('boss-aura');
-    const glow = document.getElementById('battle-zone-glow');
-    const hpFill = document.getElementById('boss-hp-fill');
-
-    if (aura) aura.classList.toggle('rage', isRage);
-    if (glow) glow.classList.toggle('rage', isRage);
-    if (hpFill) {
-        hpFill.classList.toggle('hp-rage', isRage);
-        // Обновляем ширину
-        const hpPct = Math.max(0, pct * 100);
-        hpFill.style.width = hpPct + '%';
-    }
-
-    const hpText = document.getElementById('boss-hp-text');
-    if (hpText && store.guild) {
-        hpText.textContent = `${Math.max(0, store.guild.bossHp)}/${store.guild.maxBossHp}`;
-    }
+    div.textContent = `${icon} -${amount}`;
+    div.style.position = 'absolute';
+    div.style.left = bossImg.offsetLeft + bossImg.offsetWidth/2 + 'px';
+    div.style.top = bossImg.offsetTop + 'px';
+    div.style.color = '#ffaa00';
+    div.style.fontSize = '24px';
+    div.style.fontWeight = 'bold';
+    div.style.textShadow = '2px 2px 0 #000';
+    div.style.animation = 'flyUp 1s ease-out';
+    document.getElementById('guild-view').appendChild(div);
+    setTimeout(() => div.remove(), 1000);
 }
 
 // =======================================================
@@ -2422,7 +2305,7 @@ function updateDailyBonusModal() {
     if (!user) return;
     const info = getCurrentDailyBonus(user);
     const calendar = document.getElementById('bonus-calendar');
-    let html = ''; // изменено: убираем лишнюю обёртку, так как контейнер уже имеет класс bonus-calendar
+    let html = '<div class="bonus-calendar">'; // изменено: обёртка уже есть, используем класс
     for (let i = 0; i < dailyBonusConfig.length; i++) {
         const dayConfig = dailyBonusConfig[i];
         const dayNum = i + 1;
@@ -2436,15 +2319,16 @@ function updateDailyBonusModal() {
 
         html += `<div class="bonus-day ${statusClass}" data-day="${dayNum}">
             <div class="day-number">${dayNum}</div>
-            <div class="reward">${dayConfig.reward.money}</div>
+            <div class="reward">${dayConfig.reward.money}🪙</div>
         </div>`;
     }
+    html += '</div>';
     calendar.innerHTML = html;
 
     const infoDiv = document.getElementById('bonus-info');
     infoDiv.innerHTML = info.canClaim
-        ? `<p>🔥 Текущая серия: ${info.streak} дней</p><p>✅ Бонус доступен!</p>`
-        : `<p>📅 Текущая серия: ${info.streak} дней</p><p>⏳ Уже получено сегодня</p>`;
+        ? `<p>Текущая серия: ${info.streak} дней</p><p>✅ Бонус доступен!</p>`
+        : `<p>Текущая серия: ${info.streak} дней</p><p>⏳ Уже получено сегодня</p>`;
 
     const claimBtn = document.getElementById('claim-bonus-btn');
     claimBtn.disabled = !info.canClaim;
@@ -2513,66 +2397,6 @@ function updateProfileModal() {
     // MUSIC ADDITION: обновляем текст кнопки музыки при открытии профиля
     updateMusicToggleButton();
 }
-
-// =======================================================
-// НОВАЯ ФУНКЦИЯ: ПОКАЗ ИНФОРМАЦИИ О ГИЛЬДИИ В БОЮ
-// =======================================================
-window.showGuildInfoModal = async function(guildId) {
-    const guildDoc = await db.collection('guilds').doc(guildId).get();
-    if (!guildDoc.exists) {
-        showNotification('Ошибка', 'Гильдия не найдена');
-        return;
-    }
-    const guild = { id: guildDoc.id, ...guildDoc.data() };
-
-    // Загружаем участников
-    const memberPromises = guild.members.map(async (memberId) => {
-        const memberDoc = await db.collection('users').doc(memberId).get();
-        if (memberDoc.exists) {
-            const data = memberDoc.data();
-            return {
-                id: memberId,
-                name: data.name || 'Без имени',
-                level: data.level || 1,
-                photoUrl: data.photoUrl || null
-            };
-        } else {
-            return {
-                id: memberId,
-                name: 'Неизвестный',
-                level: 1,
-                photoUrl: null
-            };
-        }
-    });
-    const membersData = await Promise.all(memberPromises);
-
-    const detailsDiv = document.getElementById('guild-info-details');
-    let html = `
-        <p><strong>Описание:</strong> ${guild.description || '—'}</p>
-        ${guild.chatLink ? `<p><strong>Чат/канал:</strong> <a href="${guild.chatLink}" target="_blank" style="color: #8ab3ff;">${guild.chatLink}</a></p>` : ''}
-        <p><strong>Уровень:</strong> ${guild.level || 1}</p>
-        <p><strong>Рейтинг:</strong> ${guild.rating || 0}</p>
-        <h4>Участники (${guild.members.length})</h4>
-        <ul class="member-list" style="max-height: 200px; overflow-y: auto;">
-    `;
-    membersData.forEach(member => {
-        const avatarHtml = member.photoUrl
-            ? `<img src="${member.photoUrl}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">`
-            : `<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;background:#4a6c8f;border-radius:50%;color:white;font-weight:bold;">${member.name[0]?.toUpperCase() || '?'}</span>`;
-        const leaderStar = member.id === guild.leaderId ? ' 👑' : '';
-        html += `
-            <li style="display:flex;align-items:center;gap:10px;padding:5px;border-bottom:1px solid #3a3a3a;">
-                ${avatarHtml}
-                <span>${member.name}${leaderStar} (ур. ${member.level})</span>
-            </li>
-        `;
-    });
-    html += '</ul>';
-    detailsDiv.innerHTML = html;
-
-    document.getElementById('guild-info-modal').classList.remove('hidden');
-};
 
 // =======================================================
 // ТЕСТОВЫЕ ДАННЫЕ
@@ -2808,8 +2632,10 @@ async function leaveGuild(guildId) {
     const userRef = db.collection('users').doc(store.authUser.uid);
 
     try {
+        // Получаем актуальные данные гильдии
         const guildDoc = await guildRef.get();
         if (!guildDoc.exists) {
+            // Гильдии уже нет – просто очищаем у пользователя
             await userRef.update({ guildId: null });
             await loadUserFromFirestore(true);
             loadGuildScreen();
@@ -2821,23 +2647,32 @@ async function leaveGuild(guildId) {
         const isLeader = guild.leaderId === store.authUser.uid;
 
         if (isLeader) {
+            // Лидер распускает гильдию
             const batch = db.batch();
+
+            // Удаляем документ гильдии
             batch.delete(guildRef);
+
+            // Обновляем всех участников: устанавливаем guildId = null
             const members = guild.members || [];
             for (const memberId of members) {
                 const memberRef = db.collection('users').doc(memberId);
                 batch.update(memberRef, { guildId: null });
             }
+
             await batch.commit();
             showNotification('Гильдия расформирована', '');
         } else {
+            // Обычный участник покидает гильдию
             await db.runTransaction(async (transaction) => {
                 const freshGuildDoc = await transaction.get(guildRef);
                 if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
                 const freshGuild = freshGuildDoc.data();
+
                 if (!freshGuild.members.includes(store.authUser.uid)) {
                     throw new Error('Вы не состоите в гильдии');
                 }
+
                 transaction.update(guildRef, {
                     members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
                 });
@@ -2846,6 +2681,7 @@ async function leaveGuild(guildId) {
             showNotification('Вы покинули гильдию', '');
         }
 
+        // Обновляем данные пользователя и экран
         await loadUserFromFirestore(true);
         loadGuildScreen();
     } catch (e) {
@@ -2853,7 +2689,6 @@ async function leaveGuild(guildId) {
         showNotification('Ошибка', e.message || 'Не удалось выполнить действие');
     }
 }
-
 /**
  * Исключить участника из гильдии (только для лидера)
  */
@@ -2886,7 +2721,7 @@ async function removeFromGuild(guildId, memberId) {
             transaction.update(memberRef, { guildId: null });
         });
         showNotification('Участник исключён', '');
-        loadGuildScreen();
+        loadGuildScreen(); // обновим экран
     } catch (e) {
         console.error(e);
         showNotification('Ошибка', e.message || 'Не удалось исключить');
@@ -2905,6 +2740,7 @@ function showInviteMenu() {
         if (id) copyToClipboard(id);
     }
 
+    // Проверяем, доступен ли Telegram WebApp и метод showPopup
     if (tg && typeof tg.showPopup === 'function') {
         try {
             tg.showPopup({
@@ -2927,6 +2763,116 @@ function showInviteMenu() {
         fallbackInvite();
     }
 }
+
+// =======================================================
+// ТУТОРИАЛ
+// =======================================================
+
+const tutorialSteps = [
+    {
+        title: '👋 Привет!',
+        text: 'Это твой персонаж. Нажимай на него, чтобы зарабатывать монеты, тратя энергию.',
+        element: '#character-container'
+    },
+    {
+        title: '⚡ Энергия и монеты',
+        text: 'Вверху отображается твоя энергия и количество монет. Энергия восстанавливается со временем.',
+        element: '#stats'
+    },
+    {
+        title: '🎁 Ежедневный бонус',
+        text: 'Заходи каждый день и получай монеты. Не пропускай, чтобы не сбросить серию!',
+        element: '.bonus-icon'
+    },
+    {
+        title: '🔧 Мастерская',
+        text: 'Здесь ты можешь менять одежду, покупать питомцев и улучшать таланты.',
+        element: '.nav-btn[data-screen="workshop"]'
+    },
+    {
+        title: '🏰 Гильдия',
+        text: 'Вступай в гильдию, сражайся с боссами и поднимай рейтинг вместе с друзьями.',
+        element: '.nav-btn[data-screen="guild"]'
+    },
+    {
+        title: '👥 Друзья',
+        text: 'Добавляй друзей по Telegram ID и смотри, кто онлайн.',
+        element: '#friends-fab'
+    }
+];
+
+let currentTutorialStep = 0;
+
+function startTutorial() {
+    if (store.user.tutorialCompleted) return;
+    currentTutorialStep = 0;
+    document.getElementById('tutorial-modal').classList.remove('hidden');
+    document.getElementById('tutorial-modal').classList.add('tutorial-active');
+    showTutorialStep(currentTutorialStep);
+}
+
+function showTutorialStep(index) {
+    if (index >= tutorialSteps.length) {
+        finishTutorial();
+        return;
+    }
+    const step = tutorialSteps[index];
+    document.getElementById('tutorial-title').textContent = step.title;
+    document.getElementById('tutorial-text').textContent = step.text;
+
+    // Подсветка элемента
+    const highlight = document.getElementById('tutorial-highlight');
+    const target = document.querySelector(step.element);
+    if (target) {
+        const rect = target.getBoundingClientRect();
+        highlight.style.top = rect.top + 'px';
+        highlight.style.left = rect.left + 'px';
+        highlight.style.width = rect.width + 'px';
+        highlight.style.height = rect.height + 'px';
+        highlight.classList.add('active');
+    } else {
+        highlight.classList.remove('active');
+    }
+
+    // Обновляем текст кнопки
+    const nextBtn = document.getElementById('tutorial-next');
+    if (index === tutorialSteps.length - 1) {
+        nextBtn.textContent = 'Завершить';
+    } else {
+        nextBtn.textContent = 'Далее';
+    }
+}
+
+function nextTutorialStep() {
+    currentTutorialStep++;
+    showTutorialStep(currentTutorialStep);
+}
+
+function finishTutorial() {
+    document.getElementById('tutorial-modal').classList.add('hidden');
+    document.getElementById('tutorial-modal').classList.remove('tutorial-active');
+    document.getElementById('tutorial-highlight').classList.remove('active');
+    // Отмечаем, что туториал пройден
+    if (store.user) {
+        updateUser({ tutorialCompleted: true });
+    }
+}
+
+function skipTutorial() {
+    finishTutorial();
+}
+
+// =======================================================
+// ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ showInfo (для иконки info)
+// =======================================================
+function showInfo(message) {
+    if (tg && tg.showPopup) {
+        tg.showPopup({ title: 'Подсказка', message: message, buttons: [{ type: 'close' }] });
+    } else {
+        alert(message);
+    }
+}
+window.showInfo = showInfo;
 
 // =======================================================
 // ЗАПУСК ПРИЛОЖЕНИЯ
@@ -3026,11 +2972,6 @@ window.onload = async () => {
         document.getElementById('close-profile-modal').onclick = closeProfileModal;
         document.getElementById('close-friends-modal').onclick = closeFriendsModal;
 
-        // Закрытие модалки информации о гильдии
-        document.getElementById('close-guild-info-modal').onclick = () => {
-            document.getElementById('guild-info-modal').classList.add('hidden');
-        };
-
         document.querySelectorAll('.friends-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.friends-tab-btn').forEach(b => b.classList.remove('active'));
@@ -3091,6 +3032,15 @@ window.onload = async () => {
             musicBtn.addEventListener('click', toggleMusic);
         }
 
+        // TUTORIAL: запуск туториала, если не пройден
+        if (!store.user.tutorialCompleted) {
+            setTimeout(startTutorial, 500);
+        }
+
+        // TUTORIAL: обработчики кнопок туториала
+        document.getElementById('tutorial-next').addEventListener('click', nextTutorialStep);
+        document.getElementById('tutorial-skip').addEventListener('click', skipTutorial);
+
         console.log('✅ Игра готова');
     } catch (e) {
         console.error('Ошибка инициализации:', e);
@@ -3129,3 +3079,4 @@ window.hideCreateGuildModal = window.hideCreateGuildModal;
 window.openDailyBonusModal = openDailyBonusModal;
 window.closeDailyBonusModal = closeDailyBonusModal;
 window.showInviteMenu = showInviteMenu;
+window.showInfo = showInfo;
