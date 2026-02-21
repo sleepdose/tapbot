@@ -10,21 +10,21 @@
 <body>
     <div id="app">
         <!-- ========== ВЕРХНЯЯ ПАНЕЛЬ (ВИДНА ВСЕГДА) ========== -->
-        <div id="stats">
-            <div class="avatar" id="user-avatar">
+        <div id="stats" data-tooltip="Энергия и монеты. Энергия восстанавливается со временем.">
+            <div class="avatar" id="user-avatar" data-tooltip="Твой профиль. Нажми, чтобы посмотреть статистику.">
                 <img id="avatar-img" src="" alt="avatar">
                 <span class="level-badge-on-avatar" id="avatar-level">1</span>
             </div>
             <span id="energy-display">⚡ 100/100</span>
             <span id="money">0</span> 🪙
             <!-- Кнопка ежедневных бонусов -->
-            <div class="bonus-icon" onclick="openDailyBonusModal()">🎁</div>
+            <div class="bonus-icon" onclick="openDailyBonusModal()" data-tooltip="Ежедневный бонус! Заходи каждый день.">🎁</div>
         </div>
 
         <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
         <div id="screen-main" class="screen active">
             <div id="character-area">
-                <div id="character-container">
+                <div id="character-container" data-tooltip="Кликни, чтобы заработать монеты (тратит энергию).">
                     <img id="base-character" src="img/men.png" alt="Персонаж">
                     <div id="equipment-layer"></div>
                 </div>
@@ -36,9 +36,9 @@
         <!-- ========== МАСТЕРСКАЯ ========== -->
         <div id="screen-workshop" class="screen">
             <div class="tabs">
-                <button class="tab-button active" data-tab="character">👤 Персонаж</button>
-                <button class="tab-button" data-tab="pets">🐾 Питомцы</button>
-                <button class="tab-button" data-tab="talents">✨ Таланты</button>
+                <button class="tab-button active" data-tab="character" data-tooltip="Снаряжение персонажа">👤 Персонаж</button>
+                <button class="tab-button" data-tab="pets" data-tooltip="Питомцы-помощники">🐾 Питомцы</button>
+                <button class="tab-button" data-tab="talents" data-tooltip="Улучшения и крафт">✨ Таланты</button>
             </div>
 
             <!-- Вкладка ПЕРСОНАЖ (экипировка) -->
@@ -51,16 +51,19 @@
                     </div>
                 </div>
                 <div class="slot-selector">
-                    <button class="slot-btn active" data-slot="hat">🎩 Голова</button>
-                    <button class="slot-btn" data-slot="shirt">👕 Туловище</button>
-                    <button class="slot-btn" data-slot="legs">👖 Ноги</button>
+                    <button class="slot-btn active" data-slot="hat" data-tooltip="Головные уборы">🎩 Голова</button>
+                    <button class="slot-btn" data-slot="shirt" data-tooltip="Одежда на туловище">👕 Туловище</button>
+                    <button class="slot-btn" data-slot="legs" data-tooltip="Штаны и обувь">👖 Ноги</button>
                 </div>
                 <div id="slot-items" class="items-grid"></div>
             </div>
 
             <!-- Вкладка ПИТОМЦЫ -->
             <div id="tab-pets" class="tab-content">
-                <h3>🐾 Доступные питомцы</h3>
+                <div style="display: flex; align-items: center;">
+                    <h3>🐾 Доступные питомцы</h3>
+                    <span class="info-icon" onclick="showInfo('Питомцы помогают в бою и дают пассивные бонусы. Купить можно за монеты.')">ⓘ</span>
+                </div>
                 <div id="pets-grid" class="items-grid"></div>
             </div>
 
@@ -68,9 +71,9 @@
             <div id="tab-talents" class="tab-content">
                 <!-- Внутренние вкладки -->
                 <div class="talent-tabs">
-                    <button class="tab-btn active" data-tab="shop-charges">🛒 Заряды</button>
-                    <button class="tab-btn" data-tab="shop-upgrade">⬆️ Улучшение</button>
-                    <button class="tab-btn" data-tab="shop-craft">⚒️ Крафт</button>
+                    <button class="tab-btn active" data-tab="shop-charges" data-tooltip="Купить заряды для талантов">🛒 Заряды</button>
+                    <button class="tab-btn" data-tab="shop-upgrade" data-tooltip="Улучшить таланты навсегда">⬆️ Улучшение</button>
+                    <button class="tab-btn" data-tab="shop-craft" data-tooltip="Создать мощные таланты из базовых">⚒️ Крафт</button>
                 </div>
 
                 <!-- Покупка зарядов -->
@@ -83,15 +86,15 @@
                     <div class="talents-upgrade-container">
                         <div class="talent">
                             <span>🗡️ Базовый ур. <span id="basicLevel">1</span> (урон <span id="basicDmg">10</span>)</span>
-                            <button class="upgrade-btn" data-talent="basic">75</button>
+                            <button class="upgrade-btn" data-talent="basic" data-tooltip="Увеличивает базовый урон">75</button>
                         </div>
                         <div class="talent">
                             <span>💥 Критический ур. <span id="critLevel">1</span> (шанс <span id="critChanceUpgrade">20</span>%)</span>
-                            <button class="upgrade-btn" data-talent="critical">150</button>
+                            <button class="upgrade-btn" data-talent="critical" data-tooltip="Увеличивает шанс крита">150</button>
                         </div>
                         <div class="talent">
                             <span>☠️ Ядовитый ур. <span id="poisonLevel">1</span> (урон <span id="poisonDmgUpgrade">3</span>)</span>
-                            <button class="upgrade-btn" data-talent="poison">200</button>
+                            <button class="upgrade-btn" data-talent="poison" data-tooltip="Увеличивает урон яда">200</button>
                         </div>
                     </div>
                 </div>
@@ -104,16 +107,16 @@
                             <div class="craft-slot" data-talent=""></div>
                         </div>
                         <div class="craft-result">
-                            <button id="sonicButton" style="display:none;">🔊 Звуковой</button>
-                            <button id="fireButton" style="display:none;">🔥 Огненный</button>
-                            <button id="iceButton" style="display:none;">❄️ Ледяной</button>
+                            <button id="sonicButton" style="display:none;" data-tooltip="Звуковой талант">🔊 Звуковой</button>
+                            <button id="fireButton" style="display:none;" data-tooltip="Огненный талант">🔥 Огненный</button>
+                            <button id="iceButton" style="display:none;" data-tooltip="Ледяной талант">❄️ Ледяной</button>
                         </div>
                         <div class="talent-pool">
                             <h4>📦 Доступные таланты для крафта</h4>
                             <div class="talent-cards">
-                                <div class="talent-card" data-talent="basic">🗡️ Базовый</div>
-                                <div class="talent-card" data-talent="critical">💥 Критический</div>
-                                <div class="talent-card" data-talent="poison">☠️ Ядовитый</div>
+                                <div class="talent-card" data-talent="basic" data-tooltip="Базовый талант">🗡️ Базовый</div>
+                                <div class="talent-card" data-talent="critical" data-tooltip="Критический талант">💥 Критический</div>
+                                <div class="talent-card" data-talent="poison" data-tooltip="Ядовитый талант">☠️ Ядовитый</div>
                             </div>
                         </div>
                     </div>
@@ -128,9 +131,9 @@
 
         <!-- ========== НИЖНЯЯ НАВИГАЦИЯ ========== -->
         <nav id="bottom-nav">
-            <button data-screen="main" class="nav-btn active">👤</button>
-            <button data-screen="workshop" class="nav-btn">🔧</button>
-            <button data-screen="guild" class="nav-btn">🏰</button>
+            <button data-screen="main" class="nav-btn active" title="Главная">👤</button>
+            <button data-screen="workshop" class="nav-btn" title="Мастерская">🔧</button>
+            <button data-screen="guild" class="nav-btn" title="Гильдия">🏰</button>
         </nav>
 
         <!-- ========== МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ГИЛЬДИИ ========== -->
@@ -173,10 +176,10 @@
                 <div class="xp-text"><span id="profile-xp-current">0</span> / <span id="profile-xp-next">100</span> XP</div>
                 <div class="profile-damage">💥 Всего урона: <span id="profile-damage">0</span></div>
                 <div class="music-toggle-container">
-    <button id="music-toggle-btn" class="glow-button" style="width:100%; margin-top:10px;">
-        🎵 Музыка: Вкл
-    </button>
-</div>
+                    <button id="music-toggle-btn" class="glow-button" style="width:100%; margin-top:10px;" data-tooltip="Включить/выключить фоновую музыку">
+                        🎵 Музыка: Вкл
+                    </button>
+                </div>
                 <button class="close-modal-btn glow-button" id="close-profile-modal">Закрыть</button>
             </div>
         </div>
@@ -188,13 +191,13 @@
                 <div class="friends-my-id">
                     <span>Ваш ID: </span>
                     <strong id="friends-my-id-value"></strong>
-                    <button class="copy-btn" onclick="copyToClipboard(document.getElementById('friends-my-id-value').innerText)">📋</button>
+                    <button class="copy-btn" onclick="copyToClipboard(document.getElementById('friends-my-id-value').innerText)" data-tooltip="Скопировать ID">📋</button>
                 </div>
 
                 <div class="friends-tabs">
-                    <button class="friends-tab-btn active" data-tab="list">Друзья</button>
-                    <button class="friends-tab-btn" data-tab="requests">Заявки</button>
-                    <button class="friends-tab-btn" data-tab="search">Найти друга</button>
+                    <button class="friends-tab-btn active" data-tab="list" data-tooltip="Список твоих друзей">Друзья</button>
+                    <button class="friends-tab-btn" data-tab="requests" data-tooltip="Входящие заявки">Заявки</button>
+                    <button class="friends-tab-btn" data-tab="search" data-tooltip="Найти пользователя по Telegram ID">Найти друга</button>
                 </div>
 
                 <!-- Вкладка: Список друзей -->
@@ -210,7 +213,7 @@
                 <!-- Вкладка: Поиск друга -->
                 <div id="friends-search-tab" class="friends-tab-content">
                     <input type="text" id="friends-search-input" placeholder="Telegram ID друга">
-                    <button id="friends-search-btn" class="glow-button">Найти</button>
+                    <button id="friends-search-btn" class="glow-button" data-tooltip="Найти пользователя по ID">Найти</button>
                     <div id="friends-search-result"></div>
                 </div>
 
@@ -229,17 +232,6 @@
             </div>
         </div>
 
-        <!-- ========== МОДАЛЬНОЕ ОКНО ИНФОРМАЦИИ О ГИЛЬДИИ (для боя) ========== -->
-        <div id="guild-info-modal" class="modal hidden">
-            <div class="modal-content guild-info-modal-content">
-                <h3 id="guild-info-title">Информация о гильдии</h3>
-                <div id="guild-info-details" style="max-height: 60vh; overflow-y: auto; margin-bottom: 16px; padding-right: 5px;"></div>
-                <div class="modal-buttons">
-                    <button id="close-guild-info-modal" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
-                </div>
-            </div>
-        </div>
-
         <!-- ========== МОДАЛЬНОЕ ОКНО ЕЖЕДНЕВНЫХ БОНУСОВ ========== -->
         <div id="daily-bonus-modal" class="modal hidden">
             <div class="modal-content bonus-modal">
@@ -247,14 +239,27 @@
                 <div id="bonus-calendar" class="bonus-calendar"></div>
                 <div id="bonus-info" class="bonus-info"></div>
                 <div class="modal-buttons">
-                    <button id="claim-bonus-btn" class="glow-button">Забрать</button>
+                    <button id="claim-bonus-btn" class="glow-button" data-tooltip="Забрать доступный бонус">Забрать</button>
                     <button onclick="closeDailyBonusModal()" class="glow-button cancel-btn">Закрыть</button>
                 </div>
             </div>
         </div>
 
+        <!-- ========== МОДАЛЬНОЕ ОКНО ТУТОРИАЛА ========== -->
+        <div id="tutorial-modal" class="modal hidden">
+            <div class="modal-content tutorial-content">
+                <h3 id="tutorial-title">Добро пожаловать в Hiko Adventure!</h3>
+                <div id="tutorial-text">Это краткое обучение поможет вам освоиться.</div>
+                <div class="tutorial-highlight" id="tutorial-highlight"></div>
+                <div class="modal-buttons">
+                    <button id="tutorial-next" class="glow-button">Далее</button>
+                    <button id="tutorial-skip" class="glow-button cancel-btn">Пропустить</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Плавающая кнопка друзей -->
-        <div id="friends-fab" class="fab" onclick="openFriendsModal()">
+        <div id="friends-fab" class="fab" onclick="openFriendsModal()" data-tooltip="Друзья онлайн">
             <span id="friends-online-count">0</span>в сети
         </div>
     </div>
