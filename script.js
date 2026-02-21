@@ -2422,7 +2422,7 @@ function updateDailyBonusModal() {
     if (!user) return;
     const info = getCurrentDailyBonus(user);
     const calendar = document.getElementById('bonus-calendar');
-    let html = '<div class="bonus-calendar">'; // изменено: обёртка уже есть, используем класс
+    let html = ''; // изменено: убираем лишнюю обёртку, так как контейнер уже имеет класс bonus-calendar
     for (let i = 0; i < dailyBonusConfig.length; i++) {
         const dayConfig = dailyBonusConfig[i];
         const dayNum = i + 1;
@@ -2436,16 +2436,15 @@ function updateDailyBonusModal() {
 
         html += `<div class="bonus-day ${statusClass}" data-day="${dayNum}">
             <div class="day-number">${dayNum}</div>
-            <div class="reward">${dayConfig.reward.money}🪙</div>
+            <div class="reward">${dayConfig.reward.money}</div>
         </div>`;
     }
-    html += '</div>';
     calendar.innerHTML = html;
 
     const infoDiv = document.getElementById('bonus-info');
     infoDiv.innerHTML = info.canClaim
-        ? `<p>Текущая серия: ${info.streak} дней</p><p>✅ Бонус доступен!</p>`
-        : `<p>Текущая серия: ${info.streak} дней</p><p>⏳ Уже получено сегодня</p>`;
+        ? `<p>🔥 Текущая серия: ${info.streak} дней</p><p>✅ Бонус доступен!</p>`
+        : `<p>📅 Текущая серия: ${info.streak} дней</p><p>⏳ Уже получено сегодня</p>`;
 
     const claimBtn = document.getElementById('claim-bonus-btn');
     claimBtn.disabled = !info.canClaim;
