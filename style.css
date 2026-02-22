@@ -799,12 +799,8 @@ body::before {
     height: 130px;
     object-fit: contain;
     cursor: pointer;
-    border: 2px solid rgba(230,57,70,0.6);
-    border-radius: 50%;
     padding: 10px;
-    background: rgba(230,57,70,0.08);
     transition: all 0.15s;
-    box-shadow: 0 0 20px rgba(230,57,70,0.3);
 }
 .boss-image:active {
     transform: scale(0.94);
