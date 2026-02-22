@@ -1300,7 +1300,7 @@ body::before {
 
 .boss-image-container .boss-image {
   width: 185px;
-  height: 185px;
+  height: 370px;
   object-fit: contain;
   border: none;
   border-radius: 0;
