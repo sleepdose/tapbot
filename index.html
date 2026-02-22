@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -22,263 +21,261 @@
             <div class="bonus-icon" onclick="openDailyBonusModal()">🎁</div>
         </div>
 
-```
-    <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
-    <div id="screen-main" class="screen active">
-        <div id="character-area">
-            <div id="character-container">
-                <img id="base-character" src="img/men.png" alt="Персонаж">
-                <div id="equipment-layer"></div>
-            </div>
-            <!-- Отдельный контейнер для питомца на главном экране -->
-            <div id="pet-main-container"></div>
-        </div>
-    </div>
-
-    <!-- ========== МАСТЕРСКАЯ ========== -->
-    <div id="screen-workshop" class="screen">
-        <div class="tabs">
-            <button class="tab-button active" data-tab="character">👤 Персонаж</button>
-            <button class="tab-button" data-tab="pets">🐾 Питомцы</button>
-            <button class="tab-button" data-tab="talents">✨ Таланты</button>
-        </div>
-
-        <!-- Вкладка ПЕРСОНАЖ (экипировка) -->
-        <div id="tab-character" class="tab-content active">
-            <div class="customization-preview">
-                <div id="char-preview-container" class="character-preview">
-                    <img id="preview-base" src="img/men.png" alt="Персонаж">
-                    <div id="preview-equipment"></div>
-                    <div id="preview-pet"></div>
+        <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
+        <div id="screen-main" class="screen active">
+            <div id="character-area">
+                <div id="character-container">
+                    <img id="base-character" src="img/men.png" alt="Персонаж">
+                    <div id="equipment-layer"></div>
                 </div>
+                <!-- Отдельный контейнер для питомца на главном экране -->
+                <div id="pet-main-container"></div>
             </div>
-            <div class="slot-selector">
-                <button class="slot-btn active" data-slot="hat">🎩 Голова</button>
-                <button class="slot-btn" data-slot="shirt">👕 Туловище</button>
-                <button class="slot-btn" data-slot="legs">👖 Ноги</button>
-            </div>
-            <div id="slot-items" class="items-grid"></div>
         </div>
 
-        <!-- Вкладка ПИТОМЦЫ -->
-        <div id="tab-pets" class="tab-content">
-            <h3>🐾 Доступные питомцы</h3>
-            <div id="pets-grid" class="items-grid"></div>
-        </div>
-
-        <!-- Вкладка ТАЛАНТЫ (покупка зарядов, улучшение, крафт) -->
-        <div id="tab-talents" class="tab-content">
-            <!-- Внутренние вкладки -->
-            <div class="talent-tabs">
-                <button class="tab-btn active" data-tab="shop-charges">🛒 Заряды</button>
-                <button class="tab-btn" data-tab="shop-upgrade">⬆️ Улучшение</button>
-                <button class="tab-btn" data-tab="shop-craft">⚒️ Крафт</button>
+        <!-- ========== МАСТЕРСКАЯ ========== -->
+        <div id="screen-workshop" class="screen">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="character">👤 Персонаж</button>
+                <button class="tab-button" data-tab="pets">🐾 Питомцы</button>
+                <button class="tab-button" data-tab="talents">✨ Таланты</button>
             </div>
 
-            <!-- Покупка зарядов -->
-            <div id="shop-charges" class="shop-tab active">
-                <div class="attack-charges-container"></div>
-            </div>
-
-            <!-- Улучшение талантов -->
-            <div id="shop-upgrade" class="shop-tab">
-                <div class="talents-upgrade-container">
-                    <div class="talent">
-                        <span>🗡️ Базовый ур. <span id="basicLevel">1</span> (урон <span id="basicDmg">10</span>)</span>
-                        <button class="upgrade-btn" data-talent="basic">75</button>
-                    </div>
-                    <div class="talent">
-                        <span>💥 Критический ур. <span id="critLevel">1</span> (шанс <span id="critChanceUpgrade">20</span>%)</span>
-                        <button class="upgrade-btn" data-talent="critical">150</button>
-                    </div>
-                    <div class="talent">
-                        <span>☠️ Ядовитый ур. <span id="poisonLevel">1</span> (урон <span id="poisonDmgUpgrade">3</span>)</span>
-                        <button class="upgrade-btn" data-talent="poison">200</button>
+            <!-- Вкладка ПЕРСОНАЖ (экипировка) -->
+            <div id="tab-character" class="tab-content active">
+                <div class="customization-preview">
+                    <div id="char-preview-container" class="character-preview">
+                        <img id="preview-base" src="img/men.png" alt="Персонаж">
+                        <div id="preview-equipment"></div>
+                        <div id="preview-pet"></div>
                     </div>
                 </div>
+                <div class="slot-selector">
+                    <button class="slot-btn active" data-slot="hat">🎩 Голова</button>
+                    <button class="slot-btn" data-slot="shirt">👕 Туловище</button>
+                    <button class="slot-btn" data-slot="legs">👖 Ноги</button>
+                </div>
+                <div id="slot-items" class="items-grid"></div>
             </div>
 
-            <!-- Крафт талантов -->
-            <div id="shop-craft" class="shop-tab">
-                <div class="crafting-area">
-                    <div class="craft-slots">
-                        <div class="craft-slot" data-talent=""></div>
-                        <div class="craft-slot" data-talent=""></div>
+            <!-- Вкладка ПИТОМЦЫ -->
+            <div id="tab-pets" class="tab-content">
+                <h3>🐾 Доступные питомцы</h3>
+                <div id="pets-grid" class="items-grid"></div>
+            </div>
+
+            <!-- Вкладка ТАЛАНТЫ (покупка зарядов, улучшение, крафт) -->
+            <div id="tab-talents" class="tab-content">
+                <!-- Внутренние вкладки -->
+                <div class="talent-tabs">
+                    <button class="tab-btn active" data-tab="shop-charges">🛒 Заряды</button>
+                    <button class="tab-btn" data-tab="shop-upgrade">⬆️ Улучшение</button>
+                    <button class="tab-btn" data-tab="shop-craft">⚒️ Крафт</button>
+                </div>
+
+                <!-- Покупка зарядов -->
+                <div id="shop-charges" class="shop-tab active">
+                    <div class="attack-charges-container"></div>
+                </div>
+
+                <!-- Улучшение талантов -->
+                <div id="shop-upgrade" class="shop-tab">
+                    <div class="talents-upgrade-container">
+                        <div class="talent">
+                            <span>🗡️ Базовый ур. <span id="basicLevel">1</span> (урон <span id="basicDmg">10</span>)</span>
+                            <button class="upgrade-btn" data-talent="basic">75</button>
+                        </div>
+                        <div class="talent">
+                            <span>💥 Критический ур. <span id="critLevel">1</span> (шанс <span id="critChanceUpgrade">20</span>%)</span>
+                            <button class="upgrade-btn" data-talent="critical">150</button>
+                        </div>
+                        <div class="talent">
+                            <span>☠️ Ядовитый ур. <span id="poisonLevel">1</span> (урон <span id="poisonDmgUpgrade">3</span>)</span>
+                            <button class="upgrade-btn" data-talent="poison">200</button>
+                        </div>
                     </div>
-                    <div class="craft-result">
-                        <button id="sonicButton" style="display:none;">🔊 Звуковой</button>
-                        <button id="fireButton" style="display:none;">🔥 Огненный</button>
-                        <button id="iceButton" style="display:none;">❄️ Ледяной</button>
-                    </div>
-                    <div class="talent-pool">
-                        <h4>📦 Доступные таланты для крафта</h4>
-                        <div class="talent-cards">
-                            <div class="talent-card" data-talent="basic">🗡️ Базовый</div>
-                            <div class="talent-card" data-talent="critical">💥 Критический</div>
-                            <div class="talent-card" data-talent="poison">☠️ Ядовитый</div>
+                </div>
+
+                <!-- Крафт талантов -->
+                <div id="shop-craft" class="shop-tab">
+                    <div class="crafting-area">
+                        <div class="craft-slots">
+                            <div class="craft-slot" data-talent=""></div>
+                            <div class="craft-slot" data-talent=""></div>
+                        </div>
+                        <div class="craft-result">
+                            <button id="sonicButton" style="display:none;">🔊 Звуковой</button>
+                            <button id="fireButton" style="display:none;">🔥 Огненный</button>
+                            <button id="iceButton" style="display:none;">❄️ Ледяной</button>
+                        </div>
+                        <div class="talent-pool">
+                            <h4>📦 Доступные таланты для крафта</h4>
+                            <div class="talent-cards">
+                                <div class="talent-card" data-talent="basic">🗡️ Базовый</div>
+                                <div class="talent-card" data-talent="critical">💥 Критический</div>
+                                <div class="talent-card" data-talent="poison">☠️ Ядовитый</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- ========== ГИЛЬДИЯ ========== -->
-    <div id="screen-guild" class="screen">
-        <div id="guild-view"></div>
-    </div>
+        <!-- ========== ГИЛЬДИЯ ========== -->
+        <div id="screen-guild" class="screen">
+            <div id="guild-view"></div>
+        </div>
 
-    <!-- ========== НИЖНЯЯ НАВИГАЦИЯ ========== -->
-    <nav id="bottom-nav">
-        <button data-screen="main" class="nav-btn active">👤</button>
-        <button data-screen="workshop" class="nav-btn">🔧</button>
-        <button data-screen="guild" class="nav-btn">🏰</button>
-    </nav>
+        <!-- ========== НИЖНЯЯ НАВИГАЦИЯ ========== -->
+        <nav id="bottom-nav">
+            <button data-screen="main" class="nav-btn active">👤</button>
+            <button data-screen="workshop" class="nav-btn">🔧</button>
+            <button data-screen="guild" class="nav-btn">🏰</button>
+        </nav>
 
-    <!-- ========== МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ГИЛЬДИИ ========== -->
-    <div id="create-guild-modal" class="modal hidden">
-        <div class="modal-content">
-            <h3>✨ Создание гильдии</h3>
-            <input type="text" id="guild-name" placeholder="Название гильдии (мин. 5 символов)">
-            <textarea id="guild-desc" placeholder="Описание (необязательно)" rows="2"></textarea>
-            <input type="url" id="guild-chat-link" placeholder="Ссылка на чат/канал (необязательно)">
-            <div class="modal-buttons">
-                <button id="confirm-create-guild" class="glow-button">✅ Создать</button>
-                <button id="cancel-create-guild">❌ Отмена</button>
+        <!-- ========== МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ГИЛЬДИИ ========== -->
+        <div id="create-guild-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>✨ Создание гильдии</h3>
+                <input type="text" id="guild-name" placeholder="Название гильдии (мин. 5 символов)">
+                <textarea id="guild-desc" placeholder="Описание (необязательно)" rows="2"></textarea>
+                <input type="url" id="guild-chat-link" placeholder="Ссылка на чат/канал (необязательно)">
+                <div class="modal-buttons">
+                    <button id="confirm-create-guild" class="glow-button">✅ Создать</button>
+                    <button id="cancel-create-guild">❌ Отмена</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- ========== МОДАЛЬНОЕ ОКНО: РЕЗУЛЬТАТЫ БИТВЫ ========== -->
-    <div id="battle-result-modal" class="modal hidden">
-        <div class="modal-content">
-            <h3 id="battle-result-title">Результат битвы</h3>
-            <div id="battle-result-content" style="max-height: 300px; overflow-y: auto; margin-bottom: 16px; padding-right: 5px;"></div>
-            <div class="modal-buttons">
-                <button id="close-battle-result" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
+        <!-- ========== МОДАЛЬНОЕ ОКНО: РЕЗУЛЬТАТЫ БИТВЫ ========== -->
+        <div id="battle-result-modal" class="modal hidden">
+            <div class="modal-content battle-modal">
+                <div class="battle-modal-flare"></div>
+                <div class="battle-icon-wrap">
+                    <span class="battle-icon" id="battle-result-icon">⚔️</span>
+                </div>
+                <h3 id="battle-result-title" class="battle-result-title">Результат битвы</h3>
+                <div id="battle-result-content" class="battle-result-content"></div>
+                <div class="modal-buttons">
+                    <button id="close-battle-result" class="glow-button battle-close-btn">Закрыть</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- ========== МОДАЛЬНОЕ ОКНО ПРОФИЛЯ ========== -->
-    <div id="profile-modal" class="modal hidden">
-        <div class="modal-content profile-content">
-            <div class="profile-avatar">
-                <img id="profile-avatar-img" src="" alt="Avatar">
-            </div>
-            <div class="profile-name" id="profile-name">Загрузка...</div>
-            <div class="profile-id">ID: <span id="profile-id">...</span></div>
-            <div class="profile-level">Уровень <span id="profile-level">1</span></div>
-            <div class="xp-bar-container">
-                <div class="xp-bar-fill" id="profile-xp-fill" style="width:0%"></div>
-            </div>
-            <div class="xp-text"><span id="profile-xp-current">0</span> / <span id="profile-xp-next">100</span> XP</div>
-            <div class="profile-damage">💥 Всего урона: <span id="profile-damage">0</span></div>
-            <div class="music-toggle-container">
-<button id="music-toggle-btn" class="glow-button" style="width:100%; margin-top:10px;">
-    🎵 Музыка: Вкл
-</button>
-```
-
+        <!-- ========== МОДАЛЬНОЕ ОКНО ПРОФИЛЯ ========== -->
+        <div id="profile-modal" class="modal hidden">
+            <div class="modal-content profile-content">
+                <div class="profile-avatar">
+                    <img id="profile-avatar-img" src="" alt="Avatar">
+                </div>
+                <div class="profile-name" id="profile-name">Загрузка...</div>
+                <div class="profile-id">ID: <span id="profile-id">...</span></div>
+                <div class="profile-level">Уровень <span id="profile-level">1</span></div>
+                <div class="xp-bar-container">
+                    <div class="xp-bar-fill" id="profile-xp-fill" style="width:0%"></div>
+                </div>
+                <div class="xp-text"><span id="profile-xp-current">0</span> / <span id="profile-xp-next">100</span> XP</div>
+                <div class="profile-damage">💥 Всего урона: <span id="profile-damage">0</span></div>
+                <div class="music-toggle-container">
+    <button id="music-toggle-btn" class="glow-button" style="width:100%; margin-top:10px;">
+        🎵 Музыка: Вкл
+    </button>
 </div>
                 <button class="close-modal-btn glow-button" id="close-profile-modal">Закрыть</button>
             </div>
         </div>
 
-```
-    <!-- ========== МОДАЛЬНОЕ ОКНО ДРУЗЕЙ ========== -->
-    <div id="friends-modal" class="modal hidden">
-        <div class="modal-content friends-content">
-            <h3>👥 Друзья</h3>
-            <div class="friends-my-id">
-                <span>Ваш ID: </span>
-                <strong id="friends-my-id-value"></strong>
-                <button class="copy-btn" onclick="copyToClipboard(document.getElementById('friends-my-id-value').innerText)">📋</button>
-            </div>
+        <!-- ========== МОДАЛЬНОЕ ОКНО ДРУЗЕЙ ========== -->
+        <div id="friends-modal" class="modal hidden">
+            <div class="modal-content friends-content">
+                <h3>👥 Друзья</h3>
+                <div class="friends-my-id">
+                    <span>Ваш ID: </span>
+                    <strong id="friends-my-id-value"></strong>
+                    <button class="copy-btn" onclick="copyToClipboard(document.getElementById('friends-my-id-value').innerText)">📋</button>
+                </div>
 
-            <div class="friends-tabs">
-                <button class="friends-tab-btn active" data-tab="list">Друзья</button>
-                <button class="friends-tab-btn" data-tab="requests">Заявки</button>
-                <button class="friends-tab-btn" data-tab="search">Найти друга</button>
-            </div>
+                <div class="friends-tabs">
+                    <button class="friends-tab-btn active" data-tab="list">Друзья</button>
+                    <button class="friends-tab-btn" data-tab="requests">Заявки</button>
+                    <button class="friends-tab-btn" data-tab="search">Найти друга</button>
+                </div>
 
-            <!-- Вкладка: Список друзей -->
-            <div id="friends-list-tab" class="friends-tab-content active">
-                <div id="friends-list-container"></div>
-            </div>
+                <!-- Вкладка: Список друзей -->
+                <div id="friends-list-tab" class="friends-tab-content active">
+                    <div id="friends-list-container"></div>
+                </div>
 
-            <!-- Вкладка: Входящие заявки -->
-            <div id="friends-requests-tab" class="friends-tab-content">
-                <div id="friends-requests-container"></div>
-            </div>
+                <!-- Вкладка: Входящие заявки -->
+                <div id="friends-requests-tab" class="friends-tab-content">
+                    <div id="friends-requests-container"></div>
+                </div>
 
-            <!-- Вкладка: Поиск друга -->
-            <div id="friends-search-tab" class="friends-tab-content">
-                <input type="text" id="friends-search-input" placeholder="Telegram ID друга">
-                <button id="friends-search-btn" class="glow-button">Найти</button>
-                <div id="friends-search-result"></div>
-            </div>
+                <!-- Вкладка: Поиск друга -->
+                <div id="friends-search-tab" class="friends-tab-content">
+                    <input type="text" id="friends-search-input" placeholder="Telegram ID друга">
+                    <button id="friends-search-btn" class="glow-button">Найти</button>
+                    <div id="friends-search-result"></div>
+                </div>
 
-            <button class="close-modal-btn" id="close-friends-modal">Закрыть</button>
+                <button class="close-modal-btn" id="close-friends-modal">Закрыть</button>
+            </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО РЕЙТИНГА ГИЛЬДИЙ ========== -->
+        <div id="guild-rating-modal" class="modal hidden">
+            <div class="modal-content rating-modal">
+                <h3>🏆 Рейтинг гильдий</h3>
+                <div id="guild-rating-content" style="max-height: 60vh; overflow-y: auto; margin-bottom: 16px;"></div>
+                <div class="modal-buttons">
+                    <button id="close-guild-rating" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО ИНФОРМАЦИИ О ГИЛЬДИИ (для боя) ========== -->
+        <div id="guild-info-modal" class="modal hidden">
+            <div class="modal-content guild-info-modal-content">
+                <h3 id="guild-info-title">Информация о гильдии</h3>
+                <div id="guild-info-details" style="max-height: 60vh; overflow-y: auto; margin-bottom: 16px; padding-right: 5px;"></div>
+                <div class="modal-buttons">
+                    <button id="close-guild-info-modal" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО ЕЖЕДНЕВНЫХ БОНУСОВ ========== -->
+        <div id="daily-bonus-modal" class="modal hidden">
+            <div class="modal-content bonus-modal">
+                <div class="bonus-modal-top-bar"></div>
+                <div class="bonus-modal-header">
+                    <span class="bonus-gem-icon">💎</span>
+                    <h3 class="bonus-modal-title">Ежедневный бонус</h3>
+                    <p class="bonus-modal-subtitle">Заходи каждый день за наградой!</p>
+                </div>
+                <div id="bonus-calendar" class="bonus-calendar"></div>
+                <div id="bonus-info" class="bonus-info"></div>
+                <div class="modal-buttons">
+                    <button id="claim-bonus-btn" class="glow-button">🎁 Забрать бонус</button>
+                    <button onclick="closeDailyBonusModal()" class="glow-button cancel-btn">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Плавающая кнопка друзей -->
+        <div id="friends-fab" class="fab" onclick="openFriendsModal()">
+            <span id="friends-online-count">0</span>в сети
         </div>
     </div>
 
-    <!-- ========== МОДАЛЬНОЕ ОКНО РЕЙТИНГА ГИЛЬДИЙ ========== -->
-    <div id="guild-rating-modal" class="modal hidden">
-        <div class="modal-content rating-modal">
-            <h3>🏆 Рейтинг гильдий</h3>
-            <div id="guild-rating-content" style="max-height: 60vh; overflow-y: auto; margin-bottom: 16px;"></div>
-            <div class="modal-buttons">
-                <button id="close-guild-rating" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========== МОДАЛЬНОЕ ОКНО ИНФОРМАЦИИ О ГИЛЬДИИ (для боя) ========== -->
-    <div id="guild-info-modal" class="modal hidden">
-        <div class="modal-content guild-info-modal-content">
-            <h3 id="guild-info-title">Информация о гильдии</h3>
-            <div id="guild-info-details" style="max-height: 60vh; overflow-y: auto; margin-bottom: 16px; padding-right: 5px;"></div>
-            <div class="modal-buttons">
-                <button id="close-guild-info-modal" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========== МОДАЛЬНОЕ ОКНО ЕЖЕДНЕВНЫХ БОНУСОВ ========== -->
-    <div id="daily-bonus-modal" class="modal hidden">
-        <div class="modal-content bonus-modal">
-            <div class="bonus-modal-top-bar"></div>
-            <div class="bonus-modal-header">
-                <span class="bonus-gem-icon">🎁</span>
-                <div class="bonus-modal-title">Ежедневный бонус</div>
-                <div class="bonus-modal-subtitle">Заходи каждый день — получай награды</div>
-            </div>
-            <div id="bonus-calendar" class="bonus-calendar"></div>
-            <div id="bonus-info" class="bonus-info"></div>
-            <div class="modal-buttons bonus-modal-buttons">
-                <button id="claim-bonus-btn" class="glow-button">⚡ Забрать бонус</button>
-                <button onclick="closeDailyBonusModal()" class="glow-button cancel-btn">Закрыть</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Плавающая кнопка друзей -->
-    <div id="friends-fab" class="fab" onclick="openFriendsModal()">
-        <span id="friends-online-count">0</span>в сети
-    </div>
-</div>
-
-<!-- Telegram Web App SDK -->
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<!-- Главный скрипт -->
-<script src="script.js"></script>
-```
-
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <!-- Главный скрипт -->
+    <script src="script.js"></script>
 </body>
 </html>
