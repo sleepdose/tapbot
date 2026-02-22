@@ -243,7 +243,7 @@ body::before {
     height: 100%;
     object-fit: contain;
     position: absolute;
-    top: 0;
+    top: 100px;
     left: 0;
     z-index: 1;
 }
