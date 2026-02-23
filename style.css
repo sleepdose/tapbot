@@ -1117,6 +1117,7 @@ body::before {
     0 0 12px rgba(157, 95, 250, 0.7),
     0 0 24px rgba(124, 58, 237, 0.4);
   line-height: 1;
+  margin-left: 70px;
 }
 
 .hp-bar-container {
@@ -1133,7 +1134,7 @@ body::before {
 .hp-bar-fill {
   height: 100%;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, #1ea868 0%, #38e078 40%, #f4c430 68%, #e63946 100%);
+    background: linear-gradient(90deg, #b33e3e, #e63946);
   transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;

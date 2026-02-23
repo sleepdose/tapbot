@@ -256,7 +256,6 @@ async function loadUserFromFirestore() {
             maxEnergy: 100,
             lastEnergyUpdate: Date.now(),
             money: 500,
-            equipped: { hat: null, shirt: null, jeans: null, boots: null },
             pets: [],
             inventory: [],
             guildId: null,
@@ -670,7 +669,7 @@ async function loadPetsGrid() {
         const isActive = user.pets[0]?.id === pet.id;
         let button = '';
         if (!ownedItem) {
-            button = `<button onclick="buyPet('${pet.id}')">Купить ${pet.price} 🪙</button>`;
+            button = `<button onclick="buyPet('${pet.id}')">Купить</button>`;
         } else {
             if (isActive) {
                 button = `<button disabled>Активен</button>`;
@@ -1462,11 +1461,13 @@ async function loadGuildScreen() {
 
                 if (updatedGuild.lastBattleResult) {
                     const res = updatedGuild.lastBattleResult;
-                    // Показываем результат всем членам гильдии (не только участникам боя)
                     if (store.user?.guildId === updatedGuild.id) {
                         const currentUser = await getUser();
                         const seenTimestamp = currentUser.battleResultsSeen?.[updatedGuild.id];
-                        if (!seenTimestamp || seenTimestamp < res.timestamp) {
+                        // Показываем результат, если ещё не видели И (пользователь лидер ИЛИ участник боя)
+                        const isLeader = updatedGuild.leaderId === store.authUser.uid;
+                        const isParticipant = res.participants && res.participants.includes(store.authUser.uid);
+                        if ((!seenTimestamp || seenTimestamp < res.timestamp) && (isLeader || isParticipant)) {
                             setBattleResult(
                                 res.victory,
                                 res.damageLog,
@@ -1894,6 +1895,7 @@ function startBattleTimer(endTime, guildId) {
     console.log("Таймер боя запущен для гильдии", guildId);
 }
 
+// ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ ENDBATTLE ==========
 async function endBattle(victory, guildId) {
     if (finishedBattles.has(guildId)) {
         console.log("Бой для гильдии", guildId, "уже был обработан в этой сессии.");
@@ -1975,31 +1977,6 @@ async function endBattle(victory, guildId) {
                         updates['keys.boss2'] = firebase.firestore.FieldValue.increment(1);
                     }
 
-                    const bossId = freshGuild.bossId;
-                    const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
-                    const xpReward = bossId === 'boss2' ? 100 : 50;
-
-                    for (const uid of userIds) {
-                        const memberRef = db.collection('users').doc(uid);
-                        const memberDoc = await transaction.get(memberRef);
-                        if (memberDoc.exists) {
-                            const memberData = memberDoc.data();
-                            const newXP = (memberData.xp || 0) + xpReward;
-                            const damageDealt = damageLog[uid] || 0;
-                            const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
-                            const updatesForMember = {
-                                money: firebase.firestore.FieldValue.increment(rewardAmount),
-                                xp: newXP,
-                                totalDamage: newTotalDamage
-                            };
-                            const newLevel = getLevelFromXP(newXP);
-                            if (newLevel !== (memberData.level || 1)) {
-                                updatesForMember.level = newLevel;
-                            }
-                            transaction.update(memberRef, updatesForMember);
-                        }
-                    }
-
                     finalRating = newRating;
                     finalLevel = newLevel;
                 }
@@ -2016,6 +1993,36 @@ async function endBattle(victory, guildId) {
                 transaction.update(guildRef, updates);
                 success = true;
             });
+
+            // Если транзакция успешна и победа, выдаём награды участникам
+            if (victory && userIds.length > 0) {
+                const bossId = guild.bossId;
+                const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
+                const xpReward = bossId === 'boss2' ? 100 : 50;
+
+                const batch = db.batch();
+                for (const uid of userIds) {
+                    const memberRef = db.collection('users').doc(uid);
+                    const memberDoc = await memberRef.get();
+                    if (memberDoc.exists) {
+                        const memberData = memberDoc.data();
+                        const newXP = (memberData.xp || 0) + xpReward;
+                        const damageDealt = damageLog[uid] || 0;
+                        const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
+                        const updatesForMember = {
+                            money: firebase.firestore.FieldValue.increment(rewardAmount),
+                            xp: newXP,
+                            totalDamage: newTotalDamage
+                        };
+                        const newLevel = getLevelFromXP(newXP);
+                        if (newLevel !== (memberData.level || 1)) {
+                            updatesForMember.level = newLevel;
+                        }
+                        batch.update(memberRef, updatesForMember);
+                    }
+                }
+                await batch.commit();
+            }
 
             if (success) break;
         } catch (error) {
