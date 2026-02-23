@@ -504,6 +504,16 @@ function getLogicalSlot(physicalSlot) {
     return logicalSlotMap[physicalSlot] || physicalSlot;
 }
 
+// Функция для предпросмотра скина по клику на карточку
+window.previewSkin = function(imageUrl) {
+    const previewBase = document.getElementById('preview-base');
+    if (previewBase) {
+        previewBase.src = imageUrl;
+        // Скрываем слоты экипировки, если они есть
+        document.getElementById('preview-equipment').innerHTML = '';
+    }
+};
+
 // Функция для загрузки и отображения скинов
 async function renderSkins() {
     const user = await getUser();
@@ -536,18 +546,21 @@ async function renderSkins() {
                 buttonAction = `equipSkin('${skin.id}')`;
             }
         } else {
-            buttonText = `Купить ${skin.price} 🪙`;
+            buttonText = `Купить`; // цена убрана из кнопки
         }
 
         return `
-            <div class="item-card" data-skin-id="${skin.id}">
+            <div class="item-card" data-skin-id="${skin.id}" onclick="previewSkin('${skin.imageUrl}')">
                 <img src="${skin.imageUrl}" alt="${skin.name}">
                 <span>${skin.name}</span>
                 <span class="item-price">${skin.price} 🪙</span>
-                <button onclick="${buttonAction}" ${disabled ? 'disabled' : ''}>${buttonText}</button>
+                <button onclick="${buttonAction}; event.stopPropagation();" ${disabled ? 'disabled' : ''}>${buttonText}</button>
             </div>
         `;
     }).join('');
+
+    // Восстанавливаем превью текущего персонажа
+    updatePreviewCharacter(user);
 }
 
 // Покупка скина
@@ -1431,6 +1444,12 @@ async function loadGuildScreen() {
                 store.guild = updatedGuild;
                 renderGuildPage(updatedGuild);
 
+                // Если босс умер во время атаки другого игрока, завершаем бой
+                if (updatedGuild.battleActive && updatedGuild.bossHp <= 0) {
+                    await endBattle(true, updatedGuild.id);
+                    return; // renderGuildPage будет вызван снова после завершения
+                }
+
                 if (updatedGuild.poisonEffects && Array.isArray(updatedGuild.poisonEffects)) {
                     updatedGuild.poisonEffects.forEach(effect => {
                         startPoisonEffectFromData(effect, updatedGuild.id);
@@ -1443,7 +1462,8 @@ async function loadGuildScreen() {
 
                 if (updatedGuild.lastBattleResult) {
                     const res = updatedGuild.lastBattleResult;
-                    if (res.participants && res.participants.includes(store.authUser.uid)) {
+                    // Показываем результат всем членам гильдии (не только участникам боя)
+                    if (store.user?.guildId === updatedGuild.id) {
                         const currentUser = await getUser();
                         const seenTimestamp = currentUser.battleResultsSeen?.[updatedGuild.id];
                         if (!seenTimestamp || seenTimestamp < res.timestamp) {
@@ -1484,7 +1504,7 @@ function getXPProgress(user) {
 }
 
 // ========== НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ БОЕВОГО ЭКРАНА (с изменениями) ==========
-function generateBattleHTML(guild) {
+function generateBattleHTML(guild, isLeader) {
     const bossId = guild.bossId;
     const bossNames = {
         boss1: 'Лесной страж',
@@ -1527,12 +1547,12 @@ function generateBattleHTML(guild) {
             <div class="battle-ring battle-ring-2"></div>
             <div class="battle-ring battle-ring-3"></div>
 
-            <!-- Новый заголовок: название по центру, кнопка сдачи справа -->
+            <!-- Новый заголовок: название по центру, кнопка сдачи справа (только для лидера) -->
             <div class="battle-header">
                 <div class="battle-header-top">
                     <div class="battle-header-left"></div> <!-- пустой слева для баланса -->
                     <div class="boss-name">${bossName}</div>
-                    <button class="surrender-btn" onclick="surrenderBattle('${guild.id}')">⚑ Сдаться</button>
+                    ${isLeader ? '<button class="surrender-btn" onclick="surrenderBattle(\'' + guild.id + '\')">⚑ Сдаться</button>' : '<div style="width:80px;"></div>'}
                 </div>
                 <div class="battle-header-middle">
                     <div class="hp-bar-container">
@@ -1573,7 +1593,7 @@ async function renderGuildPage(guild) {
 
     // Если битва активна – показываем боевой экран
     if (guild.battleActive) {
-        container.innerHTML = generateBattleHTML(guild);
+        container.innerHTML = generateBattleHTML(guild, isLeader);
         // Таймер будет обновляться в startBattleTimer
         if (guild.battleEndTime) {
             const timerKey = `battleTimer_${guild.id}`;
@@ -2017,7 +2037,7 @@ async function endBattle(victory, guildId) {
 }
 
 // =======================================================
-// АТАКА БОССА (исправленная, с транзакцией и ограничением урона)
+// АТАКА БОССА (исправленная, убрана трата энергии)
 // =======================================================
 window.attackBoss = async function() {
     if (isAttacking) return;
@@ -2033,11 +2053,13 @@ window.attackBoss = async function() {
         }
 
         const user = await getUser(true);
-        const currentEnergy = getCurrentEnergy();
-        if (currentEnergy < 1) {
-            showNotification('Нет энергии', 'Подождите восстановления');
-            return;
-        }
+
+        // Энергия больше не тратится при атаке босса
+        // const currentEnergy = getCurrentEnergy();
+        // if (currentEnergy < 1) {
+        //     showNotification('Нет энергии', 'Подождите восстановления');
+        //     return;
+        // }
 
         if (!user.selectedTalent) {
             showNotification('Ошибка', 'Сначала выберите талант для атаки');
@@ -2088,7 +2110,8 @@ window.attackBoss = async function() {
             damage = config.damageFormula(level1, level2);
         }
 
-        if (!(await spendEnergy(1))) return;
+        // Энергия не тратится
+        // if (!(await spendEnergy(1))) return;
 
         const guildRef = db.collection('guilds').doc(store.guild.id);
         let finalDamage = 0;
@@ -2987,3 +3010,4 @@ window.showInviteMenu = showInviteMenu;
 // Новые функции для скинов
 window.buySkin = window.buySkin;
 window.equipSkin = window.equipSkin;
+window.previewSkin = window.previewSkin;
