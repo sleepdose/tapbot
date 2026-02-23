@@ -1114,6 +1114,17 @@ function startPoisonEffectFromData(effect, guildId) {
         }
 
         const guildRef = db.collection('guilds').doc(guildId);
+        // FIX: Проверяем, жив ли ещё босс, прежде чем наносить урон
+        const guildDoc = await guildRef.get();
+        if (!guildDoc.exists || guildDoc.data().bossHp <= 0) {
+            // Босс мёртв – останавливаем яд
+            clearInterval(damageInterval);
+            clearInterval(timerInterval);
+            delete store.activePoisonEffects[effectId];
+            updatePoisonTimers(guildId);
+            return;
+        }
+
         await guildRef.update({
             bossHp: firebase.firestore.FieldValue.increment(-damage),
             [`damageLog.${userId}`]: firebase.firestore.FieldValue.increment(damage)
@@ -1121,8 +1132,13 @@ function startPoisonEffectFromData(effect, guildId) {
 
         showDamageEffect(damage, '☠️');
 
+        // Проверяем, не убил ли этот тик босса (если да, вызываем endBattle)
         const updatedGuildDoc = await guildRef.get();
         if (updatedGuildDoc.exists && updatedGuildDoc.data().bossHp <= 0) {
+            // Останавливаем этот яд и все остальные (вызов stopPoisonEffectsForGuild произойдёт в endBattle)
+            clearInterval(damageInterval);
+            clearInterval(timerInterval);
+            delete store.activePoisonEffects[effectId];
             await endBattle(true, guildId);
         }
 
@@ -2138,7 +2154,8 @@ window.attackBoss = async function() {
                 [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(finalDamage)
             });
 
-            if (isPoison && finalDamage > 0) {
+            // FIX: добавляем яд только если босс НЕ убит этой атакой
+            if (isPoison && finalDamage > 0 && !bossKilled) {
                 const endTime = Date.now() + poisonDuration * 1000;
                 const poisonEffect = {
                     userId: store.authUser.uid,
@@ -2170,7 +2187,9 @@ window.attackBoss = async function() {
         showDamageEffect(finalDamage, talentIcon);
         hapticFeedback('light');
 
+        // FIX: останавливаем все яды для этой гильдии перед вызовом endBattle
         if (bossKilled) {
+            stopPoisonEffectsForGuild(store.guild.id);
             await endBattle(true, store.guild.id);
         }
 
