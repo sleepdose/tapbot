@@ -1231,7 +1231,7 @@ body::before {
   border-radius: 0;
   padding: 0;
   background: none;
-  filter: drop-shadow(0 0 18px rgba(124, 58, 237, 0.55)) drop-shadow(0 6px 28px rgba(0, 0, 0, 0.75));
+  filter: drop-shadow(0 0 18px rgba(71, 71, 71, 0.55)) drop-shadow(0 6px 28px rgba(0, 0, 0, 0.75));
   transition: transform 0.12s ease, filter 0.12s ease;
   position: relative;
   z-index: 2;

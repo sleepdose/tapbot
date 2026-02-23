@@ -529,7 +529,7 @@ async function renderSkins() {
         let disabled = false;
         if (isOwned) {
             if (isActive) {
-                buttonText = '✅ Активен';
+                buttonText = 'Активен';
                 disabled = true;
             } else {
                 buttonText = 'Выбрать';
@@ -660,9 +660,9 @@ async function loadPetsGrid() {
             button = `<button onclick="buyPet('${pet.id}')">Купить ${pet.price} 🪙</button>`;
         } else {
             if (isActive) {
-                button = `<button disabled>✅ Активен</button>`;
+                button = `<button disabled>Активен</button>`;
             } else {
-                button = `<button onclick="activatePet('${pet.id}')">🐾 Активировать</button>`;
+                button = `<button onclick="activatePet('${pet.id}')">Активировать</button>`;
             }
         }
 
@@ -1487,8 +1487,8 @@ function getXPProgress(user) {
 function generateBattleHTML(guild) {
     const bossId = guild.bossId;
     const bossNames = {
-        boss1: '🌲 Лесной страж',
-        boss2: '🔥 Огненный дракон'
+        boss1: 'Лесной страж',
+        boss2: 'Огненный дракон'
     };
     const bossName = bossNames[bossId] || bossId;
 
@@ -2445,23 +2445,9 @@ function updateProfileModal() {
 }
 
 // =======================================================
-// ТЕСТОВЫЕ ДАННЫЕ (добавлены скины)
+// ТЕСТОВЫЕ ДАННЫЕ (добавлены скины, удалена одежда)
 // =======================================================
 async function initTestData() {
-    const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').limit(1).get();
-    if (clothesSnap.empty) {
-        const items = [
-            { name: 'Ковбойская шляпа', type: 'clothes', slot: 'hat', price: 100, imageUrl: 'img/skin1.png', damage: 0 },
-            { name: 'Бейсболка', type: 'clothes', slot: 'hat', price: 80, imageUrl: 'img/skin2.png', damage: 0 },
-            { name: 'Кожаная куртка', type: 'clothes', slot: 'shirt', price: 200, imageUrl: 'img/skin6.png', damage: 0 },
-            { name: 'Джинсы', type: 'clothes', slot: 'jeans', price: 150, imageUrl: 'img/skin5.png', damage: 0 },
-            { name: 'Спортивки', type: 'clothes', slot: 'boots', price: 120, imageUrl: 'img/skin4.png', damage: 0 }
-        ];
-        for (const item of items) {
-            await db.collection('shop_items').add(item);
-        }
-        console.log('➕ Тестовая одежда добавлена');
-    }
     const petsSnap = await db.collection('shop_items').where('type', '==', 'pet').limit(1).get();
     if (petsSnap.empty) {
         const pets = [
@@ -2974,10 +2960,6 @@ window.onload = async () => {
 // =======================================================
 // ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ
 // =======================================================
-window.buyItem = window.buyItem; // возможно, не используется, но оставляем для совместимости
-window.equipItem = window.equipItem;
-window.unequipItem = window.unequipItem;
-window.previewItem = window.previewItem;
 window.buyPet = window.buyPet;
 window.activatePet = window.activatePet;
 window.buyCharges = window.buyCharges;
