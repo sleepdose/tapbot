@@ -2328,7 +2328,8 @@ async function claimDailyBonus() {
     };
 
     await updateUser(updates);
-    showNotification('Бонус получен!', `Вы получили ${reward.money} 🪙`);
+    triggerBonusConfetti();
+    showNotification('🎉 Бонус получен!', `Вы получили ${reward.money} 🪙`);
     updateDailyBonusModal();
     stopBonusTimer();
     startBonusTimer(); // запускаем отсчёт до следующего дня
@@ -2348,8 +2349,8 @@ function formatTime(ms) {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
-    // секунды не выводим
-    return `${hours}ч ${minutes}м`;
+    const seconds = totalSeconds % 60;
+    return `${hours}ч ${String(minutes).padStart(2,'0')}м ${String(seconds).padStart(2,'0')}с`;
 }
 
 function updateBonusTimer() {
@@ -2360,17 +2361,17 @@ function updateBonusTimer() {
     if (!timerElement) return;
 
     if (info.canClaim) {
-        timerElement.innerHTML = `<p>✅ Бонус доступен!</p>`;
+        timerElement.innerHTML = `<p class="bonus-ready-text">✨ Твой бонус ждёт тебя!</p>`;
     } else {
         const timeLeft = getTimeToNextBonus();
-        timerElement.innerHTML = `<p>⏳ Следующий бонус через: ${formatTime(timeLeft)}</p>`;
+        timerElement.innerHTML = `<p class="bonus-timer-text">⏳ Следующий бонус через: <strong>${formatTime(timeLeft)}</strong></p>`;
     }
 }
 
 function startBonusTimer() {
     if (bonusTimerInterval) clearInterval(bonusTimerInterval);
     updateBonusTimer();
-    bonusTimerInterval = setInterval(updateBonusTimer, 60000); // обновляем каждую минуту
+    bonusTimerInterval = setInterval(updateBonusTimer, 1000); // обновляем каждую секунду
 }
 
 function stopBonusTimer() {
@@ -2394,12 +2395,27 @@ window.closeDailyBonusModal = function() {
     stopBonusTimer();
 };
 
+const DAY_ICONS = ['🎯', '⚡', '💎', '🔮', '⭐', '💰', '👑'];
+
 function updateDailyBonusModal() {
     const user = store.user;
     if (!user) return;
     const info = getCurrentDailyBonus(user);
+
+    // Streak display
+    const streakEl = document.getElementById('bonus-streak-display');
+    if (streakEl) {
+        const streak = info.streak || 0;
+        if (streak > 0) {
+            streakEl.innerHTML = `<span class="bonus-streak-badge">🔥 Серия ${streak} ${streak === 1 ? 'день' : streak < 5 ? 'дня' : 'дней'}</span>`;
+        } else {
+            streakEl.innerHTML = `<span class="bonus-streak-badge no-streak">🌟 Начни серию!</span>`;
+        }
+    }
+
+    // Calendar — no nested wrapper, direct cards
     const calendar = document.getElementById('bonus-calendar');
-    let html = '<div class="bonus-calendar">'; // изменено: обёртка уже есть, используем класс
+    let html = '';
     for (let i = 0; i < dailyBonusConfig.length; i++) {
         const dayConfig = dailyBonusConfig[i];
         const dayNum = i + 1;
@@ -2409,25 +2425,54 @@ function updateDailyBonusModal() {
             statusClass = 'claimed';
         } else if (dayNum === user.dailyBonus.currentDay && info.canClaim) {
             statusClass = 'available';
-        } // иначе остаётся future
+        }
 
-        html += `<div class="bonus-day ${statusClass}" data-day="${dayNum}">
-            <div class="day-number">${dayNum}</div>
-            <div class="reward">${dayConfig.reward.money}🪙</div>
+        const icon = statusClass === 'claimed' ? '✅' : DAY_ICONS[i] || '🎁';
+        const isJackpot = dayNum === 7;
+
+        html += `<div class="bonus-day ${statusClass}${isJackpot ? ' jackpot' : ''}" data-day="${dayNum}">
+            <div class="day-number">День ${dayNum}</div>
+            <div class="day-icon">${icon}</div>
+            <div class="reward">${dayConfig.reward.money}<span class="reward-coin">🪙</span></div>
         </div>`;
     }
-    html += '</div>';
     calendar.innerHTML = html;
 
+    // Info / timer
     const infoDiv = document.getElementById('bonus-info');
-    const streakText = info.streak > 0 ? `🔥 Серия: ${info.streak} ${info.streak === 1 ? 'день' : info.streak < 5 ? 'дня' : 'дней'}` : '🌟 Начни серию!';
-    infoDiv.innerHTML = info.canClaim
-        ? `<span class="bonus-streak-badge">${streakText}</span><p>✅ Бонус доступен сегодня!</p>`
-        : `<span class="bonus-streak-badge">${streakText}</span><p>⏳ Уже получено сегодня</p>`;
+    if (infoDiv) {
+        if (info.canClaim) {
+            infoDiv.innerHTML = `<p class="bonus-ready-text">✨ Твой бонус ждёт тебя!</p>`;
+        } else {
+            const timeLeft = getTimeToNextBonus();
+            infoDiv.innerHTML = `<p class="bonus-timer-text">⏳ Следующий бонус через: <strong>${formatTime(timeLeft)}</strong></p>`;
+        }
+    }
 
     const claimBtn = document.getElementById('claim-bonus-btn');
     claimBtn.disabled = !info.canClaim;
     claimBtn.onclick = claimDailyBonus;
+}
+
+function triggerBonusConfetti() {
+    const container = document.getElementById('daily-bonus-modal');
+    if (!container) return;
+    const colors = ['#f4c430', '#9d5ffa', '#22d3a0', '#ff6b9d', '#60a5fa'];
+    for (let i = 0; i < 40; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.cssText = `
+            left: ${Math.random() * 100}%;
+            background: ${colors[Math.floor(Math.random() * colors.length)]};
+            animation-delay: ${Math.random() * 0.6}s;
+            animation-duration: ${0.8 + Math.random() * 0.8}s;
+            width: ${4 + Math.random() * 6}px;
+            height: ${4 + Math.random() * 6}px;
+            border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+        `;
+        container.appendChild(piece);
+        setTimeout(() => piece.remove(), 1800);
+    }
 }
 
 // =======================================================
