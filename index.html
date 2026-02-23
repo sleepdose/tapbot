@@ -41,7 +41,7 @@
                 <button class="tab-button" data-tab="talents">✨ Таланты</button>
             </div>
 
-            <!-- Вкладка ПЕРСОНАЖ (экипировка) -->
+            <!-- Вкладка ПЕРСОНАЖ (экипировка) - теперь только цельные скины -->
             <div id="tab-character" class="tab-content active">
                 <div class="customization-preview">
                     <div id="char-preview-container" class="character-preview">
@@ -50,11 +50,7 @@
                         <div id="preview-pet"></div>
                     </div>
                 </div>
-                <div class="slot-selector">
-                    <button class="slot-btn active" data-slot="hat">🎩 Голова</button>
-                    <button class="slot-btn" data-slot="shirt">👕 Туловище</button>
-                    <button class="slot-btn" data-slot="legs">👖 Ноги</button>
-                </div>
+                <!-- Селектор слотов удалён, осталась только сетка предметов -->
                 <div id="slot-items" class="items-grid"></div>
             </div>
 
@@ -177,10 +173,10 @@
                 <div class="xp-text"><span id="profile-xp-current">0</span> / <span id="profile-xp-next">100</span> XP</div>
                 <div class="profile-damage">💥 Всего урона: <span id="profile-damage">0</span></div>
                 <div class="music-toggle-container">
-    <button id="music-toggle-btn" class="glow-button" style="width:100%; margin-top:10px;">
-        🎵 Музыка: Вкл
-    </button>
-</div>
+                    <button id="music-toggle-btn" class="glow-button" style="width:100%; margin-top:10px;">
+                        🎵 Музыка: Вкл
+                    </button>
+                </div>
                 <button class="close-modal-btn glow-button" id="close-profile-modal">Закрыть</button>
             </div>
         </div>

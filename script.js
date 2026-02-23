@@ -216,7 +216,8 @@ const defaultTalents = {
     preferredBoss: 'boss1',
     level: 1,
     xp: 0,
-    totalDamage: 0
+    totalDamage: 0,
+    skin: null // ДОБАВЛЕНО поле для цельного скина
 };
 
 // Конфигурация ежедневных бонусов — только монеты (без энергии)
@@ -268,8 +269,8 @@ async function loadUserFromFirestore() {
                 lastClaim: null,
                 streak: 0
             },
-            // MUSIC ADDITION: новое поле для настройки музыки
-            musicEnabled: true
+            musicEnabled: true,
+            skin: null // ДОБАВЛЕНО
         };
         await userRef.set(newUser);
         store.user = newUser;
@@ -304,8 +305,8 @@ async function loadUserFromFirestore() {
     if (data.xp === undefined) { data.xp = 0; needsUpdate = true; }
     if (data.totalDamage === undefined) { data.totalDamage = 0; needsUpdate = true; }
     if (!data.dailyBonus) { data.dailyBonus = { currentDay: 1, lastClaim: null, streak: 0 }; needsUpdate = true; }
-    // MUSIC ADDITION: проверка наличия поля musicEnabled
     if (data.musicEnabled === undefined) { data.musicEnabled = false; needsUpdate = true; }
+    if (data.skin === undefined) { data.skin = null; needsUpdate = true; } // ДОБАВЛЕНО
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -338,8 +339,8 @@ async function loadUserFromFirestore() {
             xp: data.xp,
             totalDamage: data.totalDamage,
             dailyBonus: data.dailyBonus,
-            // MUSIC ADDITION: добавляем musicEnabled в обновление
-            musicEnabled: data.musicEnabled
+            musicEnabled: data.musicEnabled,
+            skin: data.skin // ДОБАВЛЕНО
         };
         await userRef.update(updateData);
     }
@@ -430,28 +431,37 @@ function updateMainUI() {
     const avatarLevel = document.getElementById('avatar-level');
     if (avatarLevel) avatarLevel.textContent = user.level;
 
+    const baseChar = document.getElementById('base-character');
     const eqLayer = document.getElementById('equipment-layer');
     const petContainer = document.getElementById('pet-main-container');
     if (eqLayer) eqLayer.innerHTML = '';
     if (petContainer) petContainer.innerHTML = '';
 
-    const slots = ['hat', 'shirt', 'jeans', 'boots'];
-    const addedLogicalSlots = new Set();
-
-    slots.forEach(slot => {
-        if (user.equipped[slot]) {
-            const logicalSlot = getLogicalSlot(slot);
-            if (!addedLogicalSlots.has(logicalSlot)) {
-                const img = document.createElement('img');
-                img.src = user.equipped[slot].imageUrl;
-                img.classList.add(slot);
-                eqLayer?.appendChild(img);
-                addedLogicalSlots.add(logicalSlot);
-            } else {
-                console.warn(`Обнаружен дубль для логического слота ${logicalSlot} (физический слот ${slot}), пропускаем.`);
+    // Отображение скина, если он есть
+    if (user.skin) {
+        baseChar.src = user.skin.imageUrl;
+        // Убираем старую экипировку
+        eqLayer.innerHTML = '';
+    } else {
+        baseChar.src = 'img/men.png';
+        // Показываем старую экипировку (если она ещё используется)
+        const slots = ['hat', 'shirt', 'jeans', 'boots'];
+        const addedLogicalSlots = new Set();
+        slots.forEach(slot => {
+            if (user.equipped[slot]) {
+                const logicalSlot = getLogicalSlot(slot);
+                if (!addedLogicalSlots.has(logicalSlot)) {
+                    const img = document.createElement('img');
+                    img.src = user.equipped[slot].imageUrl;
+                    img.classList.add(slot);
+                    eqLayer?.appendChild(img);
+                    addedLogicalSlots.add(logicalSlot);
+                } else {
+                    console.warn(`Обнаружен дубль для логического слота ${logicalSlot} (физический слот ${slot}), пропускаем.`);
+                }
             }
-        }
-    });
+        });
+    }
 
     if (user.pets.length > 0) {
         const activePet = user.pets[0];
@@ -480,242 +490,153 @@ async function onCharacterClick() {
 }
 
 // =======================================================
-// МАСТЕРСКАЯ — КАСТОМИЗАЦИЯ
+// МАСТЕРСКАЯ — КАСТОМИЗАЦИЯ (ТЕПЕРЬ ТОЛЬКО СКИНЫ)
 // =======================================================
-let currentCustomizationSlot = 'hat';
-let previewItemId = null;
 
+// Функция для логического слота (оставлена для совместимости, если где-то используется)
 const logicalSlotMap = {
     hat: 'head',
     shirt: 'body',
     jeans: 'legs',
     boots: 'legs'
 };
-
 function getLogicalSlot(physicalSlot) {
     return logicalSlotMap[physicalSlot] || physicalSlot;
 }
 
-function findCurrentItemInLogicalSlot(user, physicalSlot) {
-    const logicalSlot = getLogicalSlot(physicalSlot);
-    const currentEquipment = user.equipped;
-    for (const equippedSlotKey in currentEquipment) {
-        const equippedItem = currentEquipment[equippedSlotKey];
-        if (equippedItem && getLogicalSlot(equippedSlotKey) === logicalSlot) {
-            return { slot: equippedSlotKey, item: equippedItem };
-        }
-    }
-    return null;
-}
-
-async function loadCharacterCustomization() {
-    const user = await getUser();
-    const container = document.getElementById('tab-character');
-    if (!container) return;
-    previewItemId = null;
-    updatePreviewCharacter(user);
-    await renderItemsForSlot(currentCustomizationSlot);
-}
-
-// =======================================================
-// МАСТЕРСКАЯ — предпросмотр
-// =======================================================
-function updatePreviewCharacter(user) {
-    const eqLayer = document.getElementById('preview-equipment');
-    if (!eqLayer) return;
-    eqLayer.innerHTML = '';
-    const slots = ['hat', 'shirt', 'jeans', 'boots'];
-    const addedLogicalSlots = new Set();
-
-    slots.forEach(slot => {
-        if (user.equipped[slot]) {
-            const logicalSlot = getLogicalSlot(slot);
-            if (!addedLogicalSlots.has(logicalSlot)) {
-                const img = document.createElement('img');
-                img.src = user.equipped[slot].imageUrl;
-                img.classList.add(slot);
-                eqLayer.appendChild(img);
-                addedLogicalSlots.add(logicalSlot);
-            } else {
-                console.warn(`Предпросмотр: дубль для логического слота ${logicalSlot} (физический слот ${slot}), пропускаем.`);
-            }
-        }
-    });
-
-    if (previewItemId) {
-        const previewCard = document.querySelector(`.item-card[data-item-id="${previewItemId}"]`);
-        if (previewCard) {
-            const slot = previewCard.dataset.slot;
-            const imgUrl = previewCard.dataset.image;
-            const img = document.createElement('img');
-            img.src = imgUrl;
-            img.classList.add(slot);
-            img.style.zIndex = 10;
-            img.style.opacity = '0.7';
-            eqLayer.appendChild(img);
-        }
-    }
-}
-async function renderItemsForSlot(slot) {
+// Функция для загрузки и отображения скинов
+async function renderSkins() {
     const user = await getUser();
     const container = document.getElementById('slot-items');
     if (!container) return;
 
-    let query;
-    if (slot === 'legs') {
-        query = db.collection('shop_items')
-            .where('type', '==', 'clothes')
-            .where('slot', 'in', ['jeans', 'boots']);
-    } else {
-        query = db.collection('shop_items')
-            .where('type', '==', 'clothes')
-            .where('slot', '==', slot);
-    }
+    const snapshot = await db.collection('shop_items')
+        .where('type', '==', 'skin')
+        .get();
+    const skins = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const snapshot = await query.get();
-    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    if (items.length === 0) {
-        container.innerHTML = '<p class="empty-msg">Нет доступных предметов</p>';
+    if (skins.length === 0) {
+        container.innerHTML = '<p class="empty-msg">Скины пока не доступны</p>';
         return;
     }
 
-    container.innerHTML = items.map(item => {
-        const isOwned = user.inventory.some(inv => inv.id === item.id);
-        const isEquipped = user.equipped[item.slot]?.id === item.id;
-        const currentItemInLogicalSlot = findCurrentItemInLogicalSlot(user, item.slot);
-        let buttonText = 'Купить';
-        let buttonAction = `buyItem('${item.id}')`;
-        let isDisabled = false;
+    container.innerHTML = skins.map(skin => {
+        const isOwned = user.inventory.some(inv => inv.id === skin.id);
+        const isActive = user.skin?.id === skin.id;
 
+        let buttonText = 'Купить';
+        let buttonAction = `buySkin('${skin.id}')`;
+        let disabled = false;
         if (isOwned) {
-            if (isEquipped) {
-                buttonText = 'Снять';
-                buttonAction = `unequipItem('${item.slot}')`;
-            } else if (currentItemInLogicalSlot) {
-                buttonText = 'Выбрать';
-                buttonAction = `equipItem('${item.id}', '${item.slot}')`;
+            if (isActive) {
+                buttonText = '✅ Активен';
+                disabled = true;
             } else {
                 buttonText = 'Выбрать';
-                buttonAction = `equipItem('${item.id}', '${item.slot}')`;
+                buttonAction = `equipSkin('${skin.id}')`;
             }
         } else {
-             buttonText = `Купить ${item.price} 🪙`;
+            buttonText = `Купить ${skin.price} 🪙`;
         }
 
         return `
-             <div class="item-card" data-item-id="${item.id}" data-slot="${item.slot}" data-image="${item.imageUrl}">
-                 <img src="${item.imageUrl}" alt="${item.name}" onclick="previewItem('${item.id}')">
-                 <span>${item.name}</span>
-                ${!isOwned ? `<span class="item-price">${item.price} 🪙</span>` : ''}
-                 <button onclick="${buttonAction}" ${isDisabled ? 'disabled' : ''}>${buttonText}</button>
-             </div>
+            <div class="item-card" data-skin-id="${skin.id}">
+                <img src="${skin.imageUrl}" alt="${skin.name}">
+                <span>${skin.name}</span>
+                <span class="item-price">${skin.price} 🪙</span>
+                <button onclick="${buttonAction}" ${disabled ? 'disabled' : ''}>${buttonText}</button>
+            </div>
         `;
     }).join('');
 }
-window.previewItem = function(itemId) {
-    previewItemId = itemId;
-    updatePreviewCharacter(store.user);
-};
 
-window.unequipItem = async function(slot) {
-    const user = await getUser();
-    if (!user.equipped[slot]) {
-        showNotification('Ошибка', 'В этом слоте ничего не надето');
-        return;
-    }
-    const updates = {
-        equipped: { ...user.equipped, [slot]: null }
-    };
-    await updateUser(updates);
-    previewItemId = null;
-    updatePreviewCharacter(user);
-    await renderItemsForSlot(currentCustomizationSlot);
-    updateMainUI();
-    hapticFeedback();
-};
-
-// =======================================================
-// ПОКУПКА ЭКИПИРОВКИ
-// =======================================================
-window.buyItem = async function(itemId) {
+// Покупка скина
+window.buySkin = async function(skinId) {
     if (!store.authUser) {
         showNotification('Ошибка', 'Пользователь не авторизован');
         return;
     }
     const user = await getUser();
-    const itemRef = db.collection('shop_items').doc(itemId);
+    const skinRef = db.collection('shop_items').doc(skinId);
     const userRef = db.collection('users').doc(store.authUser.uid);
 
     try {
         await db.runTransaction(async (transaction) => {
-            const itemDoc = await transaction.get(itemRef);
+            const skinDoc = await transaction.get(skinRef);
             const userDoc = await transaction.get(userRef);
-            if (!itemDoc.exists) throw new Error('Товар не найден');
-            const item = itemDoc.data();
-            if (userDoc.data().money < item.price) throw new Error('Недостаточно денег');
+            if (!skinDoc.exists) throw new Error('Скин не найден');
+            const skin = skinDoc.data();
+            if (userDoc.data().money < skin.price) throw new Error('Недостаточно денег');
             const inventory = userDoc.data().inventory || [];
-            if (inventory.some(inv => inv.id === itemId)) {
-                throw new Error('Предмет уже есть в инвентаре');
+            if (inventory.some(inv => inv.id === skinId)) {
+                throw new Error('Скин уже есть в инвентаре');
             }
 
             const inventoryItem = {
-                id: String(itemId),
-                name: String(item.name || ''),
-                type: String(item.type || ''),
-                slot: String(item.slot || ''),
-                price: typeof item.price === 'number' ? item.price : 0,
-                imageUrl: String(item.imageUrl || ''),
-                damage: typeof item.damage === 'number' ? item.damage : 0,
+                id: skinId,
+                name: skin.name,
+                type: 'skin',
+                price: skin.price,
+                imageUrl: skin.imageUrl,
                 instanceId: `${Date.now()}_${Math.random()}`
             };
 
-            Object.keys(inventoryItem).forEach(key => {
-                if (inventoryItem[key] === undefined) {
-                    console.error(`⚠️ Поле ${key} оказалось undefined — заменено на null`);
-                    inventoryItem[key] = null;
-                }
-            });
-
             transaction.update(userRef, {
-                money: firebase.firestore.FieldValue.increment(-item.price),
+                money: firebase.firestore.FieldValue.increment(-skin.price),
                 inventory: firebase.firestore.FieldValue.arrayUnion(inventoryItem)
             });
         });
 
         await loadUserFromFirestore(true);
-        await renderItemsForSlot(currentCustomizationSlot);
+        renderSkins();
         updateMainUI();
-        showNotification('Успех', 'Предмет куплен!');
+        showNotification('Успех', 'Скин куплен!');
         hapticFeedback();
     } catch (e) {
-        console.error('Ошибка покупки:', e);
-        showNotification('Ошибка', e.message || 'Не удалось купить предмет');
+        console.error('Ошибка покупки скина:', e);
+        showNotification('Ошибка', e.message || 'Не удалось купить скин');
     }
 };
-window.equipItem = async function(itemId, slot) {
+
+// Выбор скина (экипировка)
+window.equipSkin = async function(skinId) {
     const user = await getUser();
-    const inventoryItem = user.inventory.find(inv => inv.id === itemId);
-    if (!inventoryItem) return;
-    const targetSlot = slot;
-    const logicalTargetSlot = getLogicalSlot(targetSlot);
-    const updates = { equipped: { ...user.equipped } };
-
-    for (const equippedSlotKey in updates.equipped) {
-        if (getLogicalSlot(equippedSlotKey) === logicalTargetSlot && updates.equipped[equippedSlotKey]) {
-            updates.equipped[equippedSlotKey] = null;
-        }
-    }
-
-    updates.equipped[targetSlot] = inventoryItem;
-    await updateUser(updates);
-    previewItemId = null;
-    updatePreviewCharacter(user);
-    await renderItemsForSlot(currentCustomizationSlot);
+    const skinItem = user.inventory.find(inv => inv.id === skinId);
+    if (!skinItem) return;
+    await updateUser({ skin: skinItem });
+    renderSkins();
     updateMainUI();
+    updatePreviewCharacter(user);
     hapticFeedback();
 };
 
+// Функция предпросмотра (обновлённая)
+function updatePreviewCharacter(user) {
+    const previewBase = document.getElementById('preview-base');
+    const eqLayer = document.getElementById('preview-equipment');
+    if (!previewBase || !eqLayer) return;
+    eqLayer.innerHTML = '';
+
+    if (user.skin) {
+        previewBase.src = user.skin.imageUrl;
+    } else {
+        previewBase.src = 'img/men.png';
+        const slots = ['hat', 'shirt', 'jeans', 'boots'];
+        const addedLogicalSlots = new Set();
+        slots.forEach(slot => {
+            if (user.equipped[slot]) {
+                const logicalSlot = getLogicalSlot(slot);
+                if (!addedLogicalSlots.has(logicalSlot)) {
+                    const img = document.createElement('img');
+                    img.src = user.equipped[slot].imageUrl;
+                    img.classList.add(slot);
+                    eqLayer.appendChild(img);
+                    addedLogicalSlots.add(logicalSlot);
+                }
+            }
+        });
+    }
+}
 // =======================================================
 // ПИТОМЦЫ
 // =======================================================
@@ -1255,7 +1176,6 @@ function stopPoisonEffectsForOtherGuilds(currentGuildId) {
     });
     updatePoisonTimers(currentGuildId);
 }
-
 // =======================================================
 // ГИЛЬДИИ — СИСТЕМА РЕЙТИНГА И МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ
 // =======================================================
@@ -1563,7 +1483,7 @@ function getXPProgress(user) {
     return { xpInThisLevel, neededForNext, progress: (xpInThisLevel / neededForNext) * 100 };
 }
 
-// ========== НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ БОЕВОГО ЭКРАНА ==========
+// ========== НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ БОЕВОГО ЭКРАНА (с изменениями) ==========
 function generateBattleHTML(guild) {
     const bossId = guild.bossId;
     const bossNames = {
@@ -1571,12 +1491,20 @@ function generateBattleHTML(guild) {
         boss2: '🔥 Огненный дракон'
     };
     const bossName = bossNames[bossId] || bossId;
-    const bossImageUrl = `img/battleboss1.png`;
-    const bgImageUrl = `img/battle1.png`;
+
+    // Разные фоны и картинки для боссов
+    let bgImageUrl, bossImageUrl;
+    if (bossId === 'boss2') {
+        bgImageUrl = 'img/battle2.png';
+        bossImageUrl = 'img/battleboss2.png';
+    } else {
+        bgImageUrl = 'img/battle1.png';
+        bossImageUrl = 'img/battleboss1.png';
+    }
+
     const hpPercent = (guild.bossHp / guild.maxBossHp) * 100;
     const remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
 
-    // Генерируем 28 искр-частиц
     let embersHTML = '';
     for (let i = 0; i < 28; i++) {
         embersHTML += `<span class="battle-ember hiko-e${i}"></span>`;
@@ -1599,24 +1527,27 @@ function generateBattleHTML(guild) {
             <div class="battle-ring battle-ring-2"></div>
             <div class="battle-ring battle-ring-3"></div>
 
+            <!-- Новый заголовок: название по центру, кнопка сдачи справа -->
             <div class="battle-header">
-                <div class="battle-header-row">
+                <div class="battle-header-top">
+                    <div class="battle-header-left"></div> <!-- пустой слева для баланса -->
                     <div class="boss-name">${bossName}</div>
                     <button class="surrender-btn" onclick="surrenderBattle('${guild.id}')">⚑ Сдаться</button>
                 </div>
-                <div class="hp-bar-container">
-                    <div class="hp-bar-fill" id="boss-hp-fill" style="width: ${hpPercent}%;"></div>
-                    <div class="hp-bar-gloss"></div>
-                </div>
-                <div class="battle-header-row">
+                <div class="battle-header-middle">
+                    <div class="hp-bar-container">
+                        <div class="hp-bar-fill" id="boss-hp-fill" style="width: ${hpPercent}%;"></div>
+                        <div class="hp-bar-gloss"></div>
+                    </div>
                     <div class="hp-text" id="boss-hp-text">${guild.bossHp}/${guild.maxBossHp}</div>
+                </div>
+                <div class="battle-header-bottom">
                     <div class="timer" id="battle-timer">⏳ ${remainingSeconds}с</div>
                 </div>
             </div>
 
+            <!-- Босс без ауры -->
             <div class="boss-image-container" onclick="attackBoss()">
-                <!-- Аура вокруг босса -->
-                <div class="boss-aura" id="boss-aura"></div>
                 <img src="${bossImageUrl}" class="boss-image" id="boss-battle-img">
             </div>
 
@@ -1795,14 +1726,18 @@ async function renderGuildPage(guild) {
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
     document.getElementById('invite-friend-btn')?.addEventListener('click', showInviteMenu);
 }
-
 function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
 
-    let bossImageUrl = `img/${currentBossId}.JPG`;
-    if (isBattleActive && guild.bossHp / guild.maxBossHp <= 0.5) {
-        bossImageUrl = `img/${currentBossId}_half.JPG`;
+    // Разделяем картинки для боя и для превью
+    let bossImageUrl;
+    if (isBattleActive) {
+        // Боевая картинка
+        bossImageUrl = currentBossId === 'boss2' ? 'img/battleboss2.png' : 'img/battleboss1.png';
+    } else {
+        // Картинка для предпросмотра (замените на свои файлы)
+        bossImageUrl = currentBossId === 'boss2' ? 'img/boss2_preview.png' : 'img/boss1_preview.png';
     }
 
     let remainingSeconds = 0;
@@ -2271,7 +2206,7 @@ function showDamageEffect(amount, icon = '💥') {
         setTimeout(() => { flash.style.display = 'none'; }, 100);
     }
 
-    // Обновляем ауру + свечение если HP низкое
+    // Обновляем ауру + свечение если HP низкое (аура удалена, но свечение остаётся)
     updateBossVisualState();
 }
 
@@ -2280,11 +2215,9 @@ function updateBossVisualState() {
     const pct = store.guild.bossHp / store.guild.maxBossHp;
     const isRage = pct < 0.3 && pct > 0;
 
-    const aura = document.getElementById('boss-aura');
     const glow = document.getElementById('battle-zone-glow');
     const hpFill = document.getElementById('boss-hp-fill');
 
-    if (aura) aura.classList.toggle('rage', isRage);
     if (glow) glow.classList.toggle('rage', isRage);
     if (hpFill) {
         hpFill.classList.toggle('hp-rage', isRage);
@@ -2459,7 +2392,7 @@ function showScreen(screenId) {
     switch (screenId) {
         case 'workshop':
             const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'character';
-            if (activeTab === 'character') loadCharacterCustomization();
+            if (activeTab === 'character') renderSkins(); // заменено с loadCharacterCustomization
             if (activeTab === 'pets') loadPetsGrid();
             if (activeTab === 'talents') {
                 initTalentsTab();
@@ -2512,7 +2445,7 @@ function updateProfileModal() {
 }
 
 // =======================================================
-// ТЕСТОВЫЕ ДАННЫЕ
+// ТЕСТОВЫЕ ДАННЫЕ (добавлены скины)
 // =======================================================
 async function initTestData() {
     const clothesSnap = await db.collection('shop_items').where('type', '==', 'clothes').limit(1).get();
@@ -2539,6 +2472,20 @@ async function initTestData() {
             await db.collection('shop_items').add(pet);
         }
         console.log('➕ Тестовые питомцы добавлены');
+    }
+
+    // Добавляем тестовые скины
+    const skinsSnap = await db.collection('shop_items').where('type', '==', 'skin').limit(1).get();
+    if (skinsSnap.empty) {
+        const skins = [
+            { name: 'Рыцарь', type: 'skin', price: 300, imageUrl: 'img/skin_knight.png' },
+            { name: 'Маг', type: 'skin', price: 350, imageUrl: 'img/skin_mage.png' },
+            { name: 'Разбойник', type: 'skin', price: 320, imageUrl: 'img/skin_rogue.png' }
+        ];
+        for (const skin of skins) {
+            await db.collection('shop_items').add(skin);
+        }
+        console.log('➕ Тестовые скины добавлены');
     }
 }
 
@@ -2936,21 +2883,15 @@ window.onload = async () => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
 
-            if (tab === 'character') loadCharacterCustomization();
+            if (tab === 'character') renderSkins(); // изменено
             if (tab === 'pets') loadPetsGrid();
             if (tab === 'talents') {
                 initTalentsTab();
             }
         });
 
-        document.querySelector('.slot-selector').addEventListener('click', (e) => {
-            const slotBtn = e.target.closest('.slot-btn');
-            if (!slotBtn) return;
-            document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
-            slotBtn.classList.add('active');
-            currentCustomizationSlot = slotBtn.dataset.slot;
-            renderItemsForSlot(currentCustomizationSlot);
-        });
+        // Селектор слотов удалён, поэтому обработчик для .slot-selector можно удалить или закомментировать
+        // document.querySelector('.slot-selector').addEventListener('click', ...);
 
         if (window.energyUpdateInterval) {
             clearInterval(window.energyUpdateInterval);
@@ -3033,7 +2974,7 @@ window.onload = async () => {
 // =======================================================
 // ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ
 // =======================================================
-window.buyItem = window.buyItem;
+window.buyItem = window.buyItem; // возможно, не используется, но оставляем для совместимости
 window.equipItem = window.equipItem;
 window.unequipItem = window.unequipItem;
 window.previewItem = window.previewItem;
@@ -3061,3 +3002,6 @@ window.hideCreateGuildModal = window.hideCreateGuildModal;
 window.openDailyBonusModal = openDailyBonusModal;
 window.closeDailyBonusModal = closeDailyBonusModal;
 window.showInviteMenu = showInviteMenu;
+// Новые функции для скинов
+window.buySkin = window.buySkin;
+window.equipSkin = window.equipSkin;
