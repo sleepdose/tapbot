@@ -3082,3 +3082,244 @@ window.showInviteMenu = showInviteMenu;
 window.buySkin = window.buySkin;
 window.equipSkin = window.equipSkin;
 window.previewSkin = window.previewSkin;
+
+// =======================================================
+// СУНДУК С СОКРОВИЩАМИ (ГАЧА)
+// =======================================================
+
+// Описание эксклюзивных предметов (только для гачи, не продаются в магазине)
+const EXCLUSIVE_GACHA_ITEMS = [
+    {
+        id: 'gacha_skin_dragon',
+        name: 'Дракон',
+        type: 'skin',
+        price: 0,
+        imageUrl: 'img/skin_dragon.png',
+        exclusive: true
+    },
+    {
+        id: 'gacha_skin_phantom',
+        name: 'Призрак',
+        type: 'skin',
+        price: 0,
+        imageUrl: 'img/skin_phantom.png',
+        exclusive: true
+    }
+];
+
+const GACHA_COST = 200;
+
+let gachaTreasurePool = [];
+let isSpinning = false;
+
+// Инициализация: загружает все предметы из Firebase + добавляет эксклюзивы
+async function loadTreasurePool() {
+    console.log('📦 Загружаем пул сундука...');
+    const snapshot = await db.collection('shop_items').get();
+    const shopItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Объединяем обычные предметы + эксклюзивные
+    gachaTreasurePool = [...shopItems, ...EXCLUSIVE_GACHA_ITEMS];
+    console.log('📦 Пул сундука:', gachaTreasurePool.length, 'предметов');
+}
+
+// Открыть модалку сундука
+window.openTreasureModal = async function() {
+    const modal = document.getElementById('treasure-modal');
+    if (!modal) return;
+    // Скрыть старый результат
+    document.getElementById('treasure-result').classList.add('hidden');
+    modal.classList.remove('hidden');
+    // Загрузить пул и отрисовать
+    await loadTreasurePool();
+    renderTreasurePool();
+    buildSlotTrack();
+};
+
+// Закрыть модалку
+window.closeTreasureModal = function() {
+    document.getElementById('treasure-modal').classList.add('hidden');
+    isSpinning = false;
+};
+
+// Отрисовать сетку доступных предметов
+function renderTreasurePool() {
+    const grid = document.getElementById('treasure-pool-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    gachaTreasurePool.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'pool-item' + (item.exclusive ? ' exclusive' : '');
+        const imgOrEmoji = item.imageUrl
+            ? `<img src="${item.imageUrl}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`
+              + `<span class="item-emoji" style="display:none">${item.type === 'pet' ? '🐾' : '🧙'}</span>`
+            : `<span class="item-emoji">${item.type === 'pet' ? '🐾' : '🧙'}</span>`;
+        div.innerHTML = `
+            ${imgOrEmoji}
+            <span class="pool-item-name">${item.name}</span>
+            ${item.exclusive ? '<span class="exclusive-badge">эксклюзив</span>' : ''}
+        `;
+        grid.appendChild(div);
+    });
+}
+
+// Создать ленту для слот-машины (зациклить предметы несколько раз)
+function buildSlotTrack() {
+    const track = document.getElementById('slot-track');
+    if (!track || gachaTreasurePool.length === 0) return;
+    // Повторяем пул 5 раз для эффекта бесконечной прокрутки
+    const repeated = [];
+    for (let i = 0; i < 5; i++) {
+        repeated.push(...gachaTreasurePool);
+    }
+    track.innerHTML = '';
+    repeated.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'slot-item';
+        if (item.imageUrl) {
+            div.innerHTML = `<img src="${item.imageUrl}" alt="${item.name}" onerror="this.innerHTML='<span class=slot-emoji>${item.type === 'pet' ? '🐾' : '🧙'}</span>'">`;
+        } else {
+            div.innerHTML = `<span class="slot-emoji">${item.type === 'pet' ? '🐾' : '🧙'}</span>`;
+        }
+        track.appendChild(div);
+    });
+    // Вернуть в начало
+    track.style.transform = 'translateY(0px)';
+}
+
+// Крутить!
+window.spinTreasure = async function() {
+    if (isSpinning) return;
+    const user = store.user;
+    if (!user) { showNotification('Ошибка', 'Пользователь не загружен'); return; }
+    if (user.money < GACHA_COST) {
+        showNotification('Недостаточно монет', `Нужно ${GACHA_COST} 🪙`);
+        return;
+    }
+    if (gachaTreasurePool.length === 0) {
+        showNotification('Ошибка', 'Пул пуст, попробуйте ещё раз');
+        return;
+    }
+
+    isSpinning = true;
+    const spinBtn = document.getElementById('spin-btn');
+    spinBtn.disabled = true;
+    spinBtn.classList.add('spinning');
+
+    // Скрыть предыдущий результат
+    document.getElementById('treasure-result').classList.add('hidden');
+
+    // Выбрать победителя
+    const winner = gachaTreasurePool[Math.floor(Math.random() * gachaTreasurePool.length)];
+    console.log('🎰 Победитель:', winner.name);
+
+    // Анимация прокрутки
+    const track = document.getElementById('slot-track');
+    const itemHeight = 100;
+    const poolLen = gachaTreasurePool.length;
+    // Позиционируем победителя в конец третьего круга (позиция 2*poolLen + winnerIndex)
+    const winnerIndex = gachaTreasurePool.findIndex(i => i.id === winner.id);
+    const targetIndex = poolLen * 2 + winnerIndex;
+    const targetY = -(targetIndex * itemHeight) + itemHeight; // центрируем в окне
+
+    // Быстрая прокрутка через requestAnimationFrame
+    let startY = 0;
+    let startTime = null;
+    const duration = 2200; // мс
+
+    function easeOutQuart(t) {
+        return 1 - Math.pow(1 - t, 4);
+    }
+
+    function animate(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = easeOutQuart(progress);
+        const currentY = startY + (targetY - startY) * eased;
+        track.style.transform = `translateY(${currentY}px)`;
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            // Анимация завершена — списываем деньги и добавляем предмет
+            finalizeSpin(winner);
+        }
+    }
+    requestAnimationFrame(animate);
+};
+
+async function finalizeSpin(winner) {
+    const spinBtn = document.getElementById('spin-btn');
+    try {
+        const userRef = db.collection('users').doc(store.authUser.uid);
+        await db.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            if (!userDoc.exists) throw new Error('Пользователь не найден');
+            const data = userDoc.data();
+            if (data.money < GACHA_COST) throw new Error('Недостаточно монет');
+            const inventory = data.inventory || [];
+            const alreadyOwned = inventory.some(inv => inv.id === winner.id);
+
+            const updates = {
+                money: firebase.firestore.FieldValue.increment(-GACHA_COST)
+            };
+
+            if (!alreadyOwned) {
+                const invItem = {
+                    id: winner.id,
+                    name: winner.name,
+                    type: winner.type,
+                    price: winner.price || 0,
+                    imageUrl: winner.imageUrl || null,
+                    instanceId: `${Date.now()}_${Math.random()}`
+                };
+                if (winner.exclusive) invItem.exclusive = true;
+                updates.inventory = firebase.firestore.FieldValue.arrayUnion(invItem);
+            }
+            transaction.update(userRef, updates);
+        });
+
+        await loadUserFromFirestore(true);
+        updateMainUI();
+        hapticFeedback('heavy');
+        showTreasureResult(winner);
+    } catch (e) {
+        console.error('Ошибка гачи:', e);
+        showNotification('Ошибка', e.message || 'Что-то пошло не так');
+    } finally {
+        spinBtn.disabled = false;
+        spinBtn.classList.remove('spinning');
+        isSpinning = false;
+    }
+}
+
+function showTreasureResult(item) {
+    const resultEl = document.getElementById('treasure-result');
+    const imgEl    = document.getElementById('treasure-result-img');
+    const nameEl   = document.getElementById('treasure-result-name');
+    const labelEl  = document.getElementById('treasure-result-label');
+
+    imgEl.src = item.imageUrl || '';
+    imgEl.style.display = item.imageUrl ? 'block' : 'none';
+    nameEl.textContent = item.name;
+
+    const user = store.user;
+    const owned = user.inventory && user.inventory.some(inv => inv.id === item.id);
+    // Если предмет только что получили — он теперь есть в инвентаре
+    if (item.exclusive) {
+        labelEl.className = 'result-label exclusive';
+        labelEl.textContent = '✨ Эксклюзивный предмет!';
+    } else if (!owned) {
+        labelEl.className = 'result-label new';
+        labelEl.textContent = '🎉 Новый предмет!';
+    } else {
+        labelEl.className = 'result-label owned';
+        labelEl.textContent = '📦 Уже есть в инвентаре';
+    }
+
+    resultEl.classList.remove('hidden');
+}
+
+// Экспорт
+window.openTreasureModal   = openTreasureModal;
+window.closeTreasureModal  = closeTreasureModal;
+window.spinTreasure        = spinTreasure;

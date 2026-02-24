@@ -31,6 +31,12 @@
                 <!-- Отдельный контейнер для питомца на главном экране -->
                 <div id="pet-main-container"></div>
             </div>
+            <!-- Кнопка сундука с сокровищами -->
+            <button class="treasure-chest-btn" onclick="openTreasureModal()">
+                <span class="chest-icon">📦</span>
+                <span class="chest-label">Сундук</span>
+                <span class="chest-cost">200 🪙</span>
+            </button>
         </div>
 
         <!-- ========== МАСТЕРСКАЯ ========== -->
@@ -251,6 +257,52 @@
         <!-- Плавающая кнопка друзей -->
         <div id="friends-fab" class="fab" onclick="openFriendsModal()">
             <span id="friends-online-count">0</span>в сети
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО: СУНДУК С СОКРОВИЩАМИ ========== -->
+        <div id="treasure-modal" class="modal hidden">
+            <div class="modal-content treasure-modal-content">
+                <div class="treasure-modal-header">
+                    <div class="treasure-title-wrap">
+                        <span class="treasure-chest-emoji">📦</span>
+                        <h3 class="treasure-title">Сундук с сокровищами</h3>
+                        <p class="treasure-subtitle">Попробуй удачу и получи редкий предмет!</p>
+                    </div>
+                </div>
+
+                <!-- Слот-машина -->
+                <div class="slot-machine-wrap">
+                    <div class="slot-window">
+                        <div id="slot-track"></div>
+                    </div>
+                    <div class="slot-arrows">
+                        <span class="arrow-left">◄</span>
+                        <span class="arrow-right">►</span>
+                    </div>
+                </div>
+
+                <!-- Результат -->
+                <div id="treasure-result" class="treasure-result hidden">
+                    <div class="result-glow"></div>
+                    <img id="treasure-result-img" src="" alt="">
+                    <div id="treasure-result-name" class="result-name"></div>
+                    <div id="treasure-result-label" class="result-label"></div>
+                </div>
+
+                <!-- Пул предметов -->
+                <div class="treasure-pool-section">
+                    <p class="pool-label">🎲 Возможные предметы</p>
+                    <div id="treasure-pool-grid" class="treasure-pool-grid"></div>
+                </div>
+
+                <!-- Кнопки -->
+                <div class="modal-buttons treasure-buttons">
+                    <button id="spin-btn" class="glow-button spin-btn" onclick="spinTreasure()">
+                        🎰 Крутить — 200 🪙
+                    </button>
+                    <button class="cancel-btn" onclick="closeTreasureModal()">Закрыть</button>
+                </div>
+            </div>
         </div>
     </div>
 
