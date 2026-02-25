@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hiko Adventure</title>
-    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Poppins:wght@400;600;700&family=Rajdhani:wght@700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Rajdhani:wght@500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,9 +17,7 @@
             </div>
             <span id="energy-display">⚡ 100/100</span>
             <span id="money">0</span> 🪙
-            <!-- Кнопка ежедневных бонусов -->
             <div class="bonus-icon" onclick="openDailyBonusModal()">🎁</div>
-            <!-- Кнопка сундука (перенесена сюда) -->
             <div class="treasure-icon" onclick="openTreasureModal()">📦</div>
         </div>
 
@@ -30,10 +28,8 @@
                     <img id="base-character" src="img/men.png" alt="Персонаж">
                     <div id="equipment-layer"></div>
                 </div>
-                <!-- Отдельный контейнер для питомца на главном экране -->
                 <div id="pet-main-container"></div>
             </div>
-            <!-- Кнопка сундука удалена отсюда -->
         </div>
 
         <!-- ========== МАСТЕРСКАЯ ========== -->
@@ -44,7 +40,6 @@
                 <button class="tab-button" data-tab="talents">✨ Таланты</button>
             </div>
 
-            <!-- Вкладка ПЕРСОНАЖ (экипировка) - теперь только цельные скины -->
             <div id="tab-character" class="tab-content active">
                 <div class="customization-preview">
                     <div id="char-preview-container" class="character-preview">
@@ -53,31 +48,25 @@
                         <div id="preview-pet"></div>
                     </div>
                 </div>
-                <!-- Селектор слотов удалён, осталась только сетка предметов -->
                 <div id="slot-items" class="items-grid"></div>
             </div>
 
-            <!-- Вкладка ПИТОМЦЫ -->
             <div id="tab-pets" class="tab-content">
-                <h3>🐾 Доступные питомцы</h3>
+                <h3 class="section-title">🐾 Доступные питомцы</h3>
                 <div id="pets-grid" class="items-grid"></div>
             </div>
 
-            <!-- Вкладка ТАЛАНТЫ (покупка зарядов, улучшение, крафт) -->
             <div id="tab-talents" class="tab-content">
-                <!-- Внутренние вкладки -->
                 <div class="talent-tabs">
                     <button class="tab-btn active" data-tab="shop-charges">🛒 Заряды</button>
                     <button class="tab-btn" data-tab="shop-upgrade">⬆️ Улучшение</button>
                     <button class="tab-btn" data-tab="shop-craft">⚒️ Крафт</button>
                 </div>
 
-                <!-- Покупка зарядов -->
                 <div id="shop-charges" class="shop-tab active">
                     <div class="attack-charges-container"></div>
                 </div>
 
-                <!-- Улучшение талантов -->
                 <div id="shop-upgrade" class="shop-tab">
                     <div class="talents-upgrade-container">
                         <div class="talent">
@@ -95,7 +84,6 @@
                     </div>
                 </div>
 
-                <!-- Крафт талантов -->
                 <div id="shop-craft" class="shop-tab">
                     <div class="crafting-area">
                         <div class="craft-slots">
@@ -127,9 +115,18 @@
 
         <!-- ========== НИЖНЯЯ НАВИГАЦИЯ ========== -->
         <nav id="bottom-nav">
-            <button data-screen="main" class="nav-btn active">👤</button>
-            <button data-screen="workshop" class="nav-btn">🔧</button>
-            <button data-screen="guild" class="nav-btn">🏰</button>
+            <button data-screen="main" class="nav-btn active">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Герой</span>
+            </button>
+            <button data-screen="workshop" class="nav-btn">
+                <span class="nav-icon">🔧</span>
+                <span class="nav-label">Мастерская</span>
+            </button>
+            <button data-screen="guild" class="nav-btn">
+                <span class="nav-icon">🏰</span>
+                <span class="nav-label">Гильдия</span>
+            </button>
         </nav>
 
         <!-- ========== МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ГИЛЬДИИ ========== -->
@@ -141,7 +138,7 @@
                 <input type="url" id="guild-chat-link" placeholder="Ссылка на чат/канал (необязательно)">
                 <div class="modal-buttons">
                     <button id="confirm-create-guild" class="glow-button">✅ Создать</button>
-                    <button id="cancel-create-guild">❌ Отмена</button>
+                    <button id="cancel-create-guild" class="cancel-btn">❌ Отмена</button>
                 </div>
             </div>
         </div>
@@ -176,11 +173,11 @@
                 <div class="xp-text"><span id="profile-xp-current">0</span> / <span id="profile-xp-next">100</span> XP</div>
                 <div class="profile-damage">💥 Всего урона: <span id="profile-damage">0</span></div>
                 <div class="music-toggle-container">
-                    <button id="music-toggle-btn" class="glow-button" style="width:100%; margin-top:10px;">
+                    <button id="music-toggle-btn" class="glow-button music-btn">
                         🎵 Музыка: Вкл
                     </button>
                 </div>
-                <button class="close-modal-btn glow-button" id="close-profile-modal">Закрыть</button>
+                <button class="close-modal-btn glow-button close-gold-btn" id="close-profile-modal">Закрыть</button>
             </div>
         </div>
 
@@ -193,31 +190,23 @@
                     <strong id="friends-my-id-value"></strong>
                     <button class="copy-btn" onclick="copyToClipboard(document.getElementById('friends-my-id-value').innerText)">📋</button>
                 </div>
-
                 <div class="friends-tabs">
                     <button class="friends-tab-btn active" data-tab="list">Друзья</button>
                     <button class="friends-tab-btn" data-tab="requests">Заявки</button>
-                    <button class="friends-tab-btn" data-tab="search">Найти друга</button>
+                    <button class="friends-tab-btn" data-tab="search">Найти</button>
                 </div>
-
-                <!-- Вкладка: Список друзей -->
                 <div id="friends-list-tab" class="friends-tab-content active">
                     <div id="friends-list-container"></div>
                 </div>
-
-                <!-- Вкладка: Входящие заявки -->
                 <div id="friends-requests-tab" class="friends-tab-content">
                     <div id="friends-requests-container"></div>
                 </div>
-
-                <!-- Вкладка: Поиск друга -->
                 <div id="friends-search-tab" class="friends-tab-content">
                     <input type="text" id="friends-search-input" placeholder="Telegram ID друга">
                     <button id="friends-search-btn" class="glow-button">Найти</button>
                     <div id="friends-search-result"></div>
                 </div>
-
-                <button class="close-modal-btn" id="close-friends-modal">Закрыть</button>
+                <button class="close-modal-btn cancel-btn" id="close-friends-modal">Закрыть</button>
             </div>
         </div>
 
@@ -225,9 +214,9 @@
         <div id="guild-rating-modal" class="modal hidden">
             <div class="modal-content rating-modal">
                 <h3>🏆 Рейтинг гильдий</h3>
-                <div id="guild-rating-content" style="max-height: 60vh; overflow-y: auto; margin-bottom: 16px;"></div>
+                <div id="guild-rating-content" style="max-height: 55vh; overflow-y: auto; margin-bottom: 16px;"></div>
                 <div class="modal-buttons">
-                    <button id="close-guild-rating" class="glow-button" style="background: #4a6c8f;">Закрыть</button>
+                    <button id="close-guild-rating" class="glow-button close-blue-btn">Закрыть</button>
                 </div>
             </div>
         </div>
@@ -245,35 +234,32 @@
                 <div id="bonus-calendar" class="bonus-calendar"></div>
                 <div id="bonus-info" class="bonus-info"></div>
                 <div class="modal-buttons">
-                    <button id="claim-bonus-btn" class="glow-button">🎁 ЗАБРАТЬ БОНУС</button>
+                    <button id="claim-bonus-btn" class="glow-button claim-btn">🎁 ЗАБРАТЬ БОНУС</button>
                     <button onclick="closeDailyBonusModal()" class="cancel-btn">Закрыть</button>
                 </div>
             </div>
         </div>
 
-        <!-- Плавающая кнопка друзей (остаётся) -->
+        <!-- Плавающая кнопка друзей -->
         <div id="friends-fab" class="fab" onclick="openFriendsModal()">
-            <span id="friends-online-count">0</span>в сети
+            <span class="fab-icon">👥</span>
+            <span id="friends-online-count">0</span>
+            <span class="fab-label">в сети</span>
         </div>
 
         <!-- ========== МОДАЛЬНОЕ ОКНО: СУНДУК С СОКРОВИЩАМИ ========== -->
         <div id="treasure-modal" class="modal hidden">
             <div class="modal-content treasure-modal-content">
                 <div class="treasure-modal-header">
-                    <div class="treasure-title-wrap">
-                        <span class="treasure-chest-emoji">🏆</span>
-                        <h3 class="treasure-title">Сундук с сокровищами</h3>
-                        <p class="treasure-subtitle">Попробуй удачу и получи редкий предмет!</p>
-                    </div>
+                    <span class="treasure-chest-emoji">🏆</span>
+                    <h3 class="treasure-title">Сундук с сокровищами</h3>
+                    <p class="treasure-subtitle">Попробуй удачу и получи редкий предмет!</p>
                 </div>
                 <div class="treasure-divider"></div>
-
-                <!-- Слот-машина -->
                 <div class="slot-machine-wrap">
                     <div class="slot-window">
                         <div class="slot-center-line"></div>
                         <div id="slot-track"></div>
-                        <!-- Встроенный результат -->
                         <div id="treasure-inline-result" class="treasure-inline-result hidden">
                             <div class="inline-result-name"></div>
                             <div class="inline-result-status"></div>
@@ -284,14 +270,10 @@
                         <span class="arrow-right">►</span>
                     </div>
                 </div>
-
-                <!-- Пул предметов -->
                 <div class="treasure-pool-section">
                     <p class="pool-label">🎲 Возможные предметы</p>
                     <div id="treasure-pool-grid" class="treasure-pool-grid"></div>
                 </div>
-
-                <!-- Кнопки -->
                 <div class="modal-buttons treasure-buttons">
                     <button id="spin-btn" class="glow-button spin-btn" onclick="spinTreasure()">
                         🎰 Крутить — 200 🪙
@@ -302,14 +284,11 @@
         </div>
     </div>
 
-    <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-    <!-- Главный скрипт -->
     <script src="script.js"></script>
 </body>
 </html>
