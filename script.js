@@ -501,23 +501,49 @@ async function renderSkins() {
     const container = document.getElementById('slot-items');
     if (!container) return;
 
-    const snapshot = await db.collection('shop_items')
-        .where('type', '==', 'skin')
-        .get();
-    const skins = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // 1. Загружаем скины из магазина (коллекция shop_items)
+    const shopSnapshot = await db.collection('shop_items').where('type', '==', 'skin').get();
+    const shopSkins = shopSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    if (skins.length === 0) {
+    // 2. Получаем все скины из инвентаря пользователя
+    const inventorySkins = user.inventory.filter(inv => inv.type === 'skin');
+
+    // 3. Собираем уникальные скины по id (приоритет – данные из магазина, если есть)
+    const skinsMap = new Map();
+
+    // Сначала добавляем скины из магазина
+    shopSkins.forEach(skin => skinsMap.set(skin.id, { ...skin, fromShop: true }));
+
+    // Затем добавляем скины из инвентаря, которых нет в магазине
+    inventorySkins.forEach(invSkin => {
+        if (!skinsMap.has(invSkin.id)) {
+            skinsMap.set(invSkin.id, {
+                id: invSkin.id,
+                name: invSkin.name,
+                type: 'skin',
+                price: invSkin.price || 0,       // у эксклюзивных цена 0
+                imageUrl: invSkin.imageUrl,
+                fromInventory: true
+            });
+        }
+    });
+
+    const allSkins = Array.from(skinsMap.values());
+
+    if (allSkins.length === 0) {
         container.innerHTML = '<p class="empty-msg">Скины пока не доступны</p>';
         return;
     }
 
-    container.innerHTML = skins.map(skin => {
+    // 4. Отрисовываем карточки скинов
+    container.innerHTML = allSkins.map(skin => {
         const isOwned = user.inventory.some(inv => inv.id === skin.id);
         const isActive = user.skin?.id === skin.id;
 
         let buttonText = 'Купить';
         let buttonAction = `buySkin('${skin.id}')`;
         let disabled = false;
+
         if (isOwned) {
             if (isActive) {
                 buttonText = 'Активен';
@@ -527,7 +553,7 @@ async function renderSkins() {
                 buttonAction = `equipSkin('${skin.id}')`;
             }
         } else {
-            buttonText = `Купить`; // цена убрана из кнопки
+            buttonText = `Купить`; // цена убрана из кнопки по желанию
         }
 
         return `
@@ -540,7 +566,7 @@ async function renderSkins() {
         `;
     }).join('');
 
-    // Восстанавливаем превью текущего персонажа
+    // Обновляем превью текущего персонажа
     updatePreviewCharacter(user);
 }
 
@@ -3285,9 +3311,7 @@ async function finalizeSpin(winner) {
         }
 
         if (alreadyOwned) {
-            showNotification('Повтор', 'Этот предмет уже есть в инвентаре');
         } else {
-            showNotification('Успех', `Вы получили ${winner.name}!`);
         }
         hapticFeedback('heavy');
         showTreasureResult(winner);
