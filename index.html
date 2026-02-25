@@ -19,6 +19,8 @@
             <span id="money">0</span> 🪙
             <!-- Кнопка ежедневных бонусов -->
             <div class="bonus-icon" onclick="openDailyBonusModal()">🎁</div>
+            <!-- Кнопка сундука (перенесена сюда) -->
+            <div class="treasure-icon" onclick="openTreasureModal()">📦</div>
         </div>
 
         <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
@@ -31,12 +33,7 @@
                 <!-- Отдельный контейнер для питомца на главном экране -->
                 <div id="pet-main-container"></div>
             </div>
-            <!-- Кнопка сундука с сокровищами -->
-            <button class="treasure-chest-btn" onclick="openTreasureModal()">
-                <span class="chest-icon">📦</span>
-                <span class="chest-label">Сундук</span>
-                <span class="chest-cost">200 🪙</span>
-            </button>
+            <!-- Кнопка сундука удалена отсюда -->
         </div>
 
         <!-- ========== МАСТЕРСКАЯ ========== -->
@@ -254,7 +251,7 @@
             </div>
         </div>
 
-        <!-- Плавающая кнопка друзей -->
+        <!-- Плавающая кнопка друзей (остаётся) -->
         <div id="friends-fab" class="fab" onclick="openFriendsModal()">
             <span id="friends-online-count">0</span>в сети
         </div>
