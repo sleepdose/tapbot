@@ -439,27 +439,9 @@ function updateMainUI() {
     // Отображение скина, если он есть
     if (user.skin) {
         baseChar.src = user.skin.imageUrl;
-        // Убираем старую экипировку
-        eqLayer.innerHTML = '';
     } else {
         baseChar.src = 'img/men.png';
-        // Показываем старую экипировку (если она ещё используется)
-        const slots = ['hat', 'shirt', 'jeans', 'boots'];
-        const addedLogicalSlots = new Set();
-        slots.forEach(slot => {
-            if (user.equipped[slot]) {
-                const logicalSlot = getLogicalSlot(slot);
-                if (!addedLogicalSlots.has(logicalSlot)) {
-                    const img = document.createElement('img');
-                    img.src = user.equipped[slot].imageUrl;
-                    img.classList.add(slot);
-                    eqLayer?.appendChild(img);
-                    addedLogicalSlots.add(logicalSlot);
-                } else {
-                    console.warn(`Обнаружен дубль для логического слота ${logicalSlot} (физический слот ${slot}), пропускаем.`);
-                }
-            }
-        });
+        // Старая система экипировки удалена
     }
 
     if (user.pets.length > 0) {
@@ -3124,15 +3106,20 @@ async function loadTreasurePool() {
 
 // Открыть модалку сундука
 window.openTreasureModal = async function() {
-    const modal = document.getElementById('treasure-modal');
-    if (!modal) return;
-    // Скрыть старый результат
-    document.getElementById('treasure-result').classList.add('hidden');
-    modal.classList.remove('hidden');
-    // Загрузить пул и отрисовать
-    await loadTreasurePool();
-    renderTreasurePool();
-    buildSlotTrack();
+    try {
+        const modal = document.getElementById('treasure-modal');
+        if (!modal) return;
+        // Скрыть старый результат
+        document.getElementById('treasure-result').classList.add('hidden');
+        modal.classList.remove('hidden');
+        // Загрузить пул и отрисовать
+        await loadTreasurePool();
+        renderTreasurePool();
+        buildSlotTrack();
+    } catch (e) {
+        console.error('Ошибка при открытии сундука:', e);
+        showNotification('Ошибка', 'Не удалось загрузить сундук');
+    }
 };
 
 // Закрыть модалку
@@ -3196,8 +3183,11 @@ window.spinTreasure = async function() {
         return;
     }
     if (gachaTreasurePool.length === 0) {
-        showNotification('Ошибка', 'Пул пуст, попробуйте ещё раз');
-        return;
+        await loadTreasurePool();
+        if (gachaTreasurePool.length === 0) {
+            showNotification('Ошибка', 'Пул пуст, попробуйте ещё раз');
+            return;
+        }
     }
 
     isSpinning = true;
@@ -3216,13 +3206,18 @@ window.spinTreasure = async function() {
     const track = document.getElementById('slot-track');
     const itemHeight = 100;
     const poolLen = gachaTreasurePool.length;
-    // Позиционируем победителя в конец третьего круга (позиция 2*poolLen + winnerIndex)
     const winnerIndex = gachaTreasurePool.findIndex(i => i.id === winner.id);
     const targetIndex = poolLen * 2 + winnerIndex;
-    const targetY = -(targetIndex * itemHeight) + itemHeight; // центрируем в окне
+    const targetY = -(targetIndex * itemHeight); // центрируем в окне (верх окна совпадает с верхом элемента)
 
-    // Быстрая прокрутка через requestAnimationFrame
+    // Получаем текущее положение
     let startY = 0;
+    const transform = track.style.transform;
+    if (transform && transform.includes('translateY')) {
+        const match = transform.match(/translateY\(([^)]+)\)/);
+        if (match) startY = parseFloat(match[1]) || 0;
+    }
+
     let startTime = null;
     const duration = 2200; // мс
 
@@ -3251,13 +3246,14 @@ async function finalizeSpin(winner) {
     const spinBtn = document.getElementById('spin-btn');
     try {
         const userRef = db.collection('users').doc(store.authUser.uid);
+        let alreadyOwned = false;
         await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists) throw new Error('Пользователь не найден');
             const data = userDoc.data();
             if (data.money < GACHA_COST) throw new Error('Недостаточно монет');
             const inventory = data.inventory || [];
-            const alreadyOwned = inventory.some(inv => inv.id === winner.id);
+            alreadyOwned = inventory.some(inv => inv.id === winner.id);
 
             const updates = {
                 money: firebase.firestore.FieldValue.increment(-GACHA_COST)
@@ -3280,6 +3276,19 @@ async function finalizeSpin(winner) {
 
         await loadUserFromFirestore(true);
         updateMainUI();
+
+        // Обновляем интерфейс мастерской, если открыта соответствующая вкладка
+        if (document.getElementById('screen-workshop').classList.contains('active')) {
+            const activeTab = document.querySelector('.tab-button.active')?.dataset.tab;
+            if (activeTab === 'character') renderSkins();
+            if (activeTab === 'pets') loadPetsGrid();
+        }
+
+        if (alreadyOwned) {
+            showNotification('Повтор', 'Этот предмет уже есть в инвентаре');
+        } else {
+            showNotification('Успех', `Вы получили ${winner.name}!`);
+        }
         hapticFeedback('heavy');
         showTreasureResult(winner);
     } catch (e) {
@@ -3298,8 +3307,16 @@ function showTreasureResult(item) {
     const nameEl   = document.getElementById('treasure-result-name');
     const labelEl  = document.getElementById('treasure-result-label');
 
-    imgEl.src = item.imageUrl || '';
-    imgEl.style.display = item.imageUrl ? 'block' : 'none';
+    if (item.imageUrl) {
+        imgEl.src = item.imageUrl;
+        imgEl.style.display = 'block';
+        imgEl.onerror = () => {
+            imgEl.style.display = 'none';
+            // Можно показать эмодзи, но в данном случае оставляем имя
+        };
+    } else {
+        imgEl.style.display = 'none';
+    }
     nameEl.textContent = item.name;
 
     const user = store.user;
