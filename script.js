@@ -3136,7 +3136,7 @@ window.openTreasureModal = async function() {
         const modal = document.getElementById('treasure-modal');
         if (!modal) return;
         // Скрыть старый результат
-        document.getElementById('treasure-result').classList.add('hidden');
+        document.getElementById('treasure-inline-result').classList.add('hidden');
         modal.classList.remove('hidden');
         // Загрузить пул и отрисовать
         await loadTreasurePool();
@@ -3222,7 +3222,7 @@ window.spinTreasure = async function() {
     spinBtn.classList.add('spinning');
 
     // Скрыть предыдущий результат
-    document.getElementById('treasure-result').classList.add('hidden');
+    document.getElementById('treasure-inline-result').classList.add('hidden');
 
     // Выбрать победителя
     const winner = gachaTreasurePool[Math.floor(Math.random() * gachaTreasurePool.length)];
@@ -3314,11 +3314,9 @@ async function finalizeSpin(winner) {
             if (activeTab === 'pets') loadPetsGrid();
         }
 
-        if (alreadyOwned) {
-        } else {
-        }
+        // Показываем результат прямо в окне прокрутки
+        updateInlineResult(winner);
         hapticFeedback('heavy');
-        showTreasureResult(winner);
     } catch (e) {
         console.error('Ошибка гачи:', e);
         showNotification('Ошибка', e.message || 'Что-то пошло не так');
@@ -3329,39 +3327,34 @@ async function finalizeSpin(winner) {
     }
 }
 
-function showTreasureResult(item) {
-    const resultEl = document.getElementById('treasure-result');
-    const imgEl    = document.getElementById('treasure-result-img');
-    const nameEl   = document.getElementById('treasure-result-name');
-    const labelEl  = document.getElementById('treasure-result-label');
+function updateInlineResult(item) {
+    const inlineDiv = document.getElementById('treasure-inline-result');
+    if (!inlineDiv) return;
+    const nameSpan = inlineDiv.querySelector('.inline-result-name');
+    const statusSpan = inlineDiv.querySelector('.inline-result-status');
+    if (!nameSpan || !statusSpan) return;
 
-    if (item.imageUrl) {
-        imgEl.src = item.imageUrl;
-        imgEl.style.display = 'block';
-        imgEl.onerror = () => {
-            imgEl.style.display = 'none';
-            // Можно показать эмодзи, но в данном случае оставляем имя
-        };
-    } else {
-        imgEl.style.display = 'none';
-    }
-    nameEl.textContent = item.name;
+    nameSpan.textContent = item.name;
 
     const user = store.user;
     const owned = user.inventory && user.inventory.some(inv => inv.id === item.id);
-    // Если предмет только что получили — он теперь есть в инвентаре
-    if (item.exclusive) {
-        labelEl.className = 'result-label exclusive';
-        labelEl.textContent = '✨ Эксклюзивный предмет!';
-    } else if (!owned) {
-        labelEl.className = 'result-label new';
-        labelEl.textContent = '🎉 Новый предмет!';
-    } else {
-        labelEl.className = 'result-label owned';
-        labelEl.textContent = '📦 Уже есть в инвентаре';
-    }
 
-    resultEl.classList.remove('hidden');
+    let statusText = '';
+    let statusClass = '';
+    if (item.exclusive) {
+        statusText = '✨ Эксклюзивный!';
+        statusClass = 'exclusive';
+    } else if (!owned) {
+        statusText = '🎉 Новый предмет!';
+        statusClass = 'new';
+    } else {
+        statusText = '📦 Уже есть в инвентаре';
+        statusClass = 'owned';
+    }
+    statusSpan.textContent = statusText;
+    statusSpan.className = 'inline-result-status ' + statusClass;
+
+    inlineDiv.classList.remove('hidden');
 }
 
 // Экспорт
