@@ -3230,19 +3230,23 @@ window.spinTreasure = async function() {
 
     // Анимация прокрутки
     const track = document.getElementById('slot-track');
-    const itemHeight = 100;
+    const itemHeight = 100; // должно совпадать с высотой .slot-item в CSS
     const poolLen = gachaTreasurePool.length;
     const winnerIndex = gachaTreasurePool.findIndex(i => i.id === winner.id);
-    const targetIndex = poolLen * 2 + winnerIndex;
-    const targetY = -(targetIndex * itemHeight); // центрируем в окне (верх окна совпадает с верхом элемента)
 
-    // Получаем текущее положение
-    let startY = 0;
-    const transform = track.style.transform;
-    if (transform && transform.includes('translateY')) {
-        const match = transform.match(/translateY\(([^)]+)\)/);
-        if (match) startY = parseFloat(match[1]) || 0;
-    }
+    // Количество полных оборотов (2-3 достаточно)
+    const rotations = 3;
+    // Целевой индекс: rotations полных оборотов + смещение до победителя
+    const targetIndex = rotations * poolLen + winnerIndex;
+    const targetY = -(targetIndex * itemHeight);
+
+    // Мгновенно сбрасываем позицию в начало (без анимации)
+    track.style.transition = 'none';
+    track.style.transform = 'translateY(0px)';
+    // Форсируем пересчёт стилей, чтобы изменение применилось до анимации
+    void track.offsetHeight;
+    // Восстанавливаем переход (если он был задан в CSS, но в нашем случае анимация через requestAnimationFrame)
+    track.style.transition = '';
 
     let startTime = null;
     const duration = 2200; // мс
@@ -3256,7 +3260,7 @@ window.spinTreasure = async function() {
         const elapsed = timestamp - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const eased = easeOutQuart(progress);
-        const currentY = startY + (targetY - startY) * eased;
+        const currentY = 0 + (targetY - 0) * eased; // стартуем с 0
         track.style.transform = `translateY(${currentY}px)`;
         if (progress < 1) {
             requestAnimationFrame(animate);
