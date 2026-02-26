@@ -217,7 +217,7 @@ const defaultTalents = {
     level: 1,
     xp: 0,
     totalDamage: 0,
-    skin: null // ДОБАВЛЕНО поле для цельного скина
+    skin: null
 };
 
 // Конфигурация ежедневных бонусов — только монеты (без энергии)
@@ -230,6 +230,29 @@ const dailyBonusConfig = [
     { day: 6, reward: { money: 350 } },
     { day: 7, reward: { money: 500 } }
 ];
+
+// ========== НОВЫЕ ФУНКЦИИ ПРОГРЕССИИ УРОВНЯ ==========
+function getXPForLevel(level) {
+    if (level <= 1) return 0;
+    return 100 * (level - 1) * level / 2;
+}
+
+function getLevelFromXP(xp) {
+    let level = 1;
+    while (xp >= getXPForLevel(level + 1)) {
+        level++;
+    }
+    return level;
+}
+
+function getXPProgress(user) {
+    const currentLevelXP = getXPForLevel(user.level);
+    const nextLevelXP = getXPForLevel(user.level + 1);
+    const xpInThisLevel = user.xp - currentLevelXP;
+    const neededForNext = nextLevelXP - currentLevelXP;
+    const progress = (xpInThisLevel / neededForNext) * 100;
+    return { xpInThisLevel, neededForNext, progress };
+}
 
 async function getUser(forceReload = false) {
     if (!store.user || forceReload) {
@@ -269,7 +292,7 @@ async function loadUserFromFirestore() {
                 streak: 0
             },
             musicEnabled: true,
-            skin: null // ДОБАВЛЕНО
+            skin: null
         };
         await userRef.set(newUser);
         store.user = newUser;
@@ -305,7 +328,7 @@ async function loadUserFromFirestore() {
     if (data.totalDamage === undefined) { data.totalDamage = 0; needsUpdate = true; }
     if (!data.dailyBonus) { data.dailyBonus = { currentDay: 1, lastClaim: null, streak: 0 }; needsUpdate = true; }
     if (data.musicEnabled === undefined) { data.musicEnabled = false; needsUpdate = true; }
-    if (data.skin === undefined) { data.skin = null; needsUpdate = true; } // ДОБАВЛЕНО
+    if (data.skin === undefined) { data.skin = null; needsUpdate = true; }
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -339,7 +362,7 @@ async function loadUserFromFirestore() {
             totalDamage: data.totalDamage,
             dailyBonus: data.dailyBonus,
             musicEnabled: data.musicEnabled,
-            skin: data.skin // ДОБАВЛЕНО
+            skin: data.skin
         };
         await userRef.update(updateData);
     }
@@ -441,7 +464,6 @@ function updateMainUI() {
         baseChar.src = user.skin.imageUrl;
     } else {
         baseChar.src = 'img/men.png';
-        // Старая система экипировки удалена
     }
 
     if (user.pets.length > 0) {
@@ -474,7 +496,6 @@ async function onCharacterClick() {
 // МАСТЕРСКАЯ — КАСТОМИЗАЦИЯ (ТЕПЕРЬ ТОЛЬКО СКИНЫ)
 // =======================================================
 
-// Функция для логического слота (оставлена для совместимости, если где-то используется)
 const logicalSlotMap = {
     hat: 'head',
     shirt: 'body',
@@ -490,40 +511,32 @@ window.previewSkin = function(imageUrl) {
     const previewBase = document.getElementById('preview-base');
     if (previewBase) {
         previewBase.src = imageUrl;
-        // Скрываем слоты экипировки, если они есть
         document.getElementById('preview-equipment').innerHTML = '';
     }
 };
 
-// Функция для загрузки и отображения скинов
+// Функция для загрузки и отображения скинов (с сортировкой, обводкой, скрытием цены у эксклюзивов)
 async function renderSkins() {
     const user = await getUser();
     const container = document.getElementById('slot-items');
     if (!container) return;
 
-    // 1. Загружаем скины из магазина (коллекция shop_items)
     const shopSnapshot = await db.collection('shop_items').where('type', '==', 'skin').get();
     const shopSkins = shopSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // 2. Получаем все скины из инвентаря пользователя
     const inventorySkins = user.inventory.filter(inv => inv.type === 'skin');
 
-    // 3. Собираем уникальные скины по id (приоритет – данные из магазина, если есть)
     const skinsMap = new Map();
-
-    // Сначала добавляем скины из магазина
     shopSkins.forEach(skin => skinsMap.set(skin.id, { ...skin, fromShop: true }));
-
-    // Затем добавляем скины из инвентаря, которых нет в магазине
     inventorySkins.forEach(invSkin => {
         if (!skinsMap.has(invSkin.id)) {
             skinsMap.set(invSkin.id, {
                 id: invSkin.id,
                 name: invSkin.name,
                 type: 'skin',
-                price: invSkin.price || 0,       // у эксклюзивных цена 0
+                price: invSkin.price || 0,
                 imageUrl: invSkin.imageUrl,
-                fromInventory: true
+                exclusive: invSkin.exclusive || false
             });
         }
     });
@@ -535,8 +548,12 @@ async function renderSkins() {
         return;
     }
 
-    // 4. Отрисовываем карточки скинов
-    container.innerHTML = allSkins.map(skin => {
+    // Сортировка: сначала обычные, потом эксклюзивные
+    const normalSkins = allSkins.filter(s => !s.exclusive);
+    const exclusiveSkins = allSkins.filter(s => s.exclusive);
+    const sortedSkins = [...normalSkins, ...exclusiveSkins];
+
+    container.innerHTML = sortedSkins.map(skin => {
         const isOwned = user.inventory.some(inv => inv.id === skin.id);
         const isActive = user.skin?.id === skin.id;
 
@@ -553,20 +570,22 @@ async function renderSkins() {
                 buttonAction = `equipSkin('${skin.id}')`;
             }
         } else {
-            buttonText = `Купить`; // цена убрана из кнопки по желанию
+            buttonText = `Купить`;
         }
 
+        const cardClass = `item-card ${skin.exclusive ? 'exclusive' : ''}`;
+        const priceHtml = skin.price > 0 ? `<span class="item-price">${skin.price} 🪙</span>` : '';
+
         return `
-            <div class="item-card" data-skin-id="${skin.id}" onclick="previewSkin('${skin.imageUrl}')">
+            <div class="${cardClass}" data-skin-id="${skin.id}" onclick="previewSkin('${skin.imageUrl}')">
                 <img src="${skin.imageUrl}" alt="${skin.name}">
                 <span>${skin.name}</span>
-                <span class="item-price">${skin.price} 🪙</span>
+                ${priceHtml}
                 <button onclick="${buttonAction}; event.stopPropagation();" ${disabled ? 'disabled' : ''}>${buttonText}</button>
             </div>
         `;
     }).join('');
 
-    // Обновляем превью текущего персонажа
     updatePreviewCharacter(user);
 }
 
@@ -657,8 +676,9 @@ function updatePreviewCharacter(user) {
         });
     }
 }
+
 // =======================================================
-// ПИТОМЦЫ
+// ПИТОМЦЫ (с сортировкой, обводкой, кнопками "Выбрать")
 // =======================================================
 async function loadPetsGrid() {
     const user = await getUser();
@@ -667,12 +687,36 @@ async function loadPetsGrid() {
     const snapshot = await db.collection('shop_items').where('type', '==', 'pet').get();
     const pets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    if (pets.length === 0) {
+    // Добавляем эксклюзивных питомцев из инвентаря, если их нет в магазине
+    const inventoryPets = user.inventory.filter(inv => inv.type === 'pet');
+    const petsMap = new Map();
+    pets.forEach(p => petsMap.set(p.id, { ...p, exclusive: false }));
+    inventoryPets.forEach(invPet => {
+        if (!petsMap.has(invPet.id)) {
+            petsMap.set(invPet.id, {
+                id: invPet.id,
+                name: invPet.name,
+                type: 'pet',
+                price: invPet.price || 0,
+                imageUrl: invPet.imageUrl,
+                exclusive: invPet.exclusive || false
+            });
+        }
+    });
+
+    const allPets = Array.from(petsMap.values());
+
+    if (allPets.length === 0) {
         container.innerHTML = '<p class="empty-msg">Питомцы пока не доступны</p>';
         return;
     }
 
-    container.innerHTML = pets.map(pet => {
+    // Сортировка: сначала обычные, потом эксклюзивные
+    const normalPets = allPets.filter(p => !p.exclusive);
+    const exclusivePets = allPets.filter(p => p.exclusive);
+    const sortedPets = [...normalPets, ...exclusivePets];
+
+    container.innerHTML = sortedPets.map(pet => {
         const ownedItem = user.inventory.find(inv => inv.id === pet.id);
         const isActive = user.pets[0]?.id === pet.id;
         let button = '';
@@ -682,20 +726,24 @@ async function loadPetsGrid() {
             if (isActive) {
                 button = `<button disabled>Активен</button>`;
             } else {
-                button = `<button onclick="activatePet('${pet.id}')">Активировать</button>`;
+                button = `<button onclick="activatePet('${pet.id}')">Выбрать</button>`;
             }
         }
 
+        const cardClass = `item-card ${pet.exclusive ? 'exclusive' : ''}`;
+        const priceHtml = pet.price > 0 ? `<span class="item-price">${pet.price} 🪙</span>` : '';
+
         return `
-             <div class="item-card">
-                 <img src="${pet.imageUrl}" alt="${pet.name}">
-                 <span>${pet.name}</span>
-                 <span>${pet.price} 🪙</span>
+            <div class="${cardClass}">
+                <img src="${pet.imageUrl}" alt="${pet.name}">
+                <span>${pet.name}</span>
+                ${priceHtml}
                 ${button}
-             </div>
+            </div>
         `;
     }).join('');
 }
+
 window.buyPet = async function(petId) {
     if (!store.authUser) {
         showNotification('Ошибка', 'Пользователь не авторизован');
@@ -748,6 +796,7 @@ window.buyPet = async function(petId) {
         showNotification('Ошибка', e.message || 'Не удалось купить питомца');
     }
 };
+
 window.activatePet = async function(petId) {
     const user = await getUser();
     const petItem = user.inventory.find(inv => inv.id === petId);
@@ -1122,10 +1171,8 @@ function startPoisonEffectFromData(effect, guildId) {
         }
 
         const guildRef = db.collection('guilds').doc(guildId);
-        // FIX: Проверяем, жив ли ещё босс, прежде чем наносить урон
         const guildDoc = await guildRef.get();
         if (!guildDoc.exists || guildDoc.data().bossHp <= 0) {
-            // Босс мёртв – останавливаем яд
             clearInterval(damageInterval);
             clearInterval(timerInterval);
             delete store.activePoisonEffects[effectId];
@@ -1140,10 +1187,8 @@ function startPoisonEffectFromData(effect, guildId) {
 
         showDamageEffect(damage, '☠️');
 
-        // Проверяем, не убил ли этот тик босса (если да, вызываем endBattle)
         const updatedGuildDoc = await guildRef.get();
         if (updatedGuildDoc.exists && updatedGuildDoc.data().bossHp <= 0) {
-            // Останавливаем этот яд и все остальные (вызов stopPoisonEffectsForGuild произойдёт в endBattle)
             clearInterval(damageInterval);
             clearInterval(timerInterval);
             delete store.activePoisonEffects[effectId];
@@ -1212,6 +1257,7 @@ function stopPoisonEffectsForOtherGuilds(currentGuildId) {
     });
     updatePoisonTimers(currentGuildId);
 }
+
 // =======================================================
 // ГИЛЬДИИ — СИСТЕМА РЕЙТИНГА И МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ
 // =======================================================
@@ -1226,9 +1272,8 @@ window.hideCreateGuildModal = function() {
     document.getElementById('guild-chat-link').value = '';
 };
 
-// Валидация ссылки
 function validateUrl(url) {
-    if (!url) return true; // пустая ссылка допустима
+    if (!url) return true;
     try {
         new URL(url);
         return true;
@@ -1319,7 +1364,6 @@ function getGuildLevelAndMaxMembersFromRating(rating) {
     }
 }
 
-// ========== НОВАЯ ФУНКЦИЯ ПОКАЗА РЕЙТИНГА В МОДАЛКЕ ==========
 async function showGuildRatingModal() {
     const modal = document.getElementById('guild-rating-modal');
     if (!modal) return;
@@ -1354,7 +1398,6 @@ async function showGuildRatingModal() {
 }
 window.showGuildRatingModal = showGuildRatingModal;
 
-// ========== ФУНКЦИИ РЕДАКТИРОВАНИЯ ГИЛЬДИИ ==========
 function toggleEditMode(event) {
     if (event) {
         event.stopPropagation();
@@ -1467,10 +1510,9 @@ async function loadGuildScreen() {
                 store.guild = updatedGuild;
                 renderGuildPage(updatedGuild);
 
-                // Если босс умер во время атаки другого игрока, завершаем бой
                 if (updatedGuild.battleActive && updatedGuild.bossHp <= 0) {
                     await endBattle(true, updatedGuild.id);
-                    return; // renderGuildPage будет вызван снова после завершения
+                    return;
                 }
 
                 if (updatedGuild.poisonEffects && Array.isArray(updatedGuild.poisonEffects)) {
@@ -1488,7 +1530,6 @@ async function loadGuildScreen() {
                     if (store.user?.guildId === updatedGuild.id) {
                         const currentUser = await getUser();
                         const seenTimestamp = currentUser.battleResultsSeen?.[updatedGuild.id];
-                        // Показываем результат, если ещё не видели И (пользователь лидер ИЛИ участник боя)
                         const isLeader = updatedGuild.leaderId === store.authUser.uid;
                         const isParticipant = res.participants && res.participants.includes(store.authUser.uid);
                         if ((!seenTimestamp || seenTimestamp < res.timestamp) && (isLeader || isParticipant)) {
@@ -1514,21 +1555,7 @@ async function loadGuildScreen() {
     updateBattleResultModalVisibility();
 }
 
-function getLevelFromXP(xp) {
-    return Math.floor(xp / 100) + 1;
-}
-function getXPForLevel(level) {
-    return (level - 1) * 100;
-}
-function getXPProgress(user) {
-    const currentLevelXP = getXPForLevel(user.level);
-    const nextLevelXP = getXPForLevel(user.level + 1);
-    const xpInThisLevel = user.xp - currentLevelXP;
-    const neededForNext = nextLevelXP - currentLevelXP;
-    return { xpInThisLevel, neededForNext, progress: (xpInThisLevel / neededForNext) * 100 };
-}
-
-// ========== НОВАЯ ФУНКЦИЯ ГЕНЕРАЦИИ БОЕВОГО ЭКРАНА (с изменениями) ==========
+// ========== ФУНКЦИИ ГЕНЕРАЦИИ БОЕВОГО ЭКРАНА ==========
 function generateBattleHTML(guild, isLeader) {
     const bossId = guild.bossId;
     const bossNames = {
@@ -1537,7 +1564,6 @@ function generateBattleHTML(guild, isLeader) {
     };
     const bossName = bossNames[bossId] || bossId;
 
-    // Разные фоны и картинки для боссов
     let bgImageUrl, bossImageUrl;
     if (bossId === 'boss2') {
         bgImageUrl = 'img/battle2.png';
@@ -1556,26 +1582,18 @@ function generateBattleHTML(guild, isLeader) {
     }
 
     return `
-        <div class="battle-view" style="background-image: url('${bgImageUrl}');">
+        <div class="battle-view" style="background-image: url('${bgImageUrl}';)">
 
-            <!-- Вспышка при ударе -->
             <div class="battle-hit-flash" id="battle-hit-flash" style="display:none; pointer-events:none;"></div>
-
-            <!-- Частицы-искры -->
             <div class="battle-embers" aria-hidden="true">${embersHTML}</div>
-
-            <!-- Радиальное свечение -->
             <div class="battle-zone-glow" id="battle-zone-glow"></div>
-
-            <!-- Расширяющиеся кольца -->
             <div class="battle-ring battle-ring-1"></div>
             <div class="battle-ring battle-ring-2"></div>
             <div class="battle-ring battle-ring-3"></div>
 
-            <!-- Новый заголовок: название по центру, кнопка сдачи справа (только для лидера) -->
             <div class="battle-header">
                 <div class="battle-header-top">
-                    <div class="battle-header-left"></div> <!-- пустой слева для баланса -->
+                    <div class="battle-header-left"></div>
                     <div class="boss-name">${bossName}</div>
                     ${isLeader ? '<button class="surrender-btn" onclick="surrenderBattle(\'' + guild.id + '\')">⚑ Сдаться</button>' : '<div style="width:80px;"></div>'}
                 </div>
@@ -1591,7 +1609,6 @@ function generateBattleHTML(guild, isLeader) {
                 </div>
             </div>
 
-            <!-- Босс без ауры -->
             <div class="boss-image-container" onclick="attackBoss()">
                 <img src="${bossImageUrl}" class="boss-image" id="boss-battle-img">
             </div>
@@ -1603,12 +1620,10 @@ function generateBattleHTML(guild, isLeader) {
     `;
 }
 
-// ========== ФУНКЦИЯ СДАЧИ В БОЮ ==========
 window.surrenderBattle = async function(guildId) {
     await endBattle(false, guildId);
 };
 
-// ========== ОБНОВЛЁННАЯ ФУНКЦИЯ РЕНДЕРИНГА ГИЛЬДИИ ==========
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
     const isLeader = guild.leaderId === store.authUser.uid;
@@ -1616,10 +1631,8 @@ async function renderGuildPage(guild) {
     const guildInfoVisible = store.guildInfoVisible;
     const user = store.user;
 
-    // Если битва активна – показываем боевой экран
     if (guild.battleActive) {
         container.innerHTML = generateBattleHTML(guild, isLeader);
-        // Таймер будет обновляться в startBattleTimer
         if (guild.battleEndTime) {
             const timerKey = `battleTimer_${guild.id}`;
             if (!store.listeners[timerKey]) {
@@ -1630,7 +1643,6 @@ async function renderGuildPage(guild) {
         return;
     }
 
-    // Иначе – обычный вид гильдии
     const { level: computedLevel, maxMembers: computedMaxMembers } = getGuildLevelAndMaxMembersFromRating(guild.rating || 0);
     guild.level = computedLevel;
     guild.maxMembers = computedMaxMembers;
@@ -1658,7 +1670,6 @@ async function renderGuildPage(guild) {
     const displayedBossId = guild.battleActive ? guild.bossId : (user.preferredBoss || 'boss1');
     const canAccessBoss2 = (guild.keys?.boss2 || 0) >= 3;
 
-    // Загружаем данные участников только если не в бою (уже проверили выше)
     const memberPromises = guild.members.map(async (memberId) => {
         const memberDoc = await db.collection('users').doc(memberId).get();
         if (memberDoc.exists) {
@@ -1775,13 +1786,10 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
 
-    // Разделяем картинки для боя и для превью
     let bossImageUrl;
     if (isBattleActive) {
-        // Боевая картинка
         bossImageUrl = currentBossId === 'boss2' ? 'img/battleboss2.png' : 'img/battleboss1.png';
     } else {
-        // Картинка для предпросмотра (замените на свои файлы)
         bossImageUrl = currentBossId === 'boss2' ? 'img/boss2_preview.png' : 'img/boss1_preview.png';
     }
 
@@ -1919,7 +1927,6 @@ function startBattleTimer(endTime, guildId) {
     console.log("Таймер боя запущен для гильдии", guildId);
 }
 
-// ========== ИСПРАВЛЕННАЯ ФУНКЦИЯ ENDBATTLE ==========
 async function endBattle(victory, guildId) {
     if (finishedBattles.has(guildId)) {
         console.log("Бой для гильдии", guildId, "уже был обработан в этой сессии.");
@@ -2018,7 +2025,6 @@ async function endBattle(victory, guildId) {
                 success = true;
             });
 
-            // Если транзакция успешна и победа, выдаём награды участникам
             if (victory && userIds.length > 0) {
                 const bossId = guild.bossId;
                 const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
@@ -2085,13 +2091,6 @@ window.attackBoss = async function() {
 
         const user = await getUser(true);
 
-        // Энергия больше не тратится при атаке босса
-        // const currentEnergy = getCurrentEnergy();
-        // if (currentEnergy < 1) {
-        //     showNotification('Нет энергии', 'Подождите восстановления');
-        //     return;
-        // }
-
         if (!user.selectedTalent) {
             showNotification('Ошибка', 'Сначала выберите талант для атаки');
             return;
@@ -2141,9 +2140,6 @@ window.attackBoss = async function() {
             damage = config.damageFormula(level1, level2);
         }
 
-        // Энергия не тратится
-        // if (!(await spendEnergy(1))) return;
-
         const guildRef = db.collection('guilds').doc(store.guild.id);
         let finalDamage = 0;
         let bossKilled = false;
@@ -2162,7 +2158,6 @@ window.attackBoss = async function() {
                 [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(finalDamage)
             });
 
-            // FIX: добавляем яд только если босс НЕ убит этой атакой
             if (isPoison && finalDamage > 0 && !bossKilled) {
                 const endTime = Date.now() + poisonDuration * 1000;
                 const poisonEffect = {
@@ -2195,7 +2190,6 @@ window.attackBoss = async function() {
         showDamageEffect(finalDamage, talentIcon);
         hapticFeedback('light');
 
-        // FIX: останавливаем все яды для этой гильдии перед вызовом endBattle
         if (bossKilled) {
             stopPoisonEffectsForGuild(store.guild.id);
             await endBattle(true, store.guild.id);
@@ -2215,14 +2209,12 @@ function showDamageEffect(amount, icon = '💥') {
     const container = document.querySelector('.boss-image-container');
     if (!container) return;
 
-    // Определяем тип удара по иконке
     let dmgType = 'normal';
     if (icon.includes('💥⚡')) dmgType = 'crit';
     else if (icon.includes('🔥')) dmgType = 'fire';
     else if (icon.includes('☠') || icon.includes('poison')) dmgType = 'poison';
     else if (icon.includes('❄') || icon.includes('ice')) dmgType = 'ice';
 
-    // Позиция: случайная в зоне босса
     const x = 25 + Math.random() * 50;
     const y = 10 + Math.random() * 40;
 
@@ -2239,7 +2231,6 @@ function showDamageEffect(amount, icon = '💥') {
     container.appendChild(div);
     setTimeout(() => div.remove(), 1200);
 
-    // Тряска изображения босса
     const bossImg = document.getElementById('boss-battle-img');
     if (bossImg) {
         bossImg.classList.remove('boss-hit-shake');
@@ -2248,7 +2239,6 @@ function showDamageEffect(amount, icon = '💥') {
         setTimeout(() => bossImg.classList.remove('boss-hit-shake'), 300);
     }
 
-    // Вспышка экрана
     const flash = document.getElementById('battle-hit-flash');
     if (flash) {
         const colors = {
@@ -2263,7 +2253,6 @@ function showDamageEffect(amount, icon = '💥') {
         setTimeout(() => { flash.style.display = 'none'; }, 100);
     }
 
-    // Обновляем ауру + свечение если HP низкое (аура удалена, но свечение остаётся)
     updateBossVisualState();
 }
 
@@ -2278,7 +2267,6 @@ function updateBossVisualState() {
     if (glow) glow.classList.toggle('rage', isRage);
     if (hpFill) {
         hpFill.classList.toggle('hp-rage', isRage);
-        // Обновляем ширину
         const hpPct = Math.max(0, pct * 100);
         hpFill.style.width = hpPct + '%';
     }
@@ -2298,11 +2286,9 @@ function getCurrentDailyBonus(user) {
     const today = now.toDateString();
     const lastClaimDate = lastClaim ? lastClaim.toDateString() : null;
 
-    // Проверка сброса серии при пропуске дня
     if (lastClaim) {
         const diffDays = Math.floor((now - lastClaim) / (1000 * 60 * 60 * 24));
         if (diffDays >= 2) {
-            // Пропущен день, сбрасываем
             user.dailyBonus.streak = 0;
             user.dailyBonus.currentDay = 1;
         }
@@ -2340,7 +2326,7 @@ async function claimDailyBonus() {
     showNotification('🎉 Бонус получен!', `Вы получили ${reward.money} 🪙`);
     updateDailyBonusModal();
     stopBonusTimer();
-    startBonusTimer(); // запускаем отсчёт до следующего дня
+    startBonusTimer();
 }
 
 let bonusTimerInterval = null;
@@ -2379,7 +2365,7 @@ function updateBonusTimer() {
 function startBonusTimer() {
     if (bonusTimerInterval) clearInterval(bonusTimerInterval);
     updateBonusTimer();
-    bonusTimerInterval = setInterval(updateBonusTimer, 1000); // обновляем каждую секунду
+    bonusTimerInterval = setInterval(updateBonusTimer, 1000);
 }
 
 function stopBonusTimer() {
@@ -2392,7 +2378,7 @@ function stopBonusTimer() {
 window.openDailyBonusModal = async function() {
     const modal = document.getElementById('daily-bonus-modal');
     if (!modal) return;
-    await getUser(true); // принудительно загружаем пользователя
+    await getUser(true);
     updateDailyBonusModal();
     modal.classList.remove('hidden');
     startBonusTimer();
@@ -2410,7 +2396,6 @@ function updateDailyBonusModal() {
     if (!user) return;
     const info = getCurrentDailyBonus(user);
 
-    // Streak display
     const streakEl = document.getElementById('bonus-streak-display');
     if (streakEl) {
         const streak = info.streak || 0;
@@ -2421,7 +2406,6 @@ function updateDailyBonusModal() {
         }
     }
 
-    // Calendar — no nested wrapper, direct cards
     const calendar = document.getElementById('bonus-calendar');
     let html = '';
     for (let i = 0; i < dailyBonusConfig.length; i++) {
@@ -2436,9 +2420,8 @@ function updateDailyBonusModal() {
         }
 
         const icon = statusClass === 'claimed' ? '✅' : DAY_ICONS[i] || '🎁';
-        const isJackpot = dayNum === 7;
 
-        html += `<div class="bonus-day ${statusClass}${isJackpot ? ' jackpot' : ''}" data-day="${dayNum}">
+        html += `<div class="bonus-day ${statusClass}" data-day="${dayNum}">
             <div class="day-number">День ${dayNum}</div>
             <div class="day-icon">${icon}</div>
             <div class="reward">${dayConfig.reward.money}<span class="reward-coin">🪙</span></div>
@@ -2446,7 +2429,6 @@ function updateDailyBonusModal() {
     }
     calendar.innerHTML = html;
 
-    // Info / timer
     const infoDiv = document.getElementById('bonus-info');
     if (infoDiv) {
         if (info.canClaim) {
@@ -2494,7 +2476,7 @@ function showScreen(screenId) {
     switch (screenId) {
         case 'workshop':
             const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'character';
-            if (activeTab === 'character') renderSkins(); // заменено с loadCharacterCustomization
+            if (activeTab === 'character') renderSkins();
             if (activeTab === 'pets') loadPetsGrid();
             if (activeTab === 'talents') {
                 initTalentsTab();
@@ -2542,7 +2524,6 @@ function updateProfileModal() {
     document.getElementById('profile-xp-fill').style.width = progress + '%';
     document.getElementById('profile-damage').textContent = user.totalDamage || 0;
 
-    // MUSIC ADDITION: обновляем текст кнопки музыки при открытии профиля
     updateMusicToggleButton();
 }
 
@@ -2562,7 +2543,6 @@ async function initTestData() {
         console.log('➕ Тестовые питомцы добавлены');
     }
 
-    // Добавляем тестовые скины
     const skinsSnap = await db.collection('shop_items').where('type', '==', 'skin').limit(1).get();
     if (skinsSnap.empty) {
         const skins = [
@@ -2765,9 +2745,6 @@ window.copyToClipboard = function(text) {
 // ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ ГИЛЬДИЕЙ (ВЫХОД, ИСКЛЮЧЕНИЕ, ПРИГЛАШЕНИЕ)
 // =======================================================
 
-/**
- * Покинуть гильдию (для рядового участника) или распустить гильдию (для лидера)
- */
 async function leaveGuild(guildId) {
     if (!store.authUser) return;
     const user = await getUser();
@@ -2826,9 +2803,6 @@ async function leaveGuild(guildId) {
     }
 }
 
-/**
- * Исключить участника из гильдии (только для лидера)
- */
 async function removeFromGuild(guildId, memberId) {
     if (!store.authUser) return;
     const user = await getUser();
@@ -2865,9 +2839,6 @@ async function removeFromGuild(guildId, memberId) {
     }
 }
 
-/**
- * Показать меню приглашения в гильдию (копирование ID гильдии)
- */
 function showInviteMenu() {
     const guild = store.guild;
     if (!guild) return;
@@ -2971,15 +2942,12 @@ window.onload = async () => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
 
-            if (tab === 'character') renderSkins(); // изменено
+            if (tab === 'character') renderSkins();
             if (tab === 'pets') loadPetsGrid();
             if (tab === 'talents') {
                 initTalentsTab();
             }
         });
-
-        // Селектор слотов удалён, поэтому обработчик для .slot-selector можно удалить или закомментировать
-        // document.querySelector('.slot-selector').addEventListener('click', ...);
 
         if (window.energyUpdateInterval) {
             clearInterval(window.energyUpdateInterval);
@@ -3040,13 +3008,11 @@ window.onload = async () => {
         updateFriendsOnlineCount();
         setInterval(updateFriendsOnlineCount, 10000);
 
-        // MUSIC ADDITION: инициализация музыки, если включена
         if (store.user.musicEnabled) {
             initMusic();
             playMusic();
         }
 
-        // MUSIC ADDITION: обработчик кнопки музыки
         const musicBtn = document.getElementById('music-toggle-btn');
         if (musicBtn) {
             musicBtn.addEventListener('click', toggleMusic);
@@ -3086,7 +3052,6 @@ window.hideCreateGuildModal = window.hideCreateGuildModal;
 window.openDailyBonusModal = openDailyBonusModal;
 window.closeDailyBonusModal = closeDailyBonusModal;
 window.showInviteMenu = showInviteMenu;
-// Новые функции для скинов
 window.buySkin = window.buySkin;
 window.equipSkin = window.equipSkin;
 window.previewSkin = window.previewSkin;
@@ -3095,7 +3060,6 @@ window.previewSkin = window.previewSkin;
 // СУНДУК С СОКРОВИЩАМИ (ГАЧА)
 // =======================================================
 
-// Описание эксклюзивных предметов (только для гачи, не продаются в магазине)
 const EXCLUSIVE_GACHA_ITEMS = [
     {
         id: 'gacha_skin_dragon',
@@ -3120,25 +3084,20 @@ const GACHA_COST = 200;
 let gachaTreasurePool = [];
 let isSpinning = false;
 
-// Инициализация: загружает все предметы из Firebase + добавляет эксклюзивы
 async function loadTreasurePool() {
     console.log('📦 Загружаем пул сундука...');
     const snapshot = await db.collection('shop_items').get();
     const shopItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    // Объединяем обычные предметы + эксклюзивные
     gachaTreasurePool = [...shopItems, ...EXCLUSIVE_GACHA_ITEMS];
     console.log('📦 Пул сундука:', gachaTreasurePool.length, 'предметов');
 }
 
-// Открыть модалку сундука
 window.openTreasureModal = async function() {
     try {
         const modal = document.getElementById('treasure-modal');
         if (!modal) return;
-        // Скрыть старый результат
         document.getElementById('treasure-inline-result').classList.add('hidden');
         modal.classList.remove('hidden');
-        // Загрузить пул и отрисовать
         await loadTreasurePool();
         renderTreasurePool();
         buildSlotTrack();
@@ -3148,13 +3107,11 @@ window.openTreasureModal = async function() {
     }
 };
 
-// Закрыть модалку
 window.closeTreasureModal = function() {
     document.getElementById('treasure-modal').classList.add('hidden');
     isSpinning = false;
 };
 
-// Отрисовать сетку доступных предметов
 function renderTreasurePool() {
     const grid = document.getElementById('treasure-pool-grid');
     if (!grid) return;
@@ -3175,11 +3132,9 @@ function renderTreasurePool() {
     });
 }
 
-// Создать ленту для слот-машины (зациклить предметы несколько раз)
 function buildSlotTrack() {
     const track = document.getElementById('slot-track');
     if (!track || gachaTreasurePool.length === 0) return;
-    // Повторяем пул 5 раз для эффекта бесконечной прокрутки
     const repeated = [];
     for (let i = 0; i < 5; i++) {
         repeated.push(...gachaTreasurePool);
@@ -3195,11 +3150,9 @@ function buildSlotTrack() {
         }
         track.appendChild(div);
     });
-    // Вернуть в начало
     track.style.transform = 'translateY(0px)';
 }
 
-// Крутить!
 window.spinTreasure = async function() {
     if (isSpinning) return;
     const user = store.user;
@@ -3221,35 +3174,27 @@ window.spinTreasure = async function() {
     spinBtn.disabled = true;
     spinBtn.classList.add('spinning');
 
-    // Скрыть предыдущий результат
     document.getElementById('treasure-inline-result').classList.add('hidden');
 
-    // Выбрать победителя
     const winner = gachaTreasurePool[Math.floor(Math.random() * gachaTreasurePool.length)];
     console.log('🎰 Победитель:', winner.name);
 
-    // Анимация прокрутки
     const track = document.getElementById('slot-track');
-    const itemHeight = 100; // должно совпадать с высотой .slot-item в CSS
+    const itemHeight = 118; // Исправлено: высота элемента 118px
     const poolLen = gachaTreasurePool.length;
     const winnerIndex = gachaTreasurePool.findIndex(i => i.id === winner.id);
 
-    // Количество полных оборотов (2-3 достаточно)
     const rotations = 3;
-    // Целевой индекс: rotations полных оборотов + смещение до победителя
     const targetIndex = rotations * poolLen + winnerIndex;
     const targetY = -(targetIndex * itemHeight);
 
-    // Мгновенно сбрасываем позицию в начало (без анимации)
     track.style.transition = 'none';
     track.style.transform = 'translateY(0px)';
-    // Форсируем пересчёт стилей, чтобы изменение применилось до анимации
     void track.offsetHeight;
-    // Восстанавливаем переход (если он был задан в CSS, но в нашем случае анимация через requestAnimationFrame)
     track.style.transition = '';
 
     let startTime = null;
-    const duration = 2200; // мс
+    const duration = 2200;
 
     function easeOutQuart(t) {
         return 1 - Math.pow(1 - t, 4);
@@ -3260,12 +3205,11 @@ window.spinTreasure = async function() {
         const elapsed = timestamp - startTime;
         const progress = Math.min(elapsed / duration, 1);
         const eased = easeOutQuart(progress);
-        const currentY = 0 + (targetY - 0) * eased; // стартуем с 0
+        const currentY = 0 + (targetY - 0) * eased;
         track.style.transform = `translateY(${currentY}px)`;
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            // Анимация завершена — списываем деньги и добавляем предмет
             finalizeSpin(winner);
         }
     }
@@ -3307,14 +3251,12 @@ async function finalizeSpin(winner) {
         await loadUserFromFirestore(true);
         updateMainUI();
 
-        // Обновляем интерфейс мастерской, если открыта соответствующая вкладка
         if (document.getElementById('screen-workshop').classList.contains('active')) {
             const activeTab = document.querySelector('.tab-button.active')?.dataset.tab;
             if (activeTab === 'character') renderSkins();
             if (activeTab === 'pets') loadPetsGrid();
         }
 
-        // Показываем результат прямо в окне прокрутки
         updateInlineResult(winner);
         hapticFeedback('heavy');
     } catch (e) {
@@ -3357,7 +3299,6 @@ function updateInlineResult(item) {
     inlineDiv.classList.remove('hidden');
 }
 
-// Экспорт
 window.openTreasureModal   = openTreasureModal;
 window.closeTreasureModal  = closeTreasureModal;
 window.spinTreasure        = spinTreasure;
