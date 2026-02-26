@@ -1627,7 +1627,7 @@ function generateBattleHTML(guild, isLeader) {
 
     let bgImageUrl, bossImageUrl;
     if (bossId === 'boss2') {
-        bgImageUrl = 'img/battle2.png';
+        bgImageUrl = 'img/battle2.JPG';
         bossImageUrl = 'img/battleboss2.png';
     } else {
         bgImageUrl = 'img/battle1.png';
