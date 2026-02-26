@@ -1582,7 +1582,7 @@ function generateBattleHTML(guild, isLeader) {
     }
 
     return `
-        <div class="battle-view" style="background-image: url('${bgImageUrl}';)">
+        <div class="battle-view" style="background-image: url('${bgImageUrl}')">
 
             <div class="battle-hit-flash" id="battle-hit-flash" style="display:none; pointer-events:none;"></div>
             <div class="battle-embers" aria-hidden="true">${embersHTML}</div>
