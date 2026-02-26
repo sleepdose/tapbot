@@ -301,12 +301,55 @@
             </div>
         </div>
 
-        <!-- ========== [НОВОЕ] МОДАЛЬНОЕ ОКНО: СПИСОК УРОНА В БОЮ ========== -->
+        <!-- ========== МОДАЛЬНОЕ ОКНО: СПИСОК УРОНА В БОЮ ========== -->
         <div id="damage-popup-modal" class="modal hidden">
             <div class="modal-content damage-popup-content">
                 <h3>⚔️ Нанесённый урон</h3>
                 <div id="damage-popup-list" class="damage-popup-list"></div>
                 <button class="close-modal-btn glow-button" onclick="closeDamagePopup()">Закрыть</button>
+            </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО ВИЗИТА (улучшенный дизайн) ========== -->
+        <div id="visit-modal" class="modal hidden">
+            <div class="modal-content visit-content">
+                <div class="visit-bg-gradient"></div>
+                <div class="visit-header">
+                    <div class="visit-avatar-wrapper">
+                        <div class="visit-avatar-ring">
+                            <div class="visit-avatar">
+                                <img id="visit-avatar-img" src="" alt="Avatar">
+                            </div>
+                        </div>
+                        <span class="visit-level-badge" id="visit-level-badge">1</span>
+                    </div>
+                    <div class="visit-name" id="visit-name">Загрузка...</div>
+                    <div class="visit-info-card">
+                        <div class="visit-info-row">
+                            <span class="visit-label">ID:</span>
+                            <span class="visit-value" id="visit-telegram-id-value"></span>
+                        </div>
+                        <div class="visit-info-row">
+                            <span class="visit-label">Клан:</span>
+                            <span class="visit-value" id="visit-guild-value"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="visit-character-area">
+                    <div class="visit-character-bg"></div>
+                    <div class="visit-character-container">
+                        <img id="visit-base-character" src="img/men.png" alt="Персонаж">
+                        <div id="visit-equipment-layer"></div>
+                    </div>
+                    <div class="visit-character-platform"></div>
+                    <div class="visit-pet-badge" id="visit-pet-container"></div>
+                </div>
+
+                <div class="visit-actions">
+                    <button id="visit-add-friend-btn" class="glow-button visit-friend-btn">➕ Добавить в друзья</button>
+                </div>
+                <button class="close-modal-btn visit-close-btn" id="close-visit-modal">✕ Закрыть</button>
             </div>
         </div>
     </div>

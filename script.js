@@ -1798,9 +1798,9 @@ async function renderGuildPage(guild) {
                         : `<span class="member-avatar-initials">${member.name[0]?.toUpperCase() || '?'}</span>`;
                     const isLeaderMember = member.id === guild.leaderId;
                     const leaderStar = isLeaderMember ? ' 👑' : '';
-                    const removeBtn = (editing && !isLeaderMember) ? `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${member.id}')">❌ Удалить</button>` : '';
+                    const removeBtn = (editing && !isLeaderMember) ? `<button class="remove-member-btn" onclick="removeFromGuild('${guild.id}', '${member.id}', event)">❌ Удалить</button>` : '';
                     return `
-                        <li>
+                        <li data-user-id="${member.id}" onclick="openVisitModal('${member.id}')">
                             <div style="display: flex; align-items: center; gap: 10px; flex:1;">
                                 <div class="member-avatar">
                                     ${avatarHtml}
@@ -1997,6 +1997,51 @@ function startBattleTimer(endTime, guildId) {
     console.log("Таймер боя запущен для гильдии", guildId);
 }
 
+// ========== НОВАЯ ФУНКЦИЯ ДЛЯ НАЧИСЛЕНИЯ НАГРАД ==========
+async function applyRewards(userIds, damageLog, bossId) {
+    const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
+    const xpReward = bossId === 'boss2' ? 100 : 50;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (attempts < maxAttempts) {
+        try {
+            const batch = db.batch();
+            for (const uid of userIds) {
+                const memberRef = db.collection('users').doc(uid);
+                const memberDoc = await memberRef.get();
+                if (memberDoc.exists) {
+                    const memberData = memberDoc.data();
+                    const newXP = (memberData.xp || 0) + xpReward;
+                    const damageDealt = damageLog[uid] || 0;
+                    const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
+                    const updatesForMember = {
+                        money: firebase.firestore.FieldValue.increment(rewardAmount),
+                        xp: newXP,
+                        totalDamage: newTotalDamage
+                    };
+                    const newLevel = getLevelFromXP(newXP);
+                    if (newLevel !== (memberData.level || 1)) {
+                        updatesForMember.level = newLevel;
+                    }
+                    batch.update(memberRef, updatesForMember);
+                } else {
+                    console.warn(`⚠️ Пользователь ${uid} не найден, пропускаем награду`);
+                }
+            }
+            await batch.commit();
+            return; // успех
+        } catch (error) {
+            attempts++;
+            console.error(`❌ Попытка ${attempts} начисления наград не удалась:`, error);
+            if (attempts >= maxAttempts) {
+                showNotification('Ошибка', 'Не удалось начислить награды. Обратитесь в поддержку.');
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        }
+    }
+}
+
 async function endBattle(victory, guildId) {
     if (finishedBattles.has(guildId)) {
         console.log("Бой для гильдии", guildId, "уже был обработан в этой сессии.");
@@ -2095,36 +2140,12 @@ async function endBattle(victory, guildId) {
                 success = true;
             });
 
-            if (victory && userIds.length > 0) {
-                const bossId = guild.bossId;
-                const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
-                const xpReward = bossId === 'boss2' ? 100 : 50;
-
-                const batch = db.batch();
-                for (const uid of userIds) {
-                    const memberRef = db.collection('users').doc(uid);
-                    const memberDoc = await memberRef.get();
-                    if (memberDoc.exists) {
-                        const memberData = memberDoc.data();
-                        const newXP = (memberData.xp || 0) + xpReward;
-                        const damageDealt = damageLog[uid] || 0;
-                        const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
-                        const updatesForMember = {
-                            money: firebase.firestore.FieldValue.increment(rewardAmount),
-                            xp: newXP,
-                            totalDamage: newTotalDamage
-                        };
-                        const newLevel = getLevelFromXP(newXP);
-                        if (newLevel !== (memberData.level || 1)) {
-                            updatesForMember.level = newLevel;
-                        }
-                        batch.update(memberRef, updatesForMember);
-                    }
+            if (success) {
+                if (victory && userIds.length > 0) {
+                    await applyRewards(userIds, damageLog, guild.bossId);
                 }
-                await batch.commit();
+                break;
             }
-
-            if (success) break;
         } catch (error) {
             console.error(`❌ Попытка ${attempt} завершения битвы не удалась:`, error);
             if (attempt === 3) {
@@ -2670,13 +2691,13 @@ async function loadFriendsList() {
         const lastSeen = friend.lastEnergyUpdate || 0;
         const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
         html += `
-            <div class="friend-item">
+            <div class="friend-item" data-user-id="${friend.id}" onclick="openVisitModal('${friend.id}')">
                 <div class="friend-status ${isOnline ? 'online' : 'offline'}"></div>
                 <div class="friend-info">
                     <div class="friend-name">${friend.name || 'Без имени'}</div>
                     <div class="friend-id">${friend.telegramId || friend.id.slice(0,8)}</div>
                 </div>
-                <button class="remove-friend-btn" onclick="removeFriend('${friend.id}')">❌</button>
+                <button class="remove-friend-btn" onclick="removeFriend('${friend.id}', event)">❌</button>
             </div>
         `;
     }
@@ -2748,6 +2769,7 @@ window.sendFriendRequest = async function(targetId) {
         timestamp: Date.now()
     });
     showNotification('Заявка отправлена', '');
+    closeVisitModal(); // закрыть модалку визита после отправки заявки
 };
 
 window.acceptFriendRequest = async function(requestId, fromId) {
@@ -2782,7 +2804,8 @@ window.declineFriendRequest = async function(requestId) {
     loadFriendRequests();
 };
 
-window.removeFriend = async function(friendId) {
+window.removeFriend = async function(friendId, event) {
+    if (event) event.stopPropagation();
     const user = await getUser();
     if (!user.friends.includes(friendId)) return;
     try {
@@ -2877,7 +2900,8 @@ async function leaveGuild(guildId) {
     }
 }
 
-async function removeFromGuild(guildId, memberId) {
+async function removeFromGuild(guildId, memberId, event) {
+    if (event) event.stopPropagation();
     if (!store.authUser) return;
     const user = await getUser();
     if (user.guildId !== guildId) {
@@ -2943,6 +2967,113 @@ function showInviteMenu() {
     } else {
         fallbackInvite();
     }
+}
+
+// =======================================================
+// ВИЗИТ К ДРУГОМУ ИГРОКУ (улучшенная версия)
+// =======================================================
+async function openVisitModal(userId) {
+    if (!userId) return;
+    const currentUser = store.user;
+    const isSelf = currentUser && currentUser.id === userId;
+
+    const modal = document.getElementById('visit-modal');
+    if (!modal) return;
+
+    // Устанавливаем фон (путь к фону можно изменить)
+    const modalContent = document.getElementById('visit-content');
+    if (modalContent) {
+        modalContent.style.backgroundImage = "url('img/background.JPG')";
+    }
+
+    // Сброс содержимого
+    document.getElementById('visit-name').textContent = 'Загрузка...';
+    document.getElementById('visit-level-badge').textContent = '1';
+    document.getElementById('visit-telegram-id-value').textContent = '';
+    document.getElementById('visit-guild-value').textContent = '';
+    document.getElementById('visit-avatar-img').src = '';
+    document.getElementById('visit-base-character').src = 'img/men.png';
+    document.getElementById('visit-equipment-layer').innerHTML = '';
+    document.getElementById('visit-pet-container').innerHTML = '';
+
+    try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (!userDoc.exists) {
+            showNotification('Ошибка', 'Пользователь не найден');
+            return;
+        }
+        const userData = userDoc.data();
+
+        // Основная информация
+        document.getElementById('visit-name').textContent = userData.name || 'Без имени';
+        document.getElementById('visit-level-badge').textContent = userData.level || 1;
+        document.getElementById('visit-telegram-id-value').textContent = userData.telegramId || userData.id.slice(0,8);
+
+        // Гильдия
+        let guildName = 'Нет гильдии';
+        if (userData.guildId) {
+            const guildDoc = await db.collection('guilds').doc(userData.guildId).get();
+            if (guildDoc.exists) {
+                guildName = guildDoc.data().name;
+            }
+        }
+        document.getElementById('visit-guild-value').textContent = guildName;
+
+        // Аватар
+        const avatarImg = document.getElementById('visit-avatar-img');
+        if (userData.photoUrl) {
+            avatarImg.src = userData.photoUrl;
+        } else {
+            avatarImg.src = ''; // заглушка
+            avatarImg.alt = userData.name?.[0] || '?';
+        }
+
+        // Скин персонажа
+        const baseChar = document.getElementById('visit-base-character');
+        if (userData.skin) {
+            baseChar.src = userData.skin.imageUrl;
+        } else {
+            baseChar.src = 'img/men.png';
+        }
+
+        // Питомец
+        const petContainer = document.getElementById('visit-pet-container');
+        if (userData.pets && userData.pets.length > 0) {
+            const pet = userData.pets[0];
+            const img = document.createElement('img');
+            img.src = pet.imageUrl;
+            img.style.width = '80px';
+            img.style.height = '80px';
+            img.style.objectFit = 'contain';
+            petContainer.appendChild(img);
+        }
+
+        // Кнопка добавления в друзья
+        const addBtn = document.getElementById('visit-add-friend-btn');
+        if (isSelf) {
+            addBtn.style.display = 'none';
+        } else {
+            const isFriend = currentUser.friends && currentUser.friends.includes(userId);
+            if (isFriend) {
+                addBtn.textContent = '✅ Уже в друзьях';
+                addBtn.disabled = true;
+            } else {
+                addBtn.textContent = '➕ Добавить в друзья';
+                addBtn.disabled = false;
+                addBtn.onclick = () => sendFriendRequest(userId);
+            }
+            addBtn.style.display = 'block';
+        }
+
+        modal.classList.remove('hidden');
+    } catch (e) {
+        console.error('Ошибка загрузки профиля для визита:', e);
+        showNotification('Ошибка', 'Не удалось загрузить данные пользователя');
+    }
+}
+
+function closeVisitModal() {
+    document.getElementById('visit-modal').classList.add('hidden');
 }
 
 // =======================================================
@@ -3033,6 +3164,7 @@ window.onload = async () => {
         document.getElementById('user-avatar').onclick = openProfileModal;
         document.getElementById('close-profile-modal').onclick = closeProfileModal;
         document.getElementById('close-friends-modal').onclick = closeFriendsModal;
+        document.getElementById('close-visit-modal').onclick = closeVisitModal;
 
         document.querySelectorAll('.friends-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -3129,6 +3261,8 @@ window.showInviteMenu = showInviteMenu;
 window.buySkin = window.buySkin;
 window.equipSkin = window.equipSkin;
 window.previewSkin = window.previewSkin;
+window.openVisitModal = openVisitModal;
+window.closeVisitModal = closeVisitModal;
 
 // =======================================================
 // СУНДУК С СОКРОВИЩАМИ (ГАЧА)
