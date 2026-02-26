@@ -1114,9 +1114,6 @@ body::before {
   z-index: 10;
   padding: 12px 14px 10px;
   background: linear-gradient(to bottom, rgba(7, 6, 20, 0.80) 0%, transparent 100%);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: flex;
   flex-direction: column;
   gap: 7px;
 }
@@ -3481,4 +3478,202 @@ body {
 .talent-selected, [data-selected="true"] {
     border-color: rgba(212, 112, 48, 0.7) !important;
     box-shadow: 0 0 16px rgba(212, 112, 48, 0.35) !important;
+}
+/* ========== ПАНЕЛЬ УРОНА В РЕАЛЬНОМ ВРЕМЕНИ (БОЙ) ========== */
+.battle-damage-container {
+    position: absolute;
+    top: 140px;          /* Отступ от шапки, чтобы не налезать на неё */
+    left: 10px;
+    width: 180px;
+    background: rgba(10, 5, 0, 0.8);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(212, 112, 48, 0.4);
+    border-radius: var(--radius-md);
+    padding: 8px 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    z-index: 15;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.7);
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-primary) transparent;
+    pointer-events: none; /* Чтобы не мешать нажатиям на босса */
+}
+
+/* Полоса прокрутки */
+.battle-damage-container::-webkit-scrollbar {
+    width: 3px;
+}
+.battle-damage-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.battle-damage-container::-webkit-scrollbar-thumb {
+    background: var(--accent-primary);
+    border-radius: 3px;
+}
+
+/* Заголовок */
+.damage-title {
+    text-align: center;
+    font-weight: 800;
+    color: var(--accent-gold);
+    margin-bottom: 6px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(212,112,48,0.3);
+    padding-bottom: 4px;
+}
+
+/* Контейнер списка */
+.damage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Одна строка с игроком и уроном */
+.damage-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 200, 120, 0.05);
+    padding: 4px 8px;
+    border-radius: 12px;
+    border-left: 2px solid rgba(212,112,48,0.3);
+    transition: background 0.15s;
+}
+
+/* Текущий игрок (выделение) */
+.damage-row.current {
+    background: rgba(244, 196, 48, 0.15);
+    border-left-color: var(--accent-gold);
+    font-weight: 700;
+}
+
+/* Имя игрока (обрезается, если длинное) */
+.damage-name {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.damage-row.current .damage-name {
+    color: var(--text-gold);
+}
+
+/* Значение урона */
+.damage-value {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 5px var(--accent-cyan-glow);
+}
+
+/* Пустой список */
+.damage-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 10px 0;
+    font-style: italic;
+}
+
+/* Адаптация для маленьких экранов — смещаем блок левее/правее, уменьшаем ширину */
+@media (max-width: 420px) {
+    .battle-damage-container {
+        width: 150px;
+        top: 130px;
+        left: 5px;
+        font-size: 11px;
+    }
+    .damage-name {
+        max-width: 80px;
+    }
+}
+/* ========== КНОПКА ОТКРЫТИЯ СПИСКА УРОНА ========== */
+.damage-popup-btn {
+    background: rgba(212,112,48,0.2);
+    border: 1px solid rgba(212,112,48,0.5);
+    color: var(--text-gold);
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    font-weight: 700;
+    margin-left: 8px;
+    transition: all 0.15s;
+    line-height: 1;
+}
+.damage-popup-btn:hover {
+    background: rgba(212,112,48,0.4);
+    transform: scale(1.05);
+    border-color: var(--accent-bright);
+}
+
+/* ========== МОДАЛЬНОЕ ОКНО СПИСКА УРОНА ========== */
+.damage-popup-content {
+    max-width: 320px;
+    width: 90%;
+    max-height: 70vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.damage-popup-list {
+    flex: 1;
+    overflow-y: auto;
+    margin: 10px 0 15px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-primary) transparent;
+}
+.damage-popup-list::-webkit-scrollbar {
+    width: 4px;
+}
+.damage-popup-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.damage-popup-list::-webkit-scrollbar-thumb {
+    background: var(--accent-primary);
+    border-radius: 4px;
+}
+.damage-popup-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(212,112,48,0.15);
+    font-size: 14px;
+}
+.damage-popup-row:last-child {
+    border-bottom: none;
+}
+.damage-popup-row.current {
+    background: rgba(244,196,48,0.1);
+    border-left: 3px solid var(--accent-gold);
+}
+.damage-popup-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.damage-popup-value {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 5px var(--accent-cyan-glow);
+    font-size: 15px;
+}
+.damage-popup-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 25px;
+    font-style: italic;
 }

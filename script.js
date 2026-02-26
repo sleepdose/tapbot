@@ -69,7 +69,8 @@ const store = {
     },
     lastTalentUse: 0,
     guildEditing: false,
-    guildInfoVisible: false
+    guildInfoVisible: false,
+    guildMemberNames: {} // { guildId: { userId: name } }
 };
 
 // MUSIC ADDITION: глобальная переменная для аудио
@@ -1450,6 +1451,57 @@ async function updateGuildInfo() {
     }
 }
 
+// ========== ЗАГРУЗКА ИМЁН УЧАСТНИКОВ ГИЛЬДИИ (для модалки урона) ==========
+async function loadGuildMemberNames(guildId) {
+    if (!guildId) return;
+    if (store.guildMemberNames[guildId]) return; // уже загружены
+
+    const membersSnapshot = await db.collection('users').where('guildId', '==', guildId).get();
+    const names = {};
+    membersSnapshot.forEach(doc => {
+        const data = doc.data();
+        names[doc.id] = data.name || doc.id.slice(0, 6);
+    });
+    store.guildMemberNames[guildId] = names;
+}
+
+// ========== [NEW] ФУНКЦИИ ДЛЯ МОДАЛЬНОГО ОКНА УРОНА ==========
+window.showDamagePopup = function() {
+    const modal = document.getElementById('damage-popup-modal');
+    if (!modal) return;
+    updateDamagePopup();
+    modal.classList.remove('hidden');
+};
+
+window.closeDamagePopup = function() {
+    document.getElementById('damage-popup-modal').classList.add('hidden');
+};
+
+function updateDamagePopup() {
+    const listEl = document.getElementById('damage-popup-list');
+    if (!listEl || !store.guild || !store.guild.battleActive) return;
+
+    const damageLog = store.guild.damageLog || {};
+    const names = store.guildMemberNames[store.guild.id] || {};
+    const entries = Object.entries(damageLog).sort((a, b) => b[1] - a[1]);
+
+    if (entries.length === 0) {
+        listEl.innerHTML = '<div class="damage-popup-empty">Пока никто не нанёс урон</div>';
+        return;
+    }
+
+    let html = '';
+    entries.forEach(([userId, dmg]) => {
+        const name = names[userId] || userId.slice(0, 6);
+        const isCurrent = userId === store.authUser?.uid;
+        html += `<div class="damage-popup-row ${isCurrent ? 'current' : ''}">
+            <span class="damage-popup-name">${name}</span>
+            <span class="damage-popup-value">${dmg}</span>
+        </div>`;
+    });
+    listEl.innerHTML = html;
+}
+
 async function loadGuildScreen() {
     const user = await getUser(true);
     const container = document.getElementById('guild-view');
@@ -1504,6 +1556,7 @@ async function loadGuildScreen() {
         store.guild = guild;
         renderGuildPage(guild);
 
+        // Подписка на изменения гильдии
         store.listeners.guild = db.collection('guilds').doc(user.guildId).onSnapshot(async (doc) => {
             if (doc.exists) {
                 const updatedGuild = { id: doc.id, ...doc.data() };
@@ -1547,6 +1600,14 @@ async function loadGuildScreen() {
                             await loadUserFromFirestore(true);
                             updateMainUI();
                         }
+                    }
+                }
+
+                // [NEW] Если бой активен и модалка урона открыта, обновляем её
+                if (updatedGuild.battleActive) {
+                    const modal = document.getElementById('damage-popup-modal');
+                    if (modal && !modal.classList.contains('hidden')) {
+                        updateDamagePopup();
                     }
                 }
             }
@@ -1606,6 +1667,8 @@ function generateBattleHTML(guild, isLeader) {
                 </div>
                 <div class="battle-header-bottom">
                     <div class="timer" id="battle-timer">⏳ ${remainingSeconds}с</div>
+                    <!-- [NEW] Кнопка для открытия модалки урона -->
+                    <button class="damage-popup-btn" onclick="showDamagePopup()">📊 Урон</button>
                 </div>
             </div>
 
@@ -1640,9 +1703,16 @@ async function renderGuildPage(guild) {
             }
         }
         createBattleTalentButtons();
+
+        // Загружаем имена участников для отображения в модалке
+        await loadGuildMemberNames(guild.id);
+        // Закрываем модалку, если она была открыта от предыдущего боя (на всякий случай)
+        closeDamagePopup();
+
         return;
     }
 
+    // ========== НЕБОЕВОЙ РЕЖИМ (остаётся без изменений) ==========
     const { level: computedLevel, maxMembers: computedMaxMembers } = getGuildLevelAndMaxMembersFromRating(guild.rating || 0);
     guild.level = computedLevel;
     guild.maxMembers = computedMaxMembers;
@@ -2068,6 +2138,10 @@ async function endBattle(victory, guildId) {
 
     if (success) {
         finishedBattles.add(guildId);
+        // Очищаем кеш имён для этой гильдии
+        delete store.guildMemberNames[guildId];
+        // Закрываем модалку урона
+        closeDamagePopup();
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
     }
