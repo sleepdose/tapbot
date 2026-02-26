@@ -4075,3 +4075,120 @@ body {
     background: rgba(244, 67, 54, 0.15);
     transform: scale(1.1);
 }
+
+/* ==============================================
+   ПРЕЛОАДЕР
+============================================== */
+#preloader {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #0c0602;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.preloader-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.preloader-particles span {
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+    background: #d47030;
+    opacity: 0;
+    animation: preloader-float 4s infinite ease-in-out;
+}
+
+.preloader-particles span:nth-child(1)  { width: 8px;  height: 8px;  left: 15%; top: 80%; animation-delay: 0s;    animation-duration: 4.5s; }
+.preloader-particles span:nth-child(2)  { width: 5px;  height: 5px;  left: 30%; top: 85%; animation-delay: 0.8s;  animation-duration: 3.8s; }
+.preloader-particles span:nth-child(3)  { width: 10px; height: 10px; left: 50%; top: 90%; animation-delay: 1.4s;  animation-duration: 5s;   }
+.preloader-particles span:nth-child(4)  { width: 4px;  height: 4px;  left: 65%; top: 82%; animation-delay: 0.3s;  animation-duration: 4.2s; }
+.preloader-particles span:nth-child(5)  { width: 7px;  height: 7px;  left: 80%; top: 88%; animation-delay: 2s;    animation-duration: 3.5s; }
+.preloader-particles span:nth-child(6)  { width: 6px;  height: 6px;  left: 10%; top: 70%; animation-delay: 1.1s;  animation-duration: 4.8s; }
+.preloader-particles span:nth-child(7)  { width: 9px;  height: 9px;  left: 40%; top: 75%; animation-delay: 0.5s;  animation-duration: 3.9s; }
+.preloader-particles span:nth-child(8)  { width: 4px;  height: 4px;  left: 55%; top: 78%; animation-delay: 2.5s;  animation-duration: 4.1s; }
+.preloader-particles span:nth-child(9)  { width: 8px;  height: 8px;  left: 72%; top: 72%; animation-delay: 1.7s;  animation-duration: 5.2s; }
+.preloader-particles span:nth-child(10) { width: 5px;  height: 5px;  left: 88%; top: 65%; animation-delay: 0.9s;  animation-duration: 3.6s; }
+
+@keyframes preloader-float {
+    0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+    20%  { opacity: 0.7; }
+    80%  { opacity: 0.3; }
+    100% { transform: translateY(-220px) scale(1.2); opacity: 0; }
+}
+
+.preloader-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 80%;
+    max-width: 320px;
+}
+
+.preloader-icon {
+    font-size: 56px;
+    animation: preloader-pulse 1.6s ease-in-out infinite;
+    filter: drop-shadow(0 0 18px rgba(212, 112, 48, 0.8));
+}
+
+@keyframes preloader-pulse {
+    0%, 100% { transform: scale(1);   filter: drop-shadow(0 0 10px rgba(212, 112, 48, 0.6)); }
+    50%       { transform: scale(1.1); filter: drop-shadow(0 0 28px rgba(240, 144, 80, 1));   }
+}
+
+.preloader-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 32px;
+    font-weight: 900;
+    color: #fdf0dc;
+    letter-spacing: 4px;
+    margin: 0;
+    text-shadow: 0 0 20px rgba(212, 112, 48, 0.7);
+}
+
+.preloader-title span {
+    display: block;
+    font-size: 14px;
+    letter-spacing: 8px;
+    color: #d47030;
+    font-weight: 700;
+}
+
+.preloader-bar-container {
+    width: 100%;
+}
+
+.preloader-bar-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 200, 120, 0.12);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(212, 112, 48, 0.25);
+}
+
+.preloader-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #d47030, #f09050, #f0be38);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px rgba(212, 112, 48, 0.6);
+}
+
+.preloader-tip {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    color: #b89880;
+    margin: 0;
+    letter-spacing: 1px;
+}

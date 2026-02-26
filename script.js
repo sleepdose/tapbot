@@ -2,9 +2,22 @@
 // ГЛОБАЛЬНАЯ ИНИЦИАЛИЗАЦИЯ TELEGRAM, FIREBASE, АУТЕНТИФИКАЦИЯ
 // =======================================================
 if (!window.Telegram || !window.Telegram.WebApp) {
-    console.error('Telegram WebApp SDK не загружен или недоступен. Игра должна запускаться внутри Telegram.');
-    alert('Ошибка: Игра должна запускаться через Telegram бота.');
-    throw new Error('Telegram SDK недоступен.');
+    console.warn('Telegram WebApp SDK не загружен. Запуск в режиме отладки.');
+    window.Telegram = {
+        WebApp: {
+            expand: () => {},
+            ready: () => {},
+            HapticFeedback: { impactOccurred: () => {}, notificationOccurred: () => {} },
+            initDataUnsafe: { user: { id: 0, first_name: 'Debug', last_name: 'User', username: 'debug_user' } },
+            version: '6.0',
+            platform: 'unknown',
+            colorScheme: 'dark',
+            themeParams: {},
+            isExpanded: true,
+            viewportHeight: window.innerHeight,
+            viewportStableHeight: window.innerHeight
+        }
+    };
 }
 
 const tg = window.Telegram.WebApp;
@@ -75,6 +88,27 @@ const store = {
 
 // MUSIC ADDITION: глобальная переменная для аудио
 let backgroundMusic = null;
+
+// =======================================================
+// ПРЕЛОАДЕР
+// =======================================================
+function setPreloaderProgress(percent, statusText) {
+    const bar = document.getElementById('preloader-progress-bar');
+    const tip = document.getElementById('preloader-tip');
+    if (bar) bar.style.width = percent + '%';
+    if (tip && statusText) tip.textContent = statusText;
+    console.log(`[Preloader] ${percent}% — ${statusText}`);
+}
+
+function hidePreloader() {
+    const preloader = document.getElementById('preloader');
+    if (!preloader) return;
+    preloader.style.opacity = '0';
+    preloader.style.transition = 'opacity 0.6s ease';
+    setTimeout(() => {
+        preloader.style.display = 'none';
+    }, 650);
+}
 
 // =======================================================
 // УВЕДОМЛЕНИЯ — поддержка старых версий Telegram
@@ -439,7 +473,7 @@ function toggleMusic() {
 function updateMusicToggleButton() {
     const btn = document.getElementById('music-toggle-btn');
     if (!btn || !store.user) return;
-    btn.textContent = store.user.musicEnabled ? '🎵 Музыка: Выкл' : '🎵 Музыка: Вкл';
+    btn.textContent = store.user.musicEnabled ? '🎵 Музыка: Вкл' : '🎵 Музыка: Выкл';
 }
 
 // =======================================================
@@ -3089,9 +3123,16 @@ window.onload = async () => {
     }
 
     try {
+        setPreloaderProgress(15, 'Авторизация...');
         await initAuth();
+
+        setPreloaderProgress(35, 'Загрузка данных...');
         await initTestData();
+
+        setPreloaderProgress(65, 'Загрузка профиля...');
         await getUser();
+
+        setPreloaderProgress(90, 'Подготовка...');
         updateMainUI();
 
         setUserAvatar();
@@ -3224,6 +3265,8 @@ window.onload = async () => {
             musicBtn.addEventListener('click', toggleMusic);
         }
 
+        setPreloaderProgress(100, 'Готово!');
+        setTimeout(hidePreloader, 400);
         console.log('✅ Игра готова');
     } catch (e) {
         console.error('Ошибка инициализации:', e);
