@@ -285,7 +285,7 @@ function getXPProgress(user) {
     const nextLevelXP = getXPForLevel(user.level + 1);
     const xpInThisLevel = user.xp - currentLevelXP;
     const neededForNext = nextLevelXP - currentLevelXP;
-    const progress = (xpInThisLevel / neededForNext) * 100;
+    const progress = neededForNext > 0 ? (xpInThisLevel / neededForNext) * 100 : 100;
     return { xpInThisLevel, neededForNext, progress };
 }
 
@@ -327,6 +327,7 @@ async function loadUserFromFirestore() {
                 streak: 0
             },
             musicEnabled: true,
+            equipped: {},
             skin: null
         };
         await userRef.set(newUser);
@@ -364,6 +365,7 @@ async function loadUserFromFirestore() {
     if (!data.dailyBonus) { data.dailyBonus = { currentDay: 1, lastClaim: null, streak: 0 }; needsUpdate = true; }
     if (data.musicEnabled === undefined) { data.musicEnabled = false; needsUpdate = true; }
     if (data.skin === undefined) { data.skin = null; needsUpdate = true; }
+    if (!data.equipped) { data.equipped = {}; needsUpdate = true; }
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -397,6 +399,7 @@ async function loadUserFromFirestore() {
             totalDamage: data.totalDamage,
             dailyBonus: data.dailyBonus,
             musicEnabled: data.musicEnabled,
+            equipped: data.equipped,
             skin: data.skin
         };
         await userRef.update(updateData);
@@ -408,16 +411,21 @@ async function loadUserFromFirestore() {
 async function updateUser(updates) {
     if (!store.user || !store.authUser) return;
     const userRef = db.collection('users').doc(store.authUser.uid);
-    await userRef.update(updates);
-    Object.assign(store.user, updates);
-    updateMainUI();
-    updateFriendsOnlineCount();
+    try {
+        await userRef.update(updates);
+        Object.assign(store.user, updates);
+        updateMainUI();
+        updateFriendsOnlineCount();
+    } catch (error) {
+        console.error('Ошибка при обновлении пользователя:', error);
+        throw error;
+    }
 }
 function getCurrentEnergy(userData = store.user) {
     if (!userData) return 0;
     const now = Date.now();
-    const delta = Math.floor((now - userData.lastEnergyUpdate) / 1000);
-    return Math.min(userData.maxEnergy, userData.energy + delta);
+    const delta = Math.floor((now - (userData.lastEnergyUpdate || now)) / 1000);
+    return Math.min(userData.maxEnergy || 100, userData.energy + Math.max(0, delta));
 }
 async function spendEnergy(amount = 1) {
     if (!store.user) return false;
@@ -483,8 +491,10 @@ function updateMainUI() {
     if (!store.user) return;
     const user = store.user;
     const currentEnergy = getCurrentEnergy();
-    document.getElementById('money').innerText = user.money;
-    document.getElementById('energy-display').innerText = `⚡ ${currentEnergy}/${user.maxEnergy}`;
+    const moneyEl = document.getElementById('money');
+    if (moneyEl) moneyEl.innerText = user.money;
+    const energyEl = document.getElementById('energy-display');
+    if (energyEl) energyEl.innerText = `⚡ ${currentEnergy}/${user.maxEnergy}`;
     const avatarLevel = document.getElementById('avatar-level');
     if (avatarLevel) avatarLevel.textContent = user.level;
 
@@ -698,7 +708,7 @@ function updatePreviewCharacter(user) {
         const slots = ['hat', 'shirt', 'jeans', 'boots'];
         const addedLogicalSlots = new Set();
         slots.forEach(slot => {
-            if (user.equipped[slot]) {
+            if (user.equipped?.[slot]) {
                 const logicalSlot = getLogicalSlot(slot);
                 if (!addedLogicalSlots.has(logicalSlot)) {
                     const img = document.createElement('img');
@@ -1170,8 +1180,14 @@ function createBattleTalentButtons() {
 window.selectBattleTalent = async function(talentType) {
     const user = await getUser();
     const newSelected = user.selectedTalent === talentType ? null : talentType;
-    await updateUser({ selectedTalent: newSelected });
+    // Optimistic update: refresh UI instantly, sync to Firestore in background
+    store.user.selectedTalent = newSelected;
     createBattleTalentButtons();
+    updateUser({ selectedTalent: newSelected }).catch(err => {
+        console.error('Не удалось сохранить выбор таланта:', err);
+        store.user.selectedTalent = user.selectedTalent;
+        createBattleTalentButtons();
+    });
 };
 
 // =======================================================
@@ -2211,7 +2227,12 @@ window.attackBoss = async function() {
 
     try {
         const now = Date.now();
-        if (now - store.lastTalentUse < 2000) return;
+        const cooldownRemaining = 2000 - (now - store.lastTalentUse);
+        if (cooldownRemaining > 0) {
+            hapticFeedback('light');
+            showNotification('Перезарядка', `Подождите ещё ${(cooldownRemaining / 1000).toFixed(1)}с`);
+            return;
+        }
 
         if (!store.guild || !store.guild.battleActive) {
             showNotification('Ошибка', 'Сейчас нет активной битвы');
@@ -2387,7 +2408,8 @@ function showDamageEffect(amount, icon = '💥') {
 
 function updateBossVisualState() {
     if (!store.guild) return;
-    const pct = store.guild.bossHp / store.guild.maxBossHp;
+    const maxHp = store.guild.maxBossHp || 1;
+    const pct = store.guild.bossHp / maxHp;
     const isRage = pct < 0.3 && pct > 0;
 
     const glow = document.getElementById('battle-zone-glow');
@@ -2599,9 +2621,11 @@ function triggerBonusConfetti() {
 // =======================================================
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(`screen-${screenId}`).classList.add('active');
+    const screenEl = document.getElementById(`screen-${screenId}`);
+    if (screenEl) screenEl.classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.nav-btn[data-screen="${screenId}"]`).classList.add('active');
+    const navBtn = document.querySelector(`.nav-btn[data-screen="${screenId}"]`);
+    if (navBtn) navBtn.classList.add('active');
     switch (screenId) {
         case 'workshop':
             const activeTab = document.querySelector('.tab-button.active')?.dataset.tab || 'character';
@@ -2628,7 +2652,8 @@ function openProfileModal() {
     modal.classList.remove('hidden');
 }
 function closeProfileModal() {
-    document.getElementById('profile-modal').classList.add('hidden');
+    const modal = document.getElementById('profile-modal');
+    if (modal) modal.classList.add('hidden');
 }
 function updateProfileModal() {
     const user = store.user;
@@ -2636,11 +2661,13 @@ function updateProfileModal() {
 
     const avatarImg = document.getElementById('profile-avatar-img');
     const tgUser = tg.initDataUnsafe?.user;
-    if (tgUser && tgUser.photo_url) {
-        avatarImg.src = tgUser.photo_url;
-    } else {
-        avatarImg.src = '';
-        avatarImg.alt = user.name?.[0] || '?';
+    if (avatarImg) {
+        if (tgUser && tgUser.photo_url) {
+            avatarImg.src = tgUser.photo_url;
+        } else {
+            avatarImg.src = '';
+            avatarImg.alt = user.name?.[0] || '?';
+        }
     }
 
     document.getElementById('profile-name').textContent = user.name || 'Игрок';
@@ -2698,7 +2725,8 @@ async function openFriendsModal() {
     modal.classList.remove('hidden');
 }
 function closeFriendsModal() {
-    document.getElementById('friends-modal').classList.add('hidden');
+    const modal = document.getElementById('friends-modal');
+    if (modal) modal.classList.add('hidden');
 }
 window.openFriendsModal = openFriendsModal;
 
@@ -2713,6 +2741,7 @@ async function loadFriendsList() {
     const container = document.getElementById('friends-list-container');
     if (!container) return;
     const user = store.user;
+    if (!user) return;
     if (!user.friends || user.friends.length === 0) {
         container.innerHTML = '<p class="empty-msg">У вас пока нет друзей</p>';
         return;
