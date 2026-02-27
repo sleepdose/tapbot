@@ -80,19 +80,8 @@
 
             <!-- Вкладка ПИТОМЦЫ -->
             <div id="tab-pets" class="tab-content">
-                <!-- Внутренние вкладки питомцев -->
-                <div class="pet-tabs">
-                    <button class="pet-tab-btn active" onclick="switchPetTab('inventory', this)">🐾 Питомцы</button>
-                    <button class="pet-tab-btn" onclick="switchPetTab('upgrade', this)">⬆️ Улучшение</button>
-                </div>
-
-                <!-- Подвкладка 1: инвентарь + магазин -->
-                <div id="pet-tab-inventory" class="pet-tab-content">
-                    <div id="pets-grid" class="items-grid"></div>
-                </div>
-
-                <!-- Подвкладка 2: улучшение -->
-                <div id="pet-tab-upgrade" class="pet-tab-content hidden">
+                <!-- Список питомцев и улучшение -->
+                <div id="pet-tab-upgrade" class="pet-tab-content">
                     <div class="pet-upgrade-container">
                         <div class="pet-upgrade-list" id="pets-upgrade-list">
                             <p class="empty-msg">Загрузка питомцев...</p>

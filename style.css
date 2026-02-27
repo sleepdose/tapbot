@@ -4514,7 +4514,6 @@ body {
     50%       { box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 20px var(--accent-glow), 0 0 0 8px rgba(255, 80, 80, 0); }
 }
 .fab.fab-pending {
-    border-color: #ff5050;
     animation: fab-pulse 1.6s ease-in-out infinite;
 }
 .fab.fab-pending::after {

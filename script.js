@@ -2491,6 +2491,12 @@ window.attackBoss = async function() {
                 const bonusDmg = Math.round(damage * petBonus / 100);
                 console.log(`[Pet] ${equippedPet.name} Ур.${petLevel} даёт +${petBonus}% (+${bonusDmg} урона)`);
                 damage += bonusDmg;
+                // Также применяем бонус питомца к урону яда (каждый тик)
+                if (isPoison && poisonDamage > 0) {
+                    const poisonBonusDmg = Math.round(poisonDamage * petBonus / 100);
+                    poisonDamage += poisonBonusDmg;
+                    console.log(`[Pet] Яд усилен на +${petBonus}% (+${poisonBonusDmg} к тику яда), итого ${poisonDamage}`);
+                }
             }
         }
 
@@ -3677,7 +3683,7 @@ window.onload = async () => {
             document.getElementById(`tab-${tab}`).classList.add('active');
 
             if (tab === 'character') renderSkins();
-            if (tab === 'pets') loadPetsGrid();
+            if (tab === 'pets') { loadPetsGrid(); loadPetUpgradeList(); }
             if (tab === 'talents') {
                 initTalentsTab();
             }
