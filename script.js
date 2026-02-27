@@ -328,7 +328,8 @@ async function loadUserFromFirestore() {
             },
             musicEnabled: true,
             equipped: {},
-            skin: null
+            skin: null,
+            completedTasks: [] // <-- новое поле для выполненных заданий
         };
         await userRef.set(newUser);
         store.user = newUser;
@@ -370,6 +371,7 @@ async function loadUserFromFirestore() {
     if (!Array.isArray(data.friends)) { data.friends = []; needsUpdate = true; }
     if (!Array.isArray(data.pendingRequests)) { data.pendingRequests = []; needsUpdate = true; }
     if (!Array.isArray(data.inventory)) { data.inventory = []; needsUpdate = true; }
+    if (!Array.isArray(data.completedTasks)) { data.completedTasks = []; needsUpdate = true; } // <-- добавили
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -404,7 +406,8 @@ async function loadUserFromFirestore() {
             dailyBonus: data.dailyBonus,
             musicEnabled: data.musicEnabled,
             equipped: data.equipped,
-            skin: data.skin
+            skin: data.skin,
+            completedTasks: data.completedTasks // <-- сохраняем
         };
         await userRef.update(updateData);
     }
@@ -2775,6 +2778,189 @@ async function initTestData() {
     }
 }
 
+// ========== ИНИЦИАЛИЗАЦИЯ ЗАДАНИЙ ==========
+async function initTasks() {
+    const tasksSnap = await db.collection('tasks').limit(1).get();
+    if (tasksSnap.empty) {
+        const defaultTask = {
+            id: 'join_channel_sol_hiko',
+            title: 'Вступить в канал игры',
+            description: 'Подпишись на @sol_hiko',
+            reward: { money: 500 },
+            conditionType: 'telegram_channel',
+            conditionData: { channel: '@sol_hiko', link: 'https://t.me/sol_hiko' },
+            isActive: true
+        };
+        await db.collection('tasks').doc(defaultTask.id).set(defaultTask);
+        console.log('➕ Тестовое задание добавлено');
+    }
+}
+
+// ========== ЗАДАНИЯ: ОТКРЫТИЕ МОДАЛКИ И РЕНДЕР ==========
+async function openTasksModal() {
+    const modal = document.getElementById('tasks-modal');
+    if (!modal) return;
+    await renderTasksModal();   // теперь асинхронная
+    modal.classList.remove('hidden');
+}
+window.openTasksModal = openTasksModal;
+
+function closeTasksModal() {
+    const modal = document.getElementById('tasks-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeTasksModal = closeTasksModal;
+
+async function renderTasksModal() {
+    const user = store.user;
+    if (!user) return;
+
+    // Загружаем все активные задания из Firestore
+    const tasksSnap = await db.collection('tasks').where('isActive', '==', true).get();
+    const allTasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Фильтруем невыполненные
+    const completed = user.completedTasks || [];
+    const availableTasks = allTasks.filter(task => !completed.includes(task.id));
+
+    const container = document.querySelector('.tasks-list');
+    if (!container) return;
+
+    if (availableTasks.length === 0) {
+        container.innerHTML = '<p class="empty-msg">✨ Все задания выполнены! Жди новых.</p>';
+        return;
+    }
+
+    let html = '';
+    availableTasks.forEach(task => {
+        html += `
+            <div class="task-item" data-task-id="${task.id}" data-condition-type="${task.conditionType}">
+                <div class="task-icon">📢</div>
+                <div class="task-info">
+                    <div class="task-title">${task.title}</div>
+                    <div class="task-desc">${task.description}</div>
+                    <div class="task-reward">${formatReward(task.reward)}</div>
+                </div>
+                <div class="task-action">
+                    <button class="task-btn task-btn-go" onclick="taskGo('${task.id}')">Перейти</button>
+                    <button class="task-btn task-btn-check hidden" onclick="taskCheck('${task.id}')">Проверить</button>
+                    <div class="task-done hidden">✅ Выполнено</div>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function formatReward(reward) {
+    let parts = [];
+    if (reward.money) parts.push(`🪙 +${reward.money}`);
+    if (reward.energy) parts.push(`⚡ +${reward.energy}`);
+    if (reward.item) parts.push(`🎁 ${reward.item}`);
+    return parts.join(' + ') || '???';
+}
+
+// ========== ЗАДАНИЯ: ОБРАБОТЧИКИ ==========
+window.taskGo = async function(taskId) {
+    const taskDoc = await db.collection('tasks').doc(taskId).get();
+    if (!taskDoc.exists) return;
+    const task = taskDoc.data();
+
+    if (task.conditionType === 'telegram_channel') {
+        const link = task.conditionData?.link;
+        if (link) {
+            if (tg && typeof tg.openTelegramLink === 'function') {
+                tg.openTelegramLink(link);
+            } else {
+                window.open(link, '_blank');
+            }
+            // Показываем кнопку "Проверить" для этой карточки
+            const taskItem = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
+            if (taskItem) {
+                taskItem.querySelector('.task-btn-go').classList.add('hidden');
+                taskItem.querySelector('.task-btn-check').classList.remove('hidden');
+            }
+        }
+    }
+};
+
+window.taskCheck = async function(taskId) {
+    const user = store.user;
+    if (!user) return;
+
+    const taskDoc = await db.collection('tasks').doc(taskId).get();
+    if (!taskDoc.exists) return;
+    const task = taskDoc.data();
+
+    const taskItem = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
+    const checkBtn = taskItem?.querySelector('.task-btn-check');
+    if (checkBtn) {
+        checkBtn.disabled = true;
+        checkBtn.textContent = '⏳ Проверяю...';
+    }
+
+    let success = false;
+    if (task.conditionType === 'telegram_channel') {
+        const userId = tg.initDataUnsafe?.user?.id;
+        if (!userId) {
+            showNotification('Ошибка', 'Не удалось получить Telegram ID');
+            resetCheckButton(taskId);
+            return;
+        }
+        try {
+            const res = await fetch(`https://hiko-bot-backend.onrender.com/api/check-membership?user_id=${userId}`);
+            const data = await res.json();
+            success = data.isMember;
+        } catch (err) {
+            console.error('Check error:', err);
+            showNotification('Ошибка', 'Не удалось проверить подписку');
+        }
+    }
+
+    if (success) {
+        // Начисляем награду
+        const updates = {};
+        if (task.reward.money) updates.money = (user.money || 0) + task.reward.money;
+        if (task.reward.energy) {
+            const currentEnergy = getCurrentEnergy();
+            updates.energy = Math.min(user.maxEnergy, currentEnergy + task.reward.energy);
+            updates.lastEnergyUpdate = Date.now();
+        }
+        const completedTasks = [...(user.completedTasks || []), taskId];
+        updates.completedTasks = completedTasks;
+
+        await updateUser(updates);
+
+        // Обновляем отображение (скрываем карточку)
+        if (taskItem) {
+            taskItem.classList.add('hidden');
+        }
+        showNotification('🎉 Задание выполнено!', formatReward(task.reward));
+    } else {
+        showNotification('❌ Не засчитано', 'Попробуй ещё раз');
+    }
+
+    // Разблокируем кнопку, если не удалили карточку
+    if (taskItem && !taskItem.classList.contains('hidden')) {
+        const btn = taskItem.querySelector('.task-btn-check');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Проверить';
+        }
+    }
+};
+
+function resetCheckButton(taskId) {
+    const taskItem = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
+    if (taskItem) {
+        const btn = taskItem.querySelector('.task-btn-check');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Проверить';
+        }
+    }
+}
+
 // =======================================================
 // СИСТЕМА ДРУЗЕЙ
 // =======================================================
@@ -3220,6 +3406,7 @@ window.onload = async () => {
 
         setPreloaderProgress(35, 'Загрузка данных...');
         await initTestData();
+        await initTasks(); // <-- добавили инициализацию заданий
 
         setPreloaderProgress(65, 'Загрузка профиля...');
         await getUser();
@@ -3656,106 +3843,6 @@ window.closeTreasureModal  = closeTreasureModal;
 window.spinTreasure        = spinTreasure;
 
 // =======================================================
-// ЗАДАНИЯ
+// ЗАДАНИЯ (старые глобальные функции удалены, оставлены только новые)
 // =======================================================
-const TASK_CHANNEL_ID = 'join_channel_sol_hiko';
-
-function openTasksModal() {
-    const modal = document.getElementById('tasks-modal');
-    if (!modal) return;
-    modal.classList.remove('hidden');
-    renderTasksModal();
-    console.log('[Tasks] Modal opened');
-}
-
-function closeTasksModal() {
-    const modal = document.getElementById('tasks-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
-function renderTasksModal() {
-    const user = store.user;
-    if (!user) return;
-
-    const completed = user.completedTasks || [];
-    const isDone = completed.includes(TASK_CHANNEL_ID);
-
-    const goBtn = document.getElementById('task-channel-go-btn');
-    const checkBtn = document.getElementById('task-channel-check-btn');
-    const doneEl = document.getElementById('task-channel-done');
-
-    if (!goBtn || !checkBtn || !doneEl) return;
-
-    if (isDone) {
-        goBtn.classList.add('hidden');
-        checkBtn.classList.add('hidden');
-        doneEl.classList.remove('hidden');
-    } else {
-        goBtn.classList.remove('hidden');
-        checkBtn.classList.add('hidden');
-        doneEl.classList.add('hidden');
-    }
-}
-
-function taskGoToChannel() {
-    console.log('[Tasks] Opening channel @sol_hiko');
-    if (tg && typeof tg.openTelegramLink === 'function') {
-        tg.openTelegramLink('https://t.me/sol_hiko');
-    } else {
-        window.open('https://t.me/sol_hiko', '_blank');
-    }
-    // Показываем кнопку "Проверить" после перехода
-    const goBtn = document.getElementById('task-channel-go-btn');
-    const checkBtn = document.getElementById('task-channel-check-btn');
-    if (goBtn) goBtn.classList.add('hidden');
-    if (checkBtn) checkBtn.classList.remove('hidden');
-}
-
-async function taskCheckChannel() {
-    const user = store.user;
-    if (!user) return;
-
-    const checkBtn = document.getElementById('task-channel-check-btn');
-    if (checkBtn) {
-        checkBtn.disabled = true;
-        checkBtn.textContent = '⏳ Проверяю...';
-    }
-
-    const userId = tg.initDataUnsafe?.user?.id;
-    if (!userId) {
-        showNotification('Ошибка', 'Не удалось получить Telegram ID. Попробуй перезапустить игру.');
-        if (checkBtn) { checkBtn.disabled = false; checkBtn.textContent = 'Проверить'; }
-        return;
-    }
-
-    console.log(`[Tasks] Checking channel membership for user ${userId}`);
-
-    try {
-        const res = await fetch(`https://hiko-bot-backend.onrender.com/api/check-membership?user_id=${userId}`);
-        const data = await res.json();
-        console.log('[Tasks] Check result:', data);
-
-        if (data.isMember) {
-            // Начисляем награду
-            const newMoney = (user.money || 0) + 500;
-            const completedTasks = [...(user.completedTasks || []), TASK_CHANNEL_ID];
-            await updateUser({ money: newMoney, completedTasks });
-
-            renderTasksModal();
-            showNotification('🎉 Задание выполнено!', 'Ты вступил в @sol_hiko. Получай +500 монет!');
-            console.log('[Tasks] Task completed, +500 coins');
-        } else {
-            if (checkBtn) { checkBtn.disabled = false; checkBtn.textContent = 'Проверить'; }
-            showNotification('❌ Не засчитано', 'Ты ещё не вступил в канал @sol_hiko. Подпишись и нажми "Проверить" снова.');
-        }
-    } catch (err) {
-        console.error('[Tasks] Check error:', err);
-        if (checkBtn) { checkBtn.disabled = false; checkBtn.textContent = 'Проверить'; }
-        showNotification('Ошибка', 'Не удалось проверить подписку. Попробуй позже.');
-    }
-}
-
-window.openTasksModal  = openTasksModal;
-window.closeTasksModal = closeTasksModal;
-window.taskGoToChannel = taskGoToChannel;
-window.taskCheckChannel = taskCheckChannel;
+// (всё уже реализовано выше)

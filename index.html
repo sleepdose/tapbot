@@ -373,9 +373,8 @@
                 <button class="close-modal-btn visit-close-btn" id="close-visit-modal">✕ Закрыть</button>
             </div>
         </div>
-    </div>
 
-        <!-- ========== МОДАЛЬНОЕ ОКНО: ЗАДАНИЯ ========== -->
+        <!-- ========== МОДАЛЬНОЕ ОКНО: ЗАДАНИЯ (динамическое) ========== -->
         <div id="tasks-modal" class="modal hidden">
             <div class="modal-content tasks-modal-content">
                 <div class="tasks-modal-header">
@@ -383,31 +382,14 @@
                     <h3 class="tasks-modal-title">ЗАДАНИЯ</h3>
                     <p class="tasks-modal-subtitle">Выполняй задания и получай награды!</p>
                 </div>
-                <div class="tasks-list">
-                    <!-- Задание 1: вступить в канал -->
-                    <div class="task-item" id="task-join-channel">
-                        <div class="task-icon">📢</div>
-                        <div class="task-info">
-                            <div class="task-title">Вступить в канал игры</div>
-                            <div class="task-desc">Подпишись на @sol_hiko</div>
-                            <div class="task-reward">🪙 +500</div>
-                        </div>
-                        <div class="task-action">
-                            <button class="task-btn task-btn-go" id="task-channel-go-btn" onclick="taskGoToChannel()">
-                                Перейти
-                            </button>
-                            <button class="task-btn task-btn-check hidden" id="task-channel-check-btn" onclick="taskCheckChannel()">
-                                Проверить
-                            </button>
-                            <div class="task-done hidden" id="task-channel-done">✅ Выполнено</div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Контейнер для динамически создаваемых заданий -->
+                <div class="tasks-list"></div>
                 <div class="modal-buttons">
                     <button onclick="closeTasksModal()" class="cancel-btn">Закрыть</button>
                 </div>
             </div>
         </div>
+    </div>
 
     <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
