@@ -89,6 +89,39 @@ app.post('/api/notify-battle-start', async (req, res) => {
   res.json({ ok: true, sent, failed });
 });
 
+// ===== Эндпоинт: уведомление о заявке в друзья =====
+// Принимает: { targetTelegramId, fromName }
+app.post('/api/notify-friend-request', async (req, res) => {
+  const { targetTelegramId, fromName } = req.body;
+
+  if (!targetTelegramId) {
+    return res.status(400).json({ error: 'Missing targetTelegramId' });
+  }
+
+  const text =
+    `👥 *Новая заявка в друзья!*\n\n` +
+    `Игрок *${fromName || 'Игрок'}* хочет добавить тебя в друзья.\n\n` +
+    `Открой игру, чтобы принять или отклонить заявку!`;
+
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: '👥 Открыть игру', web_app: { url: WEB_APP_URL } }]
+    ]
+  };
+
+  try {
+    await bot.sendMessage(targetTelegramId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+    });
+    console.log(`Уведомление о заявке в друзья отправлено пользователю ${targetTelegramId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(`Не удалось отправить уведомление о заявке пользователю ${targetTelegramId}:`, err.message);
+    res.status(500).json({ error: 'Failed to send notification', details: err.message });
+  }
+});
+
 // Запускаем HTTP сервер
 app.listen(PORT, () => {
   console.log(`HTTP сервер запущен на порту ${PORT}`);

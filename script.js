@@ -3041,7 +3041,7 @@ async function loadFriendsList() {
 
     let html = '';
     for (const friend of friends) {
-        const lastSeen = friend.lastEnergyUpdate || 0;
+        const lastSeen = friend.lastSeen || friend.lastEnergyUpdate || 0;
         const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
         html += `
             <div class="friend-item" data-user-id="${friend.id}" onclick="openVisitModal('${friend.id}')">
@@ -3095,7 +3095,7 @@ async function updateFriendsOnlineCount() {
         const friendDoc = await db.collection('users').doc(friendId).get();
         if (friendDoc.exists) {
             const friend = friendDoc.data();
-            const lastSeen = friend.lastEnergyUpdate || 0;
+            const lastSeen = friend.lastSeen || friend.lastEnergyUpdate || 0;
             if (Date.now() - lastSeen < 5 * 60 * 1000) online++;
         }
     }
@@ -3122,6 +3122,27 @@ window.sendFriendRequest = async function(targetId) {
         timestamp: Date.now()
     });
     showNotification('Заявка отправлена', '');
+
+    // Уведомляем получателя через бота
+    try {
+        const targetDoc = await db.collection('users').doc(targetId).get();
+        if (targetDoc.exists) {
+            const targetUser = targetDoc.data();
+            const targetTelegramId = targetUser.telegramId;
+            const fromName = store.user?.name || 'Игрок';
+            if (targetTelegramId) {
+                await fetch('https://hiko-bot-backend.onrender.com/api/notify-friend-request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetTelegramId, fromName })
+                });
+                console.log('Уведомление о заявке отправлено пользователю', targetTelegramId);
+            }
+        }
+    } catch (err) {
+        console.error('Ошибка отправки уведомления о заявке:', err);
+    }
+
     closeVisitModal(); // закрыть модалку визита после отправки заявки
 };
 
@@ -3515,10 +3536,29 @@ window.onload = async () => {
             }
         });
 
+
+// ===== Heartbeat для статуса онлайн =====
+async function updateLastSeen() {
+    if (!store.authUser) return;
+    try {
+        await db.collection('users').doc(store.authUser.uid).update({
+            lastSeen: Date.now()
+        });
+        console.log('lastSeen обновлён');
+    } catch (e) {
+        console.warn('Ошибка обновления lastSeen:', e);
+    }
+}
+
         if (window.energyUpdateInterval) {
             clearInterval(window.energyUpdateInterval);
         }
         window.energyUpdateInterval = setInterval(updateMainUI, 1000);
+
+        // Запуск heartbeat для онлайн-статуса (обновляем lastSeen каждые 60 секунд)
+        updateLastSeen();
+        if (window.lastSeenInterval) clearInterval(window.lastSeenInterval);
+        window.lastSeenInterval = setInterval(updateLastSeen, 60000);
 
         updateBattleResultModalVisibility();
 
@@ -3555,7 +3595,7 @@ window.onload = async () => {
             if (!userQuery.empty) {
                 const foundUserDoc = userQuery.docs[0];
                 const foundUser = foundUserDoc.data();
-                const lastSeen = foundUser.lastEnergyUpdate || 0;
+                const lastSeen = foundUser.lastSeen || foundUser.lastEnergyUpdate || 0;
                 const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
                 resultDiv.innerHTML = `
                     <div class="friend-item">
