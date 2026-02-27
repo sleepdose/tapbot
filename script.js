@@ -316,6 +316,7 @@ async function loadUserFromFirestore() {
             money: 500,
             pets: [],
             inventory: [],
+            petLevels: {},
             guildId: null,
             friends: [],
             pendingRequests: [],
@@ -413,6 +414,7 @@ async function loadUserFromFirestore() {
     }
 
     store.user = data;
+    updateFriendsFabState();
     return store.user;
 }
 async function updateUser(updates) {
@@ -423,6 +425,7 @@ async function updateUser(updates) {
         Object.assign(store.user, updates);
         updateMainUI();
         updateFriendsOnlineCount();
+        updateFriendsFabState();
     } catch (error) {
         console.error('Ошибка при обновлении пользователя:', error);
         throw error;
@@ -576,67 +579,32 @@ async function renderSkins() {
     const container = document.getElementById('slot-items');
     if (!container) return;
 
-    const shopSnapshot = await db.collection('shop_items').where('type', '==', 'skin').get();
-    const shopSkins = shopSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Показываем только скины из инвентаря — полученные через сундуки
+    const ownedSkins = user.inventory.filter(inv => inv.type === 'skin');
 
-    const inventorySkins = user.inventory.filter(inv => inv.type === 'skin');
-
-    const skinsMap = new Map();
-    shopSkins.forEach(skin => skinsMap.set(skin.id, { ...skin, fromShop: true }));
-    inventorySkins.forEach(invSkin => {
-        if (!skinsMap.has(invSkin.id)) {
-            skinsMap.set(invSkin.id, {
-                id: invSkin.id,
-                name: invSkin.name,
-                type: 'skin',
-                price: invSkin.price || 0,
-                imageUrl: invSkin.imageUrl,
-                exclusive: invSkin.exclusive || false
-            });
-        }
-    });
-
-    const allSkins = Array.from(skinsMap.values());
-
-    if (allSkins.length === 0) {
-        container.innerHTML = '<p class="empty-msg">Скины пока не доступны</p>';
+    if (ownedSkins.length === 0) {
+        container.innerHTML = '<p class="empty-msg">У тебя пока нет скинов. Открой сундук с сокровищами!</p>';
+        updatePreviewCharacter(user);
         return;
     }
 
     // Сортировка: сначала обычные, потом эксклюзивные
-    const normalSkins = allSkins.filter(s => !s.exclusive);
-    const exclusiveSkins = allSkins.filter(s => s.exclusive);
+    const normalSkins = ownedSkins.filter(s => !s.exclusive);
+    const exclusiveSkins = ownedSkins.filter(s => s.exclusive);
     const sortedSkins = [...normalSkins, ...exclusiveSkins];
 
     container.innerHTML = sortedSkins.map(skin => {
-        const isOwned = user.inventory.some(inv => inv.id === skin.id);
         const isActive = user.skin?.id === skin.id;
-
-        let buttonText = 'Купить';
-        let buttonAction = `buySkin('${skin.id}')`;
-        let disabled = false;
-
-        if (isOwned) {
-            if (isActive) {
-                buttonText = 'Активен';
-                disabled = true;
-            } else {
-                buttonText = 'Выбрать';
-                buttonAction = `equipSkin('${skin.id}')`;
-            }
-        } else {
-            buttonText = `Купить`;
-        }
-
         const cardClass = `item-card ${skin.exclusive ? 'exclusive' : ''}`;
-        const priceHtml = skin.price > 0 ? `<span class="item-price">${skin.price} 🪙</span>` : '';
+        const actionBtn = isActive
+            ? `<button disabled>Активен</button>`
+            : `<button onclick="equipSkin('${skin.id}'); event.stopPropagation();">Выбрать</button>`;
 
         return `
             <div class="${cardClass}" data-skin-id="${skin.id}" onclick="previewSkin('${skin.imageUrl}')">
                 <img src="${skin.imageUrl}" alt="${skin.name}">
                 <span>${skin.name}</span>
-                ${priceHtml}
-                <button onclick="${buttonAction}; event.stopPropagation();" ${disabled ? 'disabled' : ''}>${buttonText}</button>
+                ${actionBtn}
             </div>
         `;
     }).join('');
@@ -739,60 +707,31 @@ async function loadPetsGrid() {
     const user = await getUser();
     const container = document.getElementById('pets-grid');
     if (!container) return;
-    const snapshot = await db.collection('shop_items').where('type', '==', 'pet').get();
-    const pets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // Добавляем эксклюзивных питомцев из инвентаря, если их нет в магазине
-    const inventoryPets = user.inventory.filter(inv => inv.type === 'pet');
-    const petsMap = new Map();
-    pets.forEach(p => petsMap.set(p.id, { ...p, exclusive: false }));
-    inventoryPets.forEach(invPet => {
-        if (!petsMap.has(invPet.id)) {
-            petsMap.set(invPet.id, {
-                id: invPet.id,
-                name: invPet.name,
-                type: 'pet',
-                price: invPet.price || 0,
-                imageUrl: invPet.imageUrl,
-                exclusive: invPet.exclusive || false
-            });
-        }
-    });
+    // Показываем только питомцев из инвентаря — полученных через сундуки
+    const ownedPets = user.inventory.filter(inv => inv.type === 'pet');
 
-    const allPets = Array.from(petsMap.values());
-
-    if (allPets.length === 0) {
-        container.innerHTML = '<p class="empty-msg">Питомцы пока не доступны</p>';
+    if (ownedPets.length === 0) {
+        container.innerHTML = '<p class="empty-msg">У тебя пока нет питомцев. Открой сундук с сокровищами!</p>';
         return;
     }
 
     // Сортировка: сначала обычные, потом эксклюзивные
-    const normalPets = allPets.filter(p => !p.exclusive);
-    const exclusivePets = allPets.filter(p => p.exclusive);
+    const normalPets = ownedPets.filter(p => !p.exclusive);
+    const exclusivePets = ownedPets.filter(p => p.exclusive);
     const sortedPets = [...normalPets, ...exclusivePets];
 
     container.innerHTML = sortedPets.map(pet => {
-        const ownedItem = user.inventory.find(inv => inv.id === pet.id);
         const isActive = user.pets[0]?.id === pet.id;
-        let button = '';
-        if (!ownedItem) {
-            button = `<button onclick="buyPet('${pet.id}')">Купить</button>`;
-        } else {
-            if (isActive) {
-                button = `<button disabled>Активен</button>`;
-            } else {
-                button = `<button onclick="activatePet('${pet.id}')">Выбрать</button>`;
-            }
-        }
-
         const cardClass = `item-card ${pet.exclusive ? 'exclusive' : ''}`;
-        const priceHtml = pet.price > 0 ? `<span class="item-price">${pet.price} 🪙</span>` : '';
+        const button = isActive
+            ? `<button disabled>Активен</button>`
+            : `<button onclick="activatePet('${pet.id}')">Выбрать</button>`;
 
         return `
             <div class="${cardClass}">
                 <img src="${pet.imageUrl}" alt="${pet.name}">
                 <span>${pet.name}</span>
-                ${priceHtml}
                 ${button}
             </div>
         `;
@@ -861,6 +800,149 @@ window.activatePet = async function(petId) {
     updateMainUI();
     updatePreviewCharacter(user);
     hapticFeedback();
+};
+
+// =======================================================
+// ПИТОМЦЫ: УРОВНИ И УЛУЧШЕНИЯ
+// =======================================================
+
+const PET_LEVELS = {
+    1: { bonus: 5,  cost: 0 },
+    2: { bonus: 10, cost: 500 },
+    3: { bonus: 15, cost: 1000 },
+    4: { bonus: 20, cost: 2000 },
+    5: { bonus: 25, cost: 4000 }
+};
+const PET_MAX_LEVEL = 5;
+
+window.switchPetTab = function(tab, btn) {
+    document.querySelectorAll('.pet-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.pet-tab-content').forEach(c => c.classList.add('hidden'));
+    if (btn) btn.classList.add('active');
+    const el = document.getElementById('pet-tab-' + tab);
+    if (el) el.classList.remove('hidden');
+    if (tab === 'upgrade') loadPetUpgradeList();
+};
+
+async function loadPetUpgradeList() {
+    const user = await getUser();
+    const container = document.getElementById('pets-upgrade-list');
+    if (!container) return;
+
+    const ownedPets = user.inventory.filter(inv => inv.type === 'pet');
+    if (ownedPets.length === 0) {
+        container.innerHTML = '<p class="empty-msg">У тебя пока нет питомцев</p>';
+        return;
+    }
+
+    container.innerHTML = ownedPets.map(pet => {
+        const lvl = (user.petLevels && user.petLevels[pet.id]) || 1;
+        const isActive = user.pets[0]?.id === pet.id;
+        return `
+            <div class="pet-upgrade-item ${isActive ? 'active' : ''}" onclick="showPetUpgradePreview('${pet.id}')">
+                <img src="${pet.imageUrl}" alt="${pet.name}">
+                <div class="pet-upgrade-item-info">
+                    <span class="pet-upgrade-item-name">${pet.name}</span>
+                    <span class="pet-upgrade-item-level">Ур. ${lvl} / ${PET_MAX_LEVEL}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.showPetUpgradePreview = async function(petId) {
+    const user = await getUser();
+    const preview = document.getElementById('pet-upgrade-preview');
+    if (!preview) return;
+
+    const pet = user.inventory.find(inv => inv.id === petId);
+    if (!pet) return;
+
+    const petLevels = user.petLevels || {};
+    const currentLevel = petLevels[petId] || 1;
+    const nextLevel = currentLevel + 1;
+    const isMaxLevel = currentLevel >= PET_MAX_LEVEL;
+    const isActive = user.pets[0]?.id === petId;
+    const bonus = PET_LEVELS[currentLevel].bonus;
+
+    let upgradeSection = '';
+    if (!isMaxLevel) {
+        const cost = PET_LEVELS[nextLevel].cost;
+        const nextBonus = PET_LEVELS[nextLevel].bonus;
+        const canAfford = user.money >= cost;
+        upgradeSection = `
+            <div class="pet-upgrade-cost">
+                <div class="pet-upgrade-cost-row">
+                    <span>Стоимость улучшения:</span>
+                    <span class="cost-value">${cost} 💰</span>
+                </div>
+                <div class="pet-upgrade-cost-row">
+                    <span>Следующий уровень:</span>
+                    <span class="cost-value">${nextBonus}% урона</span>
+                </div>
+            </div>
+            <button class="glow-button pet-upgrade-btn" onclick="upgradePet('${petId}')"
+                ${canAfford ? '' : 'disabled'}>
+                ${canAfford ? `⬆️ Улучшить (${cost} 💰)` : '💸 Недостаточно монет'}
+            </button>
+        `;
+    } else {
+        upgradeSection = `<div class="pet-max-level">✨ Максимальный уровень!</div>`;
+    }
+
+    const levelStars = Array.from({ length: PET_MAX_LEVEL }, (_, i) =>
+        `<span class="pet-level-star ${i < currentLevel ? 'filled' : ''}">${i < currentLevel ? '★' : '☆'}</span>`
+    ).join('');
+
+    preview.innerHTML = `
+        <img class="pet-preview-img" src="${pet.imageUrl}" alt="${pet.name}">
+        <div class="pet-preview-name">${pet.name}</div>
+        <div class="pet-preview-stars">${levelStars}</div>
+        <div class="pet-preview-level">Уровень ${currentLevel} / ${PET_MAX_LEVEL}</div>
+        <div class="pet-preview-ability">
+            🛡️ Пассивная способность:<br>
+            <strong>+${bonus}% урона в бою</strong><br>
+            <small>${isActive ? '✅ Экипирован (бонус активен)' : '⚠️ Не экипирован — бонус неактивен'}</small>
+        </div>
+        ${upgradeSection}
+        ${!isActive ? `<button class="glow-button" style="margin-top:8px;" onclick="activatePet('${petId}')">Экипировать</button>` : ''}
+    `;
+};
+
+window.upgradePet = async function(petId) {
+    const user = await getUser();
+    const petLevels = { ...(user.petLevels || {}) };
+    const currentLevel = petLevels[petId] || 1;
+
+    if (currentLevel >= PET_MAX_LEVEL) {
+        showNotification('Максимум', 'Питомец уже на максимальном уровне');
+        return;
+    }
+
+    const nextLevel = currentLevel + 1;
+    const cost = PET_LEVELS[nextLevel].cost;
+
+    if (user.money < cost) {
+        showNotification('Недостаточно монет', `Нужно ${cost} 💰`);
+        return;
+    }
+
+    try {
+        petLevels[petId] = nextLevel;
+        await updateUser({
+            money: user.money - cost,
+            petLevels
+        });
+        await loadUserFromFirestore(true);
+        await loadPetUpgradeList();
+        await showPetUpgradePreview(petId);
+        updateMainUI();
+        hapticFeedback();
+        showNotification('Успех', `Питомец улучшен до уровня ${nextLevel}!`);
+    } catch (e) {
+        console.error('Ошибка улучшения питомца:', e);
+        showNotification('Ошибка', 'Не удалось улучшить питомца');
+    }
 };
 
 // =======================================================
@@ -1621,7 +1703,22 @@ async function loadGuildScreen() {
             if (doc.exists) {
                 const updatedGuild = { id: doc.id, ...doc.data() };
                 store.guild = updatedGuild;
-                renderGuildPage(updatedGuild);
+
+                // Если бой активен и боевой экран уже показан — не перерисовываем всё,
+                // чтобы яд и другие эффекты не сбрасывали интерфейс каждую секунду.
+                const battleViewAlreadyShown = updatedGuild.battleActive && !!document.querySelector('.battle-view');
+                if (battleViewAlreadyShown) {
+                    // Тихое обновление HP без пересоздания DOM
+                    const hpFill = document.getElementById('boss-hp-fill');
+                    const hpText = document.getElementById('boss-hp-text');
+                    if (hpFill && hpText) {
+                        const hpPct = Math.max(0, (updatedGuild.bossHp / updatedGuild.maxBossHp) * 100);
+                        hpFill.style.width = hpPct + '%';
+                        hpText.textContent = `${updatedGuild.bossHp}/${updatedGuild.maxBossHp}`;
+                    }
+                } else {
+                    renderGuildPage(updatedGuild);
+                }
 
                 if (updatedGuild.battleActive && updatedGuild.bossHp <= 0) {
                     await endBattle(true, updatedGuild.id);
@@ -1663,7 +1760,7 @@ async function loadGuildScreen() {
                     }
                 }
 
-                // [NEW] Если бой активен и модалка урона открыта, обновляем её
+                // Если бой активен и модалка урона открыта, обновляем её
                 if (updatedGuild.battleActive) {
                     const modal = document.getElementById('damage-popup-modal');
                     if (modal && !modal.classList.contains('hidden')) {
@@ -1922,6 +2019,9 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
 
+    const bossNames = { boss1: 'Зарг', boss2: 'Вокс' };
+    const bossDisplayName = bossNames[currentBossId] || currentBossId;
+
     let bossImageUrl;
     if (isBattleActive) {
         bossImageUrl = currentBossId === 'boss2' ? 'img/battleboss2.png' : 'img/battleboss1.png';
@@ -1944,7 +2044,7 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
                 '<div style="width:48px;"></div>'}
 
             <div class="boss-container">
-                <h3>${currentBossId}</h3>
+                <h3>${bossDisplayName}</h3>
                 <img class="boss-image" src="${bossImageUrl}" ${isBattleActive ? 'onclick="attackBoss()"' : ''} style="${isBattleActive ? 'cursor: pointer;' : 'cursor: default;'}">
                 ${isBattleActive ? `
                     <div class="boss-hp-bar">
@@ -2380,6 +2480,18 @@ window.attackBoss = async function() {
             const level1 = user.talents[t1].level;
             const level2 = user.talents[t2].level;
             damage = config.damageFormula(level1, level2);
+        }
+
+        // Apply equipped pet passive damage bonus
+        if (user.pets && user.pets.length > 0) {
+            const equippedPet = user.pets[0];
+            const petLevel = (user.petLevels && user.petLevels[equippedPet.id]) || 1;
+            const petBonus = PET_LEVELS[petLevel]?.bonus || 0;
+            if (petBonus > 0) {
+                const bonusDmg = Math.round(damage * petBonus / 100);
+                console.log(`[Pet] ${equippedPet.name} Ур.${petLevel} даёт +${petBonus}% (+${bonusDmg} урона)`);
+                damage += bonusDmg;
+            }
         }
 
         const guildRef = db.collection('guilds').doc(store.guild.id);
@@ -3067,6 +3179,12 @@ async function loadFriendRequests() {
     const requestsSnap = await db.collection('friendRequests').where('to', '==', store.authUser.uid).get();
     const requests = requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+    // Синхронизируем pendingRequests в store.user и обновляем FAB
+    if (store.user) {
+        store.user.pendingRequests = requests.map(r => r.id);
+        updateFriendsFabState();
+    }
+
     if (requests.length === 0) {
         container.innerHTML = '<p class="empty-msg">Нет входящих заявок</p>';
         return;
@@ -3104,6 +3222,18 @@ async function updateFriendsOnlineCount() {
         }
     }
     document.getElementById('friends-online-count').textContent = online;
+}
+
+function updateFriendsFabState() {
+    const fab = document.getElementById('friends-fab');
+    if (!fab) return;
+    const pending = store.user?.pendingRequests?.length || 0;
+    console.log('🔔 Входящих запросов в друзья:', pending);
+    if (pending > 0) {
+        fab.classList.add('fab-pending');
+    } else {
+        fab.classList.remove('fab-pending');
+    }
 }
 
 window.sendFriendRequest = async function(targetId) {
@@ -3170,6 +3300,7 @@ window.acceptFriendRequest = async function(requestId, fromId) {
         loadFriendsList();
         loadFriendRequests();
         updateFriendsOnlineCount();
+        updateFriendsFabState();
         showNotification('Друг добавлен', '');
     } catch (e) {
         console.error(e);
@@ -3179,7 +3310,9 @@ window.acceptFriendRequest = async function(requestId, fromId) {
 
 window.declineFriendRequest = async function(requestId) {
     await db.collection('friendRequests').doc(requestId).delete();
+    await loadUserFromFirestore(true);
     loadFriendRequests();
+    updateFriendsFabState();
 };
 
 window.removeFriend = async function(friendId, event) {
@@ -3714,17 +3847,115 @@ const EXCLUSIVE_GACHA_ITEMS = [
 ];
 
 const GACHA_COST = 200;
+const STARS_COST = 50; // Telegram Stars price
+
+let _countdownTimer = null;
+
+// Показывает нужную кнопку и таймер в зависимости от доступности бесплатного прокрута
+function updateSpinButtons(type) {
+    const freeBtn  = document.getElementById('free-spin-btn');
+    const spinBtn  = document.getElementById('spin-btn');
+    const timerDiv = document.getElementById('free-spin-timer');
+    if (!spinBtn) return;
+
+    const hasFree = (type === 'regular') && checkTodayFreeSpin();
+
+    if (freeBtn)  freeBtn.style.display  = hasFree ? '' : 'none';
+    if (timerDiv) timerDiv.style.display = (!hasFree && type === 'regular') ? '' : 'none';
+    spinBtn.style.display = hasFree ? 'none' : '';
+
+    if (!hasFree && type === 'regular') {
+        startFreeSpinCountdown();
+    } else {
+        stopFreeSpinCountdown();
+    }
+}
+
+function stopFreeSpinCountdown() {
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    const timerDiv = document.getElementById('free-spin-timer');
+    if (timerDiv) timerDiv.style.display = 'none';
+}
+
+function startFreeSpinCountdown() {
+    if (_countdownTimer) clearInterval(_countdownTimer);
+    function tick() {
+        if (checkTodayFreeSpin()) {
+            stopFreeSpinCountdown();
+            updateSpinButtons('regular');
+            return;
+        }
+        const lastSpin = parseInt(localStorage.getItem('lastFreeSpinTimestamp') || '0');
+        const nextFree = lastSpin + 24 * 60 * 60 * 1000;
+        const diff = Math.max(0, nextFree - Date.now());
+        const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+        const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+        const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+        const el = document.getElementById('free-spin-countdown');
+        if (el) el.textContent = h + ':' + m + ':' + s;
+    }
+    tick();
+    _countdownTimer = setInterval(tick, 1000);
+}
 
 let gachaTreasurePool = [];
+let regularTreasurePool = [];
+let starsTreasurePool = [];
+let currentChestTab = 'regular';
 let isSpinning = false;
 
 async function loadTreasurePool() {
-    console.log('📦 Загружаем пул сундука...');
+    console.log('📦 Загружаем пулы сундуков...');
     const snapshot = await db.collection('shop_items').get();
     const shopItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    gachaTreasurePool = [...shopItems, ...EXCLUSIVE_GACHA_ITEMS];
-    console.log('📦 Пул сундука:', gachaTreasurePool.length, 'предметов');
+    regularTreasurePool = shopItems.filter(item => !item.exclusive);
+    if (regularTreasurePool.length === 0) regularTreasurePool = shopItems; // fallback
+    starsTreasurePool = [...EXCLUSIVE_GACHA_ITEMS];
+    gachaTreasurePool = currentChestTab === 'stars' ? starsTreasurePool : regularTreasurePool;
+    console.log('📦 Обычный:', regularTreasurePool.length, '| Звёздный:', starsTreasurePool.length);
 }
+
+function getActivePool() {
+    return currentChestTab === 'stars' ? starsTreasurePool : regularTreasurePool;
+}
+
+function checkTodayFreeSpin() {
+    const lastSpin = localStorage.getItem('lastFreeSpinTimestamp');
+    if (!lastSpin) return true;
+    return (Date.now() - parseInt(lastSpin)) >= 24 * 60 * 60 * 1000;
+}
+
+function markFreeSpinUsed() {
+    localStorage.setItem('lastFreeSpinTimestamp', Date.now().toString());
+}
+
+window.switchChestTab = function(type) {
+    currentChestTab = type;
+    document.getElementById('chest-tab-regular').classList.toggle('active', type === 'regular');
+    document.getElementById('chest-tab-stars').classList.toggle('active', type === 'stars');
+    const modalContent = document.querySelector('.treasure-modal-content');
+    if (modalContent) modalContent.classList.toggle('stars-theme', type === 'stars');
+    const chestIcon = document.getElementById('treasure-chest-icon');
+    const titleText = document.getElementById('treasure-title-text');
+    if (type === 'stars') {
+        if (chestIcon) chestIcon.textContent = '⭐';
+        if (titleText) titleText.textContent = 'Звёздный сундук';
+    } else {
+        if (chestIcon) chestIcon.textContent = '📦';
+        if (titleText) titleText.textContent = 'Сундук с сокровищами';
+    }
+    const spinBtn = document.getElementById('spin-btn');
+    if (spinBtn) {
+        spinBtn.innerHTML = type === 'stars'
+            ? '⭐ Крутить — ' + STARS_COST + ' Stars'
+            : '🎰 Крутить — ' + GACHA_COST + ' 🪙';
+    }
+    updateSpinButtons(type);
+    gachaTreasurePool = getActivePool();
+    renderTreasurePool();
+    buildSlotTrack();
+    console.log('🔄 Сундук переключён:', type);
+};
 
 window.openTreasureModal = async function() {
     try {
@@ -3732,6 +3963,19 @@ window.openTreasureModal = async function() {
         if (!modal) return;
         document.getElementById('treasure-inline-result').classList.add('hidden');
         modal.classList.remove('hidden');
+        // Reset to regular tab on open
+        currentChestTab = 'regular';
+        document.getElementById('chest-tab-regular').classList.add('active');
+        document.getElementById('chest-tab-stars').classList.remove('active');
+        const modalContent = document.querySelector('.treasure-modal-content');
+        if (modalContent) modalContent.classList.remove('stars-theme');
+        const chestIcon = document.getElementById('treasure-chest-icon');
+        const titleText = document.getElementById('treasure-title-text');
+        if (chestIcon) chestIcon.textContent = '📦';
+        if (titleText) titleText.textContent = 'Сундук с сокровищами';
+        const spinBtn = document.getElementById('spin-btn');
+        if (spinBtn) spinBtn.innerHTML = '🎰 Крутить — ' + GACHA_COST + ' 🪙';
+        updateSpinButtons('regular');
         await loadTreasurePool();
         renderTreasurePool();
         buildSlotTrack();
@@ -3750,7 +3994,8 @@ function renderTreasurePool() {
     const grid = document.getElementById('treasure-pool-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    gachaTreasurePool.forEach(item => {
+    const pool = getActivePool().length > 0 ? getActivePool() : gachaTreasurePool;
+    pool.forEach(item => {
         const div = document.createElement('div');
         div.className = 'pool-item' + (item.exclusive ? ' exclusive' : '');
         const imgOrEmoji = item.imageUrl
@@ -3787,36 +4032,59 @@ function buildSlotTrack() {
     track.style.transform = 'translateY(0px)';
 }
 
-window.spinTreasure = async function() {
+window.spinTreasure = async function(spinType) {
     if (isSpinning) return;
     const user = store.user;
     if (!user) { showNotification('Ошибка', 'Пользователь не загружен'); return; }
-    if (user.money < GACHA_COST) {
-        showNotification('Недостаточно монет', `Нужно ${GACHA_COST} 🪙`);
+
+    // Determine mode: free / paid (coins) / stars
+    const mode = spinType || 'paid';
+    if (mode === 'free') {
+        if (!checkTodayFreeSpin()) {
+            showNotification('Уже использован', 'Бесплатный прокрут доступен раз в день');
+            return;
+        }
+    } else if (mode === 'stars') {
+        // Stars payment via Telegram – show invoice
+        showNotification('⭐ Telegram Stars', 'Оплата через Telegram Stars скоро будет добавлена!');
         return;
-    }
-    if (gachaTreasurePool.length === 0) {
-        await loadTreasurePool();
-        if (gachaTreasurePool.length === 0) {
-            showNotification('Ошибка', 'Пул пуст, попробуйте ещё раз');
+    } else {
+        // paid with coins
+        if (user.money < GACHA_COST) {
+            showNotification('Недостаточно монет', `Нужно ${GACHA_COST} 🪙`);
             return;
         }
     }
 
+    // Ensure pool is loaded
+    const activePool = getActivePool();
+    if (activePool.length === 0) {
+        await loadTreasurePool();
+        if (getActivePool().length === 0) {
+            showNotification('Ошибка', 'Пул пуст, попробуйте ещё раз');
+            return;
+        }
+    }
+    gachaTreasurePool = getActivePool();
+
     isSpinning = true;
     const spinBtn = document.getElementById('spin-btn');
-    spinBtn.disabled = true;
+    if (mode !== 'free') { spinBtn.disabled = true; }
     spinBtn.classList.add('spinning');
+    // Disable free spin button during spin
+    const freeBtn = document.getElementById('free-spin-btn');
+    if (freeBtn) freeBtn.disabled = true;
 
     document.getElementById('treasure-inline-result').classList.add('hidden');
 
-    const winner = gachaTreasurePool[Math.floor(Math.random() * gachaTreasurePool.length)];
-    console.log('🎰 Победитель:', winner.name);
+    const pool = gachaTreasurePool;
+    const winner = pool[Math.floor(Math.random() * pool.length)];
+    console.log('🎰 Победитель:', winner.name, '| Режим:', mode);
 
     const track = document.getElementById('slot-track');
-    const itemHeight = 118; // Исправлено: высота элемента 118px
-    const poolLen = gachaTreasurePool.length;
-    const winnerIndex = gachaTreasurePool.findIndex(i => i.id === winner.id);
+    const itemHeight = 118; // высота элемента 118px
+    const poolLen = pool.length;
+    const winnerIndex = pool.findIndex(i => i.id === winner.id);
 
     const rotations = 3;
     const targetIndex = rotations * poolLen + winnerIndex;
@@ -3844,13 +4112,13 @@ window.spinTreasure = async function() {
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            finalizeSpin(winner);
+            finalizeSpin(winner, mode);
         }
     }
     requestAnimationFrame(animate);
 };
 
-async function finalizeSpin(winner) {
+async function finalizeSpin(winner, mode) {
     const spinBtn = document.getElementById('spin-btn');
     try {
         const userRef = db.collection('users').doc(store.authUser.uid);
@@ -3859,13 +4127,17 @@ async function finalizeSpin(winner) {
             const userDoc = await transaction.get(userRef);
             if (!userDoc.exists) throw new Error('Пользователь не найден');
             const data = userDoc.data();
-            if (data.money < GACHA_COST) throw new Error('Недостаточно монет');
             const inventory = data.inventory || [];
             alreadyOwned = inventory.some(inv => inv.id === winner.id);
 
-            const updates = {
-                money: firebase.firestore.FieldValue.increment(-GACHA_COST)
-            };
+            const updates = {};
+
+            // Deduct cost only for paid spins
+            if (mode === 'paid') {
+                if (data.money < GACHA_COST) throw new Error('Недостаточно монет');
+                updates.money = firebase.firestore.FieldValue.increment(-GACHA_COST);
+            }
+            // Free spin: no coin deduction; stars handled externally
 
             if (!alreadyOwned) {
                 const invItem = {
@@ -3879,8 +4151,13 @@ async function finalizeSpin(winner) {
                 if (winner.exclusive) invItem.exclusive = true;
                 updates.inventory = firebase.firestore.FieldValue.arrayUnion(invItem);
             }
-            transaction.update(userRef, updates);
+            if (Object.keys(updates).length > 0) transaction.update(userRef, updates);
         });
+        // Mark free spin used after successful transaction
+        if (mode === 'free') {
+            markFreeSpinUsed();
+            updateSpinButtons('regular');
+        }
 
         await loadUserFromFirestore(true);
         updateMainUI();
@@ -3900,6 +4177,8 @@ async function finalizeSpin(winner) {
         spinBtn.disabled = false;
         spinBtn.classList.remove('spinning');
         isSpinning = false;
+        // Restore correct button state after spin
+        updateSpinButtons(currentChestTab);
     }
 }
 
@@ -3936,6 +4215,7 @@ function updateInlineResult(item) {
 window.openTreasureModal   = openTreasureModal;
 window.closeTreasureModal  = closeTreasureModal;
 window.spinTreasure        = spinTreasure;
+window.switchChestTab      = switchChestTab;
 
 // =======================================================
 // ЗАДАНИЯ (старые глобальные функции удалены, оставлены только новые)
