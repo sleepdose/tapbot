@@ -3731,7 +3731,7 @@ async function taskCheckChannel() {
     console.log(`[Tasks] Checking channel membership for user ${userId}`);
 
     try {
-        const res = await fetch(`https://tapbot-1-e6gg.onrender.com/api/check-membership?user_id=${userId}`);
+        const res = await fetch(`https://hiko-bot-backend.onrender.com/api/check-membership?user_id=${userId}`);
         const data = await res.json();
         console.log('[Tasks] Check result:', data);
 
