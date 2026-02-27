@@ -1677,8 +1677,8 @@ async function loadGuildScreen() {
 function generateBattleHTML(guild, isLeader) {
     const bossId = guild.bossId;
     const bossNames = {
-        boss1: 'Лесной страж',
-        boss2: 'Огненный дракон'
+        boss1: 'Зарг',
+        boss2: 'Вокс'
     };
     const bossName = bossNames[bossId] || bossId;
 
@@ -1826,7 +1826,7 @@ async function renderGuildPage(guild) {
             <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">
                 ${guild.name}
             </h1>
-            <button onclick="showGuildRatingModal()" class="glow-button" style="width: auto; padding: 8px 16px;">🏆 Рейтинг</button>
+            <button onclick="showGuildRatingModal()" class="glow-button" style="width: auto; padding: 8px 16px;">Рейтинг</button>
          </div>
 
          <div id="guild-info-panel" class="guild-info-panel ${editing ? 'editing' : ''} ${!guildInfoVisible ? 'hidden' : ''}">
