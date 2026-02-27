@@ -1,157 +1,45 @@
-const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
-
-// ===== НАСТРОЙКИ =====
-const TOKEN = process.env.TOKEN;
-const WEB_APP_URL = 'https://sleepdose.github.io/tapbot';
-
-if (!TOKEN) {
-  console.error('Ошибка: Токен не найден! Убедись, что переменная TOKEN задана.');
-  process.exit(1);
-}
-
-// Создаём экземпляр бота (polling)
-const bot = new TelegramBot(TOKEN, { polling: true });
-
-// ===== HTTP сервер для обработки запросов из WebApp =====
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Парсинг JSON тела запросов
+// Middleware for CORS
+app.use(cors());
+
+// Rate limiting middleware: limit each IP to 100 requests per windowMs
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later'
+});
+app.use(limiter);
+
+// Middleware for JSON body parsing
 app.use(express.json());
 
-// Разрешаем CORS (фронтенд на GitHub Pages будет обращаться к бэкенду на Render)
+// Input validation middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
-
-// ===== Эндпоинт для проверки подписки на канал @sol_hiko =====
-app.get('/api/check-membership', async (req, res) => {
-  const userId = req.query.user_id;
-  if (!userId) {
-    return res.status(400).json({ error: 'Missing user_id' });
-  }
-
-  try {
-    const chatId = '@sol_hiko';
-    const member = await bot.getChatMember(chatId, userId);
-    const isMember = ['creator', 'administrator', 'member'].includes(member.status);
-    res.json({ isMember });
-  } catch (error) {
-    console.error('Ошибка проверки подписки:', error);
-    res.status(500).json({ error: 'Failed to check membership', details: error.message });
-  }
-});
-
-// ===== Эндпоинт: уведомление о начале битвы с боссом =====
-// Принимает: { guildName, bossName, memberTelegramIds: string[] }
-app.post('/api/notify-battle-start', async (req, res) => {
-  const { guildName, bossName, memberTelegramIds } = req.body;
-
-  if (!memberTelegramIds || !Array.isArray(memberTelegramIds) || memberTelegramIds.length === 0) {
-    return res.status(400).json({ error: 'Missing memberTelegramIds' });
-  }
-
-  const text =
-    `⚔️ *БИТВА НАЧАЛАСЬ!*\n\n` +
-    `🏰 Гильдия: *${guildName || 'Гильдия'}*\n` +
-    `👹 Противник: *${bossName || 'Босс'}*\n\n` +
-    `Скорее заходи в игру — у тебя есть 2 минуты, чтобы нанести урон!`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [{ text: '⚔️ Участвовать в битве', web_app: { url: WEB_APP_URL } }]
-    ]
-  };
-
-  let sent = 0;
-  let failed = 0;
-
-  for (const telegramId of memberTelegramIds) {
-    try {
-      await bot.sendMessage(telegramId, text, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard
-      });
-      sent++;
-      console.log(`Уведомление отправлено пользователю ${telegramId}`);
-    } catch (err) {
-      failed++;
-      console.error(`Не удалось отправить уведомление пользователю ${telegramId}:`, err.message);
+    const { data } = req.body;
+    if (!data || typeof data !== 'string') {
+        return res.status(400).json({ error: 'Invalid input data' });
     }
-  }
-
-  console.log(`Уведомления о битве: отправлено ${sent}, ошибок ${failed}`);
-  res.json({ ok: true, sent, failed });
+    next();
 });
 
-// ===== Эндпоинт: уведомление о заявке в друзья =====
-// Принимает: { targetTelegramId, fromName }
-app.post('/api/notify-friend-request', async (req, res) => {
-  const { targetTelegramId, fromName } = req.body;
-
-  if (!targetTelegramId) {
-    return res.status(400).json({ error: 'Missing targetTelegramId' });
-  }
-
-  const text =
-    `👥 *Новая заявка в друзья!*\n\n` +
-    `Игрок *${fromName || 'Игрок'}* хочет добавить тебя в друзья.\n\n` +
-    `Открой игру, чтобы принять или отклонить заявку!`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [{ text: '👥 Открыть игру', web_app: { url: WEB_APP_URL } }]
-    ]
-  };
-
-  try {
-    await bot.sendMessage(targetTelegramId, text, {
-      parse_mode: 'Markdown',
-      reply_markup: keyboard
-    });
-    console.log(`Уведомление о заявке в друзья отправлено пользователю ${targetTelegramId}`);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(`Не удалось отправить уведомление о заявке пользователю ${targetTelegramId}:`, err.message);
-    res.status(500).json({ error: 'Failed to send notification', details: err.message });
-  }
+// Example route
+app.post('/api/bot', (req, res) => {
+    const { data } = req.body;
+    // Process the data...
+    res.json({ success: true, message: 'Data processed successfully!' });
 });
 
-// Запускаем HTTP сервер
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`HTTP сервер запущен на порту ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
-
-// ===== Обработчик команды /start =====
-bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id;
-  const firstName = msg.from.first_name || 'Игрок';
-
-  const welcomeText =
-    `Привет, ${firstName}! 👋\n\n` +
-    `👋 Добро пожаловать в «Hiko Adventure»!\n\n` +
-    `Ты попал в игру, где можно:\n` +
-    `— ⚔️ сражаться с боссами вместе с гильдией;\n` +
-    `— 🎩 менять экипировку и питомцев;\n` +
-    `— ✨ прокачивать таланты и крафтить новые способности;\n` +
-    `— 🏰 создавать свою гильдию или вступать в другие.\n\n` +
-    `Нажми кнопку «Открыть игру» ниже, чтобы начать приключение!`;
-
-  const keyboard = {
-    inline_keyboard: [
-      [{ text: '🚀 Открыть игру', web_app: { url: WEB_APP_URL } }]
-    ]
-  };
-
-  await bot.sendMessage(chatId, welcomeText, {
-    parse_mode: 'Markdown',
-    reply_markup: keyboard
-  });
-});
-
-console.log('Бот запущен и слушает команды...');
