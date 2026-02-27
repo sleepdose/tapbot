@@ -1744,6 +1744,12 @@ function generateBattleHTML(guild, isLeader) {
 }
 
 window.surrenderBattle = async function(guildId) {
+    const guild = store.guild;
+    if (!guild || guild.leaderId !== store.authUser.uid) {
+        console.warn('surrenderBattle: только лидер гильдии может сдаться');
+        showNotification('Доступ запрещён', 'Только лидер гильдии может завершить бой');
+        return;
+    }
     await endBattle(false, guildId);
 };
 
@@ -2317,8 +2323,6 @@ window.attackBoss = async function() {
         const now = Date.now();
         const cooldownRemaining = 2000 - (now - store.lastTalentUse);
         if (cooldownRemaining > 0) {
-            hapticFeedback('light');
-            showNotification('Перезарядка', `Подождите ещё ${(cooldownRemaining / 1000).toFixed(1)}с`);
             return;
         }
 
@@ -3432,9 +3436,19 @@ async function openVisitModal(userId) {
                 addBtn.textContent = '✅ Уже в друзьях';
                 addBtn.disabled = true;
             } else {
-                addBtn.textContent = '➕ Добавить в друзья';
-                addBtn.disabled = false;
-                addBtn.onclick = () => sendFriendRequest(userId);
+                // Проверяем, не отправлена ли уже заявка
+                const existingReq = await db.collection('friendRequests')
+                    .where('from', '==', store.authUser.uid)
+                    .where('to', '==', userId)
+                    .get();
+                if (!existingReq.empty) {
+                    addBtn.textContent = '⏳ Заявка отправлена';
+                    addBtn.disabled = true;
+                } else {
+                    addBtn.textContent = '➕ Добавить в друзья';
+                    addBtn.disabled = false;
+                    addBtn.onclick = () => sendFriendRequest(userId);
+                }
             }
             addBtn.style.display = 'block';
         }

@@ -3749,7 +3749,7 @@ body {
     max-width: 380px;
     width: 95%;
     padding: 0;
-    overflow: hidden;
+    overflow: hidden auto;
     border: 1px solid rgba(255, 215, 140, 0.3);
     box-shadow: 0 0 30px rgba(123, 95, 255, 0.3), 0 20px 60px rgba(0,0,0,0.8);
     background: transparent;
