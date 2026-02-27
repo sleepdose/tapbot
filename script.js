@@ -3414,6 +3414,14 @@ const EXCLUSIVE_GACHA_ITEMS = [
         exclusive: true
     },
     {
+        id: 'gacha_skin_druid',
+        name: 'Друид',
+        type: 'skin',
+        price: 0,
+        imageUrl: 'img/skin_druid.png',
+        exclusive: true
+    },
+    {
         id: 'gacha_skin_phantom',
         name: 'Призрак',
         type: 'skin',
