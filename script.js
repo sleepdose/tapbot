@@ -2010,9 +2010,50 @@ async function startBattle(guildId) {
         startBattleTimer(battleEndTime, guildId);
         await updateUser({ selectedTalent: null });
         createBattleTalentButtons();
+
+        // Уведомляем всех участников гильдии о начале битвы
+        notifyGuildBattleStart(guildId).catch(err => console.error('Ошибка уведомления гильдии:', err));
     } catch (e) {
         console.error(e);
         showNotification('Ошибка', e.message || 'Не удалось начать битву');
+    }
+}
+
+// ===== УВЕДОМЛЕНИЕ О НАЧАЛЕ БИТВЫ =====
+async function notifyGuildBattleStart(guildId) {
+    try {
+        const guildDoc = await db.collection('guilds').doc(guildId).get();
+        if (!guildDoc.exists) return;
+
+        const guild = guildDoc.data();
+        const bossId = guild.bossId || 'boss1';
+        const bossName = bossId === 'boss2' ? '💀 Босс 2' : '👹 Босс 1';
+
+        // Получаем telegramId всех участников гильдии
+        const memberIds = guild.members || [];
+        const memberTelegramIds = [];
+
+        await Promise.all(memberIds.map(async (uid) => {
+            const userDoc = await db.collection('users').doc(uid).get();
+            if (userDoc.exists) {
+                const telegramId = userDoc.data().telegramId;
+                if (telegramId) memberTelegramIds.push(telegramId);
+            }
+        }));
+
+        console.log(`Отправляем уведомление о битве ${memberTelegramIds.length} участникам гильдии ${guild.name}`);
+
+        await fetch('https://hiko-bot-backend.onrender.com/api/notify-battle-start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                guildName: guild.name || 'Гильдия',
+                bossName,
+                memberTelegramIds
+            })
+        });
+    } catch (err) {
+        console.error('notifyGuildBattleStart ошибка:', err);
     }
 }
 
