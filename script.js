@@ -238,9 +238,9 @@ const defaultTalents = {
         poison: { level: 1, damage: 3 }
     },
     attackCharges: {
-        basic: { charges: 15, basePrice: 50 },
-        critical: { charges: 15, basePrice: 75 },
-        poison: { charges: 15, basePrice: 100 }
+        basic: { charges: 8, basePrice: 200 },
+        critical: { charges: 8, basePrice: 350 },
+        poison: { charges: 8, basePrice: 500 }
     },
     craftedTalents: {
         sonic: { level: 0, damage: 50, charges: 0 },
@@ -313,7 +313,7 @@ async function loadUserFromFirestore() {
             energy: 100,
             maxEnergy: 100,
             lastEnergyUpdate: Date.now(),
-            money: 500,
+            money: 300,
             pets: [],
             inventory: [],
             petLevels: {},
@@ -796,9 +796,13 @@ window.activatePet = async function(petId) {
     const petItem = user.inventory.find(inv => inv.id === petId);
     if (!petItem) return;
     await updateUser({ pets: [petItem] });
+    // Reload from Firestore so upgrade tab reflects the change immediately
+    await loadUserFromFirestore(true);
     await loadPetsGrid();
+    loadPetUpgradeList();
+    showPetUpgradePreview(petId);
     updateMainUI();
-    updatePreviewCharacter(user);
+    updatePreviewCharacter(store.user);
     hapticFeedback();
 };
 
@@ -808,10 +812,10 @@ window.activatePet = async function(petId) {
 
 const PET_LEVELS = {
     1: { bonus: 5,  cost: 0 },
-    2: { bonus: 10, cost: 500 },
-    3: { bonus: 15, cost: 1000 },
-    4: { bonus: 20, cost: 2000 },
-    5: { bonus: 25, cost: 4000 }
+    2: { bonus: 10, cost: 1500 },
+    3: { bonus: 15, cost: 3500 },
+    4: { bonus: 20, cost: 8000 },
+    5: { bonus: 25, cost: 20000 }
 };
 const PET_MAX_LEVEL = 5;
 
@@ -952,18 +956,18 @@ const talentsConfig = {
     basic: {
         maxLevel: 10,
         getDamage: (level) => 10 + (level * 2),
-        getCost: (level) => Math.floor(75 * Math.pow(1.3, level - 1))
+        getCost: (level) => Math.floor(200 * Math.pow(1.4, level - 1))
     },
     critical: {
         maxLevel: 10,
         getChance: (level) => 0.15 + (level * 0.05),
-        getCost: (level) => Math.floor(150 * Math.pow(1.3, level - 1))
+        getCost: (level) => Math.floor(400 * Math.pow(1.4, level - 1))
     },
     poison: {
         maxLevel: 10,
         getDamage: (level) => 2 + level,
         getDuration: (level) => 5 + level,
-        getCost: (level) => Math.floor(200 * Math.pow(1.3, level - 1))
+        getCost: (level) => Math.floor(600 * Math.pow(1.4, level - 1))
     }
 };
 const craftedTalentsConfig = {
@@ -1241,28 +1245,34 @@ function createBattleTalentButtons() {
     }
     let html = '<div class="talent-buttons">';
 
-    Object.entries(user.talents).forEach(([type, talent]) => {
-        if (talent.level > 0) {
-            const charges = user.attackCharges[type]?.charges || 0;
-            if (charges <= 0) return;
-            const isSelected = user.selectedTalent === type;
-            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
-                <span class="talent-icon">${getTalentIcon(type)}</span>
-                <span class="talent-name">${getTalentName(type)}</span>
-                <span class="talent-charges">${charges}</span>
-            </button>`;
-        }
+    // Fixed order to prevent buttons from jumping around during battle
+    const talentOrder = ['basic', 'critical', 'poison'];
+    talentOrder.forEach(type => {
+        const talent = user.talents[type];
+        if (!talent || talent.level <= 0) return;
+        const charges = user.attackCharges[type]?.charges || 0;
+        const isSelected = user.selectedTalent === type;
+        const isDisabled = charges <= 0;
+        html += `<button class="talent-btn ${isSelected ? 'active' : ''} ${isDisabled ? 'disabled' : ''}"
+            data-talent="${type}"
+            ${isDisabled ? 'disabled' : `onclick="selectBattleTalent('${type}')"`}>
+            <span class="talent-icon">${getTalentIcon(type)}</span>
+            <span class="talent-name">${getTalentName(type)}</span>
+            <span class="talent-charges">${charges}</span>
+        </button>`;
     });
 
-    Object.entries(user.craftedTalents).forEach(([type, data]) => {
-        if (data.charges > 0) {
-            const isSelected = user.selectedTalent === type;
-            html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
-                <span class="talent-icon">${getTalentIcon(type)}</span>
-                <span class="talent-name">${getTalentName(type)}</span>
-                <span class="talent-charges">${data.charges}</span>
-            </button>`;
-        }
+    // Crafted talents — only show when charges > 0 (they are rare and situational)
+    const craftedOrder = ['sonic', 'fire', 'ice'];
+    craftedOrder.forEach(type => {
+        const data = user.craftedTalents[type];
+        if (!data || data.charges <= 0) return;
+        const isSelected = user.selectedTalent === type;
+        html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
+            <span class="talent-icon">${getTalentIcon(type)}</span>
+            <span class="talent-name">${getTalentName(type)}</span>
+            <span class="talent-charges">${data.charges}</span>
+        </button>`;
     });
 
     html += '</div>';
@@ -1446,8 +1456,8 @@ async function createGuild(name, description, chatLink) {
         level: 1,
         rating: 0,
         bossId: 'boss1',
-        bossHp: 1000,
-        maxBossHp: 1000,
+        bossHp: 5000,
+        maxBossHp: 5000,
         battleActive: false,
         battleEndTime: null,
         keys: { boss2: 0 },
@@ -2098,7 +2108,7 @@ async function startBattle(guildId) {
                 });
             }
 
-            const maxBossHp = bossId === 'boss2' ? 2000 : 1000;
+            const maxBossHp = bossId === 'boss2' ? 15000 : 5000;
 
             battleEndTime = Date.now() + 120000;
             transaction.update(guildRef, {
@@ -2206,8 +2216,8 @@ function startBattleTimer(endTime, guildId) {
 
 // ========== НОВАЯ ФУНКЦИЯ ДЛЯ НАЧИСЛЕНИЯ НАГРАД ==========
 async function applyRewards(userIds, damageLog, bossId) {
-    const rewardAmount = bossId === 'boss2' ? 2000 : 1000;
-    const xpReward = bossId === 'boss2' ? 100 : 50;
+    const rewardAmount = bossId === 'boss2' ? 8000 : 2500;
+    const xpReward = bossId === 'boss2' ? 300 : 100;
     let attempts = 0;
     const maxAttempts = 3;
 
