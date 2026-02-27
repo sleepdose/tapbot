@@ -366,6 +366,10 @@ async function loadUserFromFirestore() {
     if (data.musicEnabled === undefined) { data.musicEnabled = false; needsUpdate = true; }
     if (data.skin === undefined) { data.skin = null; needsUpdate = true; }
     if (!data.equipped) { data.equipped = {}; needsUpdate = true; }
+    if (!Array.isArray(data.pets)) { data.pets = []; needsUpdate = true; }
+    if (!Array.isArray(data.friends)) { data.friends = []; needsUpdate = true; }
+    if (!Array.isArray(data.pendingRequests)) { data.pendingRequests = []; needsUpdate = true; }
+    if (!Array.isArray(data.inventory)) { data.inventory = []; needsUpdate = true; }
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -505,10 +509,12 @@ function updateMainUI() {
     if (petContainer) petContainer.innerHTML = '';
 
     // Отображение скина, если он есть
-    if (user.skin) {
-        baseChar.src = user.skin.imageUrl;
-    } else {
-        baseChar.src = 'img/men.png';
+    if (baseChar) {
+        if (user.skin) {
+            baseChar.src = user.skin.imageUrl;
+        } else {
+            baseChar.src = 'img/men.png';
+        }
     }
 
     if (user.pets.length > 0) {
@@ -520,6 +526,7 @@ function updateMainUI() {
 }
 async function onCharacterClick() {
     const container = document.getElementById('character-container');
+    if (!container) return;
     container.classList.add('clicked');
     setTimeout(() => container.classList.remove('clicked'), 200);
 
@@ -2054,38 +2061,72 @@ async function applyRewards(userIds, damageLog, bossId) {
     let attempts = 0;
     const maxAttempts = 3;
 
+    // Собираем снапшоты участников заранее
+    const memberDataMap = {};
+    for (const uid of userIds) {
+        const memberDoc = await db.collection('users').doc(uid).get();
+        if (memberDoc.exists) memberDataMap[uid] = memberDoc.data();
+    }
+
     while (attempts < maxAttempts) {
         try {
             const batch = db.batch();
             for (const uid of userIds) {
-                const memberRef = db.collection('users').doc(uid);
-                const memberDoc = await memberRef.get();
-                if (memberDoc.exists) {
-                    const memberData = memberDoc.data();
-                    const newXP = (memberData.xp || 0) + xpReward;
-                    const damageDealt = damageLog[uid] || 0;
-                    const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
-                    const updatesForMember = {
-                        money: firebase.firestore.FieldValue.increment(rewardAmount),
-                        xp: newXP,
-                        totalDamage: newTotalDamage
-                    };
-                    const newLevel = getLevelFromXP(newXP);
-                    if (newLevel !== (memberData.level || 1)) {
-                        updatesForMember.level = newLevel;
-                    }
-                    batch.update(memberRef, updatesForMember);
-                } else {
+                const memberData = memberDataMap[uid];
+                if (!memberData) {
                     console.warn(`⚠️ Пользователь ${uid} не найден, пропускаем награду`);
+                    continue;
                 }
+                const newXP = (memberData.xp || 0) + xpReward;
+                const damageDealt = damageLog[uid] || 0;
+                const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
+                const newLevel = getLevelFromXP(newXP);
+                const updatesForMember = {
+                    // increment — атомарная операция на сервере
+                    money: firebase.firestore.FieldValue.increment(rewardAmount),
+                    xp: newXP,
+                    totalDamage: newTotalDamage
+                };
+                if (newLevel !== (memberData.level || 1)) {
+                    updatesForMember.level = newLevel;
+                }
+                batch.update(db.collection('users').doc(uid), updatesForMember);
             }
+
             await batch.commit();
+            console.log(`✅ Награды начислены: +${rewardAmount} монет, +${xpReward} XP`);
+
+            // После успешного commit обновляем store.user для текущего игрока
+            const currentUid = store.authUser?.uid;
+            if (currentUid && userIds.includes(currentUid) && store.user) {
+                const myData = memberDataMap[currentUid];
+                if (myData) {
+                    const newXP = (myData.xp || 0) + xpReward;
+                    const newLevel = getLevelFromXP(newXP);
+                    const newTotalDamage = (myData.totalDamage || 0) + (damageLog[currentUid] || 0);
+
+                    store.user.money = (myData.money || 0) + rewardAmount;
+                    store.user.xp = newXP;
+                    store.user.totalDamage = newTotalDamage;
+
+                    if (newLevel !== store.user.level) {
+                        store.user.level = newLevel;
+                        showNotification('🎉 Новый уровень!', `Вы достигли ${newLevel} уровня!`);
+                    }
+                }
+                // Принудительно обновляем UI — баланс и XP
+                updateMainUI();
+            }
+
             return; // успех
         } catch (error) {
             attempts++;
             console.error(`❌ Попытка ${attempts} начисления наград не удалась:`, error);
             if (attempts >= maxAttempts) {
                 showNotification('Ошибка', 'Не удалось начислить награды. Обратитесь в поддержку.');
+                // Последний резерв — перезагрузить данные из Firebase и обновить UI
+                await getUser(true);
+                updateMainUI();
             }
             await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
         }
@@ -2213,6 +2254,9 @@ async function endBattle(victory, guildId) {
         delete store.guildMemberNames[guildId];
         // Закрываем модалку урона
         closeDamagePopup();
+        // Страховка: перезагружаем актуальные данные из Firebase и обновляем UI
+        // (applyRewards уже обновил store.user оптимистично, этот вызов финализирует)
+        getUser(true).then(() => updateMainUI()).catch(e => console.error('Ошибка перезагрузки пользователя:', e));
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
     }
@@ -2456,19 +2500,35 @@ function getCurrentDailyBonus(user) {
 
 async function claimDailyBonus() {
     const user = await getUser();
-    const bonusInfo = getCurrentDailyBonus(user);
-    if (!bonusInfo.canClaim) {
+    // Считаем актуальный currentDay и streak ПЕРЕД мутацией объекта
+    const now = new Date();
+    const lastClaim = user.dailyBonus.lastClaim ? new Date(user.dailyBonus.lastClaim) : null;
+    const today = now.toDateString();
+    const lastClaimDate = lastClaim ? lastClaim.toDateString() : null;
+
+    if (lastClaimDate === today) {
         showNotification('Уже получено', 'Вы уже получили бонус сегодня');
         return;
     }
 
-    const reward = bonusInfo.nextReward.reward;
+    // Если пропустили 2+ дней — сброс серии
+    let currentDay = user.dailyBonus.currentDay;
+    let streak = user.dailyBonus.streak;
+    if (lastClaim) {
+        const diffDays = Math.floor((now - lastClaim) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 2) {
+            currentDay = 1;
+            streak = 0;
+        }
+    }
+
+    const reward = dailyBonusConfig[(currentDay - 1) % dailyBonusConfig.length].reward;
     const updates = {
         money: user.money + reward.money,
         dailyBonus: {
-            currentDay: (user.dailyBonus.currentDay % dailyBonusConfig.length) + 1,
+            currentDay: (currentDay % dailyBonusConfig.length) + 1,
             lastClaim: Date.now(),
-            streak: user.dailyBonus.streak + 1
+            streak: streak + 1
         }
     };
 
@@ -2670,8 +2730,10 @@ function updateProfileModal() {
         }
     }
 
-    document.getElementById('profile-name').textContent = user.name || 'Игрок';
-    document.getElementById('profile-id').textContent = user.telegramId || user.id.slice(0,8);
+    const profileName = document.getElementById('profile-name');
+    if (profileName) profileName.textContent = user.name || 'Игрок';
+    const profileId = document.getElementById('profile-id');
+    if (profileId) profileId.textContent = user.telegramId || (user.id ? user.id.slice(0,8) : '—');
     document.getElementById('profile-level').textContent = user.level;
 
     const { xpInThisLevel, neededForNext, progress } = getXPProgress(user);
@@ -2733,7 +2795,8 @@ window.openFriendsModal = openFriendsModal;
 function updateFriendsMyId() {
     const user = store.user;
     if (user) {
-        document.getElementById('friends-my-id-value').innerText = user.telegramId || user.id.slice(0,8);
+        const myIdEl = document.getElementById('friends-my-id-value');
+        if (myIdEl) myIdEl.innerText = user.telegramId || (user.id ? user.id.slice(0,8) : '—');
     }
 }
 
@@ -3282,7 +3345,8 @@ window.onload = async () => {
         };
 
         updateFriendsOnlineCount();
-        setInterval(updateFriendsOnlineCount, 10000);
+        if (window.friendsOnlineInterval) clearInterval(window.friendsOnlineInterval);
+        window.friendsOnlineInterval = setInterval(updateFriendsOnlineCount, 10000);
 
         if (store.user.musicEnabled) {
             initMusic();
