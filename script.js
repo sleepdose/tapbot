@@ -3646,3 +3646,108 @@ function updateInlineResult(item) {
 window.openTreasureModal   = openTreasureModal;
 window.closeTreasureModal  = closeTreasureModal;
 window.spinTreasure        = spinTreasure;
+
+// =======================================================
+// ЗАДАНИЯ
+// =======================================================
+const TASK_CHANNEL_ID = 'join_channel_sol_hiko';
+
+function openTasksModal() {
+    const modal = document.getElementById('tasks-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    renderTasksModal();
+    console.log('[Tasks] Modal opened');
+}
+
+function closeTasksModal() {
+    const modal = document.getElementById('tasks-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function renderTasksModal() {
+    const user = store.user;
+    if (!user) return;
+
+    const completed = user.completedTasks || [];
+    const isDone = completed.includes(TASK_CHANNEL_ID);
+
+    const goBtn = document.getElementById('task-channel-go-btn');
+    const checkBtn = document.getElementById('task-channel-check-btn');
+    const doneEl = document.getElementById('task-channel-done');
+
+    if (!goBtn || !checkBtn || !doneEl) return;
+
+    if (isDone) {
+        goBtn.classList.add('hidden');
+        checkBtn.classList.add('hidden');
+        doneEl.classList.remove('hidden');
+    } else {
+        goBtn.classList.remove('hidden');
+        checkBtn.classList.add('hidden');
+        doneEl.classList.add('hidden');
+    }
+}
+
+function taskGoToChannel() {
+    console.log('[Tasks] Opening channel @sol_hiko');
+    if (tg && typeof tg.openTelegramLink === 'function') {
+        tg.openTelegramLink('https://t.me/sol_hiko');
+    } else {
+        window.open('https://t.me/sol_hiko', '_blank');
+    }
+    // Показываем кнопку "Проверить" после перехода
+    const goBtn = document.getElementById('task-channel-go-btn');
+    const checkBtn = document.getElementById('task-channel-check-btn');
+    if (goBtn) goBtn.classList.add('hidden');
+    if (checkBtn) checkBtn.classList.remove('hidden');
+}
+
+async function taskCheckChannel() {
+    const user = store.user;
+    if (!user) return;
+
+    const checkBtn = document.getElementById('task-channel-check-btn');
+    if (checkBtn) {
+        checkBtn.disabled = true;
+        checkBtn.textContent = '⏳ Проверяю...';
+    }
+
+    const userId = tg.initDataUnsafe?.user?.id;
+    if (!userId) {
+        showNotification('Ошибка', 'Не удалось получить Telegram ID. Попробуй перезапустить игру.');
+        if (checkBtn) { checkBtn.disabled = false; checkBtn.textContent = 'Проверить'; }
+        return;
+    }
+
+    console.log(`[Tasks] Checking channel membership for user ${userId}`);
+
+    try {
+        const res = await fetch(`/api/check-membership?user_id=${userId}`);
+        const data = await res.json();
+        console.log('[Tasks] Check result:', data);
+
+        if (data.isMember) {
+            // Начисляем награду
+            const newMoney = (user.money || 0) + 500;
+            const completedTasks = [...(user.completedTasks || []), TASK_CHANNEL_ID];
+            await updateUser({ money: newMoney, completedTasks });
+
+            renderTasksModal();
+            showNotification('🎉 Задание выполнено!', 'Ты вступил в @sol_hiko. Получай +500 монет!');
+            console.log('[Tasks] Task completed, +500 coins');
+        } else {
+            if (checkBtn) { checkBtn.disabled = false; checkBtn.textContent = 'Проверить'; }
+            showNotification('❌ Не засчитано', 'Ты ещё не вступил в канал @sol_hiko. Подпишись и нажми "Проверить" снова.');
+        }
+    } catch (err) {
+        console.error('[Tasks] Check error:', err);
+        if (checkBtn) { checkBtn.disabled = false; checkBtn.textContent = 'Проверить'; }
+        showNotification('Ошибка', 'Не удалось проверить подписку. Попробуй позже.');
+    }
+}
+
+window.openTasksModal  = openTasksModal;
+window.closeTasksModal = closeTasksModal;
+window.taskGoToChannel = taskGoToChannel;
+window.taskCheckChannel = taskCheckChannel;
