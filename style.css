@@ -2850,7 +2850,9 @@ body::before {
     border: none;
     border-radius: var(--radius-xl);
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     box-shadow:
         0 0 0 1.5px rgba(220,120,10,0.35),
         0 0 0 3px   rgba(80,30,0,0.6),

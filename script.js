@@ -2945,6 +2945,12 @@ function triggerBonusConfetti() {
 // НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ
 // =======================================================
 function showScreen(screenId) {
+    // Закрываем модальное окно сундука при переключении вкладок
+    const treasureModal = document.getElementById('treasure-modal');
+    if (treasureModal && !treasureModal.classList.contains('hidden')) {
+        document.getElementById('treasure-modal').classList.add('hidden');
+        isSpinning = false;
+    }
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const screenEl = document.getElementById(`screen-${screenId}`);
     if (screenEl) screenEl.classList.add('active');
