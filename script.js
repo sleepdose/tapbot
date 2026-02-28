@@ -206,14 +206,15 @@ function updateBattleResultModalVisibility() {
                 const level = (typeof memberData === 'object' && memberData?.level != null) ? memberData.level : 1;
                 const initial = name.charAt(0).toUpperCase();
                 const isCurrentUser = uid === store.docId;
-                const medal = entries.indexOf(entries.find(e => e[0] === uid)) === 0 ? '🥇' : '';
+                const rankIndex = entries.findIndex(e => e[0] === uid);
+                const rankBadge = `<span style="font-size:12px;font-weight:800;color:var(--text-secondary);min-width:20px;text-align:center;">${rankIndex + 1}</span>`;
                 const highlightClass = isCurrentUser ? ' class="current-user-row"' : '';
                 const avatarHtml = `<div class="member-avatar">${
                     photoUrl
                         ? `<img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="member-avatar-initials" style="display:none">${initial}</span>`
                         : `<span class="member-avatar-initials">${initial}</span>`
                 }<span class="member-level-badge">${level}</span></div>`;
-                html += `<tr${highlightClass}><td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:8px;">${medal}${avatarHtml}<span>${name}</span></span></td><td style="text-align:right;font-weight:700;color:var(--accent-gold);">${dmg}</td></tr>`;
+                html += `<tr${highlightClass}><td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:8px;">${rankBadge}${avatarHtml}<span>${name}</span></span></td><td style="text-align:right;font-weight:700;color:var(--accent-gold);">${dmg}</td></tr>`;
             }
         }
         html += '</table>';
@@ -3693,12 +3694,16 @@ async function openVisitModal(userId) {
     const modal = document.getElementById('visit-modal');
     if (!modal) return;
 
-    // Устанавливаем фон персонажа
+    // Устанавливаем фон только на контейнер персонажа
     const modalContent = document.querySelector('.modal-content.visit-content');
     if (modalContent) {
-        modalContent.style.backgroundImage = "url('img/background.JPG')";
-        modalContent.style.backgroundSize = 'cover';
-        modalContent.style.backgroundPosition = 'center top';
+        modalContent.style.backgroundImage = '';
+        modalContent.style.backgroundSize = '';
+        modalContent.style.backgroundPosition = '';
+    }
+    const visitCharBg = modal.querySelector('.visit-character-bg');
+    if (visitCharBg) {
+        visitCharBg.style.backgroundImage = "url('img/background.JPG')";
     }
 
     // Сброс содержимого

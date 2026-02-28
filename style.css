@@ -2141,7 +2141,6 @@ body::before {
     width: 100%;
     border-collapse: collapse;
     border-radius: var(--radius-md);
-    overflow: hidden;
 }
 .battle-result-content th {
     background: rgba(160, 128, 255, 0.15) !important;
@@ -3936,9 +3935,11 @@ body {
     position: absolute;
     inset: 0;
     border-radius: 18px;
-    background: rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(2px);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
     pointer-events: none;
+    overflow: hidden;
 }
 .visit-character-platform {
     position: absolute;
@@ -3985,14 +3986,13 @@ body {
     right: -10px;
     width: 90px;
     height: 90px;
-    background: rgba(30, 20, 10, 0.5);
+    background: transparent;
     border-radius: 50%;
     border: none;
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: none;
-    backdrop-filter: blur(4px);
     transition: all 0.2s;
 }
 
