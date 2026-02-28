@@ -113,7 +113,7 @@ body::before {
     gap: 10px;
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 201;
     background: rgba(6, 2, 20, 0.90);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -297,6 +297,7 @@ body::before {
     border-top: 1px solid var(--border-subtle);
     box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
     gap: 8px;
+    z-index: 201;
 }
 .nav-btn {
     background: var(--bg-card);
@@ -4107,7 +4108,7 @@ body {
 .preloader-bg {
     position: absolute;
     inset: 0;
-    background-image: url('img/background.JPG');
+    background-image: url('img/preview-bg.JPG');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;

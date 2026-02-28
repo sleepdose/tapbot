@@ -204,7 +204,7 @@ function updateBattleResultModalVisibility() {
                     : (res.userNames[uid] || uid.slice(0, 6));
                 const photoUrl = (typeof memberData === 'object' && memberData?.photoUrl) ? memberData.photoUrl : '';
                 const level = (typeof memberData === 'object' && memberData?.level) ? memberData.level : '';
-                const isCurrentUser = uid === store.authUser?.uid;
+                const isCurrentUser = uid === store.docId;
                 const medal = entries.indexOf(entries.find(e => e[0] === uid)) === 0 ? '🥇 ' : '';
                 const highlightClass = isCurrentUser ? ' class="current-user-row"' : '';
                 const avatarHtml = photoUrl
@@ -1484,8 +1484,8 @@ async function createGuild(name, description, chatLink) {
         name,
         description,
         chatLink: chatLink || '',
-        leaderId: store.authUser.uid,
-        members: [store.authUser.uid],
+        leaderId: store.docId,
+        members: [store.docId],
         maxMembers: 20,
         level: 1,
         rating: 0,
@@ -1524,10 +1524,10 @@ window.joinGuild = async function(guildId) {
             if (guild.members.length >= (guild.maxMembers || 20)) {
                 throw new Error('Гильдия полна');
             }
-            if (guild.members.includes(store.authUser.uid)) throw new Error('Уже в гильдии');
+            if (guild.members.includes(store.docId)) throw new Error('Уже в гильдии');
 
             transaction.update(guildRef, {
-                members: firebase.firestore.FieldValue.arrayUnion(store.authUser.uid)
+                members: firebase.firestore.FieldValue.arrayUnion(store.docId)
             });
             transaction.update(userRef, { guildId });
         });
@@ -1691,7 +1691,7 @@ function updateDamagePopup() {
         const name = (typeof memberData === 'object' && memberData?.name) ? memberData.name : (memberData || userId.slice(0, 6));
         const photoUrl = (typeof memberData === 'object' && memberData?.photoUrl) ? memberData.photoUrl : '';
         const level = (typeof memberData === 'object' && memberData?.level) ? memberData.level : 1;
-        const isCurrent = userId === store.authUser?.uid;
+        const isCurrent = userId === store.docId;
         const avatarInner = photoUrl
             ? `<img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none'"><span class="member-level-badge">${level}</span>`
             : `<span class="member-avatar-initials">${name.charAt(0).toUpperCase()}</span><span class="member-level-badge">${level}</span>`;
@@ -1836,8 +1836,8 @@ async function loadGuildScreen() {
                     if (store.user?.guildId === updatedGuild.id) {
                         const currentUser = await getUser();
                         const seenTimestamp = currentUser.battleResultsSeen?.[updatedGuild.id];
-                        const isLeader = updatedGuild.leaderId === store.authUser.uid;
-                        const isParticipant = res.participants && res.participants.includes(store.authUser.uid);
+                        const isLeader = updatedGuild.leaderId === store.docId;
+                        const isParticipant = res.participants && res.participants.includes(store.docId);
                         if ((!seenTimestamp || seenTimestamp < res.timestamp) && (isLeader || isParticipant)) {
                             setBattleResult(
                                 res.victory,
@@ -1938,7 +1938,7 @@ function generateBattleHTML(guild, isLeader) {
 
 window.surrenderBattle = async function(guildId) {
     const guild = store.guild;
-    if (!guild || guild.leaderId !== store.authUser.uid) {
+    if (!guild || guild.leaderId !== store.docId) {
         console.warn('surrenderBattle: только лидер гильдии может сдаться');
         showNotification('Доступ запрещён', 'Только лидер гильдии может завершить бой');
         return;
@@ -1948,7 +1948,7 @@ window.surrenderBattle = async function(guildId) {
 
 async function renderGuildPage(guild) {
     const container = document.getElementById('guild-view');
-    const isLeader = guild.leaderId === store.authUser.uid;
+    const isLeader = guild.leaderId === store.docId;
     const editing = store.guildEditing;
     const guildInfoVisible = store.guildInfoVisible;
     const user = store.user;
@@ -2182,7 +2182,7 @@ async function startBattle(guildId) {
             if (!guildDoc.exists) throw new Error('Гильдия не найдена');
             const guild = guildDoc.data();
             if (guild.battleActive) throw new Error('Битва уже идёт');
-            if (guild.leaderId !== store.authUser.uid) throw new Error('Только лидер может начать битву');
+            if (guild.leaderId !== store.docId) throw new Error('Только лидер может начать битву');
 
             const bossId = user.preferredBoss || 'boss1';
 
@@ -2611,13 +2611,13 @@ window.attackBoss = async function() {
 
             transaction.update(guildRef, {
                 bossHp: firebase.firestore.FieldValue.increment(-finalDamage),
-                [`damageLog.${store.authUser.uid}`]: firebase.firestore.FieldValue.increment(finalDamage)
+                [`damageLog.${store.docId}`]: firebase.firestore.FieldValue.increment(finalDamage)
             });
 
             if (isPoison && finalDamage > 0 && !bossKilled) {
                 const endTime = Date.now() + poisonDuration * 1000;
                 const poisonEffect = {
-                    userId: store.authUser.uid,
+                    userId: store.docId,
                     damage: poisonDamage,
                     endTime,
                     duration: poisonDuration
@@ -3477,7 +3477,7 @@ async function leaveGuild(guildId) {
         }
 
         const guild = guildDoc.data();
-        const isLeader = guild.leaderId === store.authUser.uid;
+        const isLeader = guild.leaderId === store.docId;
 
         if (isLeader) {
             const batch = db.batch();
@@ -3494,11 +3494,11 @@ async function leaveGuild(guildId) {
                 const freshGuildDoc = await transaction.get(guildRef);
                 if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
                 const freshGuild = freshGuildDoc.data();
-                if (!freshGuild.members.includes(store.authUser.uid)) {
+                if (!freshGuild.members.includes(store.docId)) {
                     throw new Error('Вы не состоите в гильдии');
                 }
                 transaction.update(guildRef, {
-                    members: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
+                    members: firebase.firestore.FieldValue.arrayRemove(store.docId)
                 });
                 transaction.update(userRef, { guildId: null });
             });
@@ -3527,10 +3527,10 @@ async function removeFromGuild(guildId, memberId, event) {
             const guildDoc = await transaction.get(guildRef);
             if (!guildDoc.exists) throw new Error('Гильдия не найдена');
             const guild = guildDoc.data();
-            if (guild.leaderId !== store.authUser.uid) {
+            if (guild.leaderId !== store.docId) {
                 throw new Error('Только лидер может исключать участников');
             }
-            if (memberId === store.authUser.uid) {
+            if (memberId === store.docId) {
                 throw new Error('Нельзя удалить самого себя. Используйте "Покинуть гильдию".');
             }
             if (!guild.members.includes(memberId)) {
@@ -3635,7 +3635,7 @@ window.sendGuildInvitation = async function(guildId, toUserId, btn) {
             memberCount: guild.members?.length || 0,
             maxMembers: guild.maxMembers || 20,
             rating: guild.rating || 0,
-            fromUserId: store.authUser.uid,
+            fromUserId: store.docId,
             toUserId,
             status: 'pending',
             createdAt: Date.now()
