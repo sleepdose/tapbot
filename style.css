@@ -4246,7 +4246,7 @@ body {
 .preloader-bg {
     position: absolute;
     inset: 0;
-    background-image: url('img/preview-bg.jpg');
+    background-image: url('img/preview-bg.JPG');
     background-size: cover;
     background-position: center;
     opacity: 0.35;
