@@ -1156,3 +1156,213 @@ input:focus, textarea:focus {
     margin: 20px auto;
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* ========== ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ ВСЕХ ЭЛЕМЕНТОВ ========== */
+
+/* Стили для уровней и текстовых значений */
+.profile-level, .profile-damage, .profile-id, .profile-name {
+    margin-bottom: 10px;
+    color: var(--text-main);
+}
+
+.profile-damage span, .profile-level span {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+/* Стили для сетки предметов в мастерской */
+#slot-items {
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 12px;
+    min-height: 100px;
+}
+
+/* Кнопки внутренних табов талантов */
+.talent-tabs {
+    background: rgba(0,0,0,0.2);
+    padding: 5px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.talent-tabs .tab-btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+}
+
+/* Заряды атак */
+.attack-charges-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.charge-item {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.charge-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.charge-name { font-weight: bold; }
+.charge-count { font-size: 0.8rem; color: var(--text-muted); }
+
+/* Гильдия: вид списка и создание */
+#guild-view {
+    padding: 10px;
+}
+
+.guild-list-item {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    margin-bottom: 10px;
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.guild-list-info h4 {
+    color: var(--primary-color);
+    margin-bottom: 4px;
+}
+
+.guild-list-stats {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Стили для поиска друзей */
+#friends-search-tab {
+    padding: 10px 0;
+}
+
+#friends-search-result {
+    margin-top: 15px;
+}
+
+/* Улучшение питомцев: список и превью */
+#pets-upgrade-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.pet-preview-empty {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Кнопки в результатах битвы */
+.battle-close-btn {
+    margin-top: 10px;
+}
+
+/* Инпуты в создании гильдии */
+#create-guild-modal textarea {
+    resize: none;
+}
+
+/* Анимация для иконок в статистике */
+.bonus-icon, .treasure-icon, .tasks-icon {
+    font-style: normal;
+}
+
+/* Текст инициализации в прелоадере */
+#preloader-tip {
+    font-family: var(--font-body);
+    letter-spacing: 1px;
+}
+
+/* Стили для таблицы результатов */
+.battle-result-content table th {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Кнопка копирования ID */
+.friends-my-id strong {
+    color: var(--primary-color);
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Стили для пула предметов в сундуке */
+.pool-label {
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Кнопки переключения сундуков */
+.chest-tab-btn {
+    border-radius: 8px;
+}
+
+/* Таймер бесплатного спина */
+.free-spin-timer {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 5px;
+    text-align: center;
+}
+
+#free-spin-countdown {
+    color: var(--accent-red);
+    font-weight: bold;
+}
+
+/* Кнопка закрытия сундука */
+.treasure-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 100;
+}
+
+/* Стили для приглашения в гильдию */
+.guild-invite-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.invite-btn {
+    background: var(--accent-blue);
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Адаптивность для маленьких экранов */
+@media (max-height: 600px) {
+    #character-area {
+        width: 200px;
+        height: 300px;
+    }
+    .modal-content {
+        padding: 15px;
+    }
+}
