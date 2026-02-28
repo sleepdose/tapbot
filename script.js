@@ -32,14 +32,22 @@ function setUserAvatar() {
 
     if (user && user.photo_url) {
         avatarImg.src = user.photo_url;
+        avatarImg.style.display = '';
+        // убираем инициалы если они были добавлены раньше
+        const avatarDiv = document.getElementById('user-avatar');
+        const existing = avatarDiv.querySelector('.avatar-initials');
+        if (existing) existing.remove();
     } else {
         avatarImg.style.display = 'none';
         const avatarDiv = document.getElementById('user-avatar');
-        const initials = user ? (user.first_name?.[0] || '').toUpperCase() : '?';
-        const span = document.createElement('span');
-        span.className = 'avatar-initials';
-        span.textContent = initials;
-        avatarDiv.appendChild(span);
+        // не дублируем span при повторных вызовах
+        if (!avatarDiv.querySelector('.avatar-initials')) {
+            const initials = user ? (user.first_name?.[0] || '').toUpperCase() : '?';
+            const span = document.createElement('span');
+            span.className = 'avatar-initials';
+            span.textContent = initials;
+            avatarDiv.appendChild(span);
+        }
     }
 }
 
@@ -1717,7 +1725,7 @@ function updateDamagePopup() {
         const level = (typeof memberData === 'object' && memberData?.level) ? memberData.level : 1;
         const isCurrent = userId === store.docId;
         const avatarInner = photoUrl
-            ? `<img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none'"><span class="member-level-badge">${level}</span>`
+            ? `<img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="member-avatar-initials" style="display:none">${name.charAt(0).toUpperCase()}</span><span class="member-level-badge">${level}</span>`
             : `<span class="member-avatar-initials">${name.charAt(0).toUpperCase()}</span><span class="member-level-badge">${level}</span>`;
         html += `<div class="damage-popup-row ${isCurrent ? 'current' : ''}">
             <div class="damage-popup-player-info">
@@ -2077,7 +2085,7 @@ async function renderGuildPage(guild) {
              <ul class="member-list">
                 ${membersData.map(member => {
                     const avatarHtml = member.photoUrl
-                        ? `<img src="${member.photoUrl}" class="member-avatar-img" alt="avatar">`
+                        ? `<img src="${member.photoUrl}" class="member-avatar-img" alt="avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="member-avatar-initials" style="display:none">${member.name[0]?.toUpperCase() || '?'}</span>`
                         : `<span class="member-avatar-initials">${member.name[0]?.toUpperCase() || '?'}</span>`;
                     const isLeaderMember = member.id === guild.leaderId;
                     const leaderStar = isLeaderMember ? ' 👑' : '';
@@ -3016,9 +3024,19 @@ function updateProfileModal() {
     if (avatarImg) {
         if (tgUser && tgUser.photo_url) {
             avatarImg.src = tgUser.photo_url;
+            avatarImg.style.display = '';
+            const profileAvatarDiv = avatarImg.parentElement;
+            const existingInit = profileAvatarDiv?.querySelector('.avatar-initials');
+            if (existingInit) existingInit.remove();
         } else {
-            avatarImg.src = '';
-            avatarImg.alt = user.name?.[0] || '?';
+            avatarImg.style.display = 'none';
+            const profileAvatarDiv = avatarImg.parentElement;
+            if (profileAvatarDiv && !profileAvatarDiv.querySelector('.avatar-initials')) {
+                const span = document.createElement('span');
+                span.className = 'avatar-initials';
+                span.textContent = (user.name?.[0] || '?').toUpperCase();
+                profileAvatarDiv.appendChild(span);
+            }
         }
     }
 
@@ -3647,7 +3665,7 @@ async function loadGuildInviteList(guild) {
             const inGuild = !!friend.guildId;
             const invited = alreadyInvited.has(friend.id);
             const avatarInner = friend.photoUrl
-                ? `<img class="member-avatar-img" src="${friend.photoUrl}" onerror="this.style.display='none'">`
+                ? `<img class="member-avatar-img" src="${friend.photoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="member-avatar-initials" style="display:none">${(friend.name || '?').charAt(0).toUpperCase()}</div>`
                 : `<div class="member-avatar-initials">${(friend.name || '?').charAt(0).toUpperCase()}</div>`;
             const levelBadge = `<div class="member-level-badge">${friend.level || 1}</div>`;
             let btnHtml;
@@ -3803,9 +3821,19 @@ async function openVisitModal(userId) {
         const avatarImg = document.getElementById('visit-avatar-img');
         if (userData.photoUrl) {
             avatarImg.src = userData.photoUrl;
+            avatarImg.style.display = '';
+            const visitAvatarDiv = avatarImg.parentElement;
+            const existingInit = visitAvatarDiv?.querySelector('.avatar-initials');
+            if (existingInit) existingInit.remove();
         } else {
-            avatarImg.src = ''; // заглушка
-            avatarImg.alt = userData.name?.[0] || '?';
+            avatarImg.style.display = 'none';
+            const visitAvatarDiv = avatarImg.parentElement;
+            if (visitAvatarDiv && !visitAvatarDiv.querySelector('.avatar-initials')) {
+                const span = document.createElement('span');
+                span.className = 'avatar-initials';
+                span.textContent = (userData.name?.[0] || '?').toUpperCase();
+                visitAvatarDiv.appendChild(span);
+            }
         }
 
         // Скин персонажа

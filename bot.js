@@ -179,4 +179,21 @@ bot.onText(/\/start/, async (msg) => {
   });
 });
 
+// ===== ОПЛАТА ЧЕРЕЗ TELEGRAM STARS =====
+
+// Подтверждение предварительной проверки платежа (ОБЯЗАТЕЛЬНО для Stars!)
+bot.on('pre_checkout_query', (query) => {
+  console.log(`[Stars] pre_checkout_query от ${query.from.id}, payload: ${query.invoice_payload}`);
+  bot.answerPreCheckoutQuery(query.id, true).catch((err) => {
+    console.error('[Stars] Ошибка answerPreCheckoutQuery:', err.message);
+  });
+});
+
+// Обработка успешного платежа
+bot.on('message', (msg) => {
+  if (!msg.successful_payment) return;
+  const payment = msg.successful_payment;
+  console.log(`[Stars] Успешная оплата от ${msg.from.id}: ${payment.total_amount} ${payment.currency}, payload: ${payment.invoice_payload}`);
+});
+
 console.log('Бот запущен и слушает команды...');
