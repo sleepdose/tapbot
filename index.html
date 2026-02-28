@@ -17,7 +17,7 @@
         </div>
         <div class="preloader-content">
             <div class="preloader-icon">⚔️</div>
-            <h1 class="preloader-title"><span class="preloader-title-main">HIKO</span><span class="preloader-title-sub">BATTLE TIME</span></h1>
+            <h1 class="preloader-title"><span class="preloader-title-main">BATTLE</span><span class="preloader-title-sub">TIME TIME</span></h1>
             <div class="preloader-bar-container">
                 <div class="preloader-bar-track">
                     <div id="preloader-progress-bar" class="preloader-bar-fill"></div>
@@ -298,16 +298,6 @@
                     </div>
                 </div>
 
-                <!-- Табы выбора сундука -->
-                <div class="chest-tabs">
-                    <button class="chest-tab-btn active" id="chest-tab-regular" onclick="switchChestTab('regular')">
-                        📦 Обычный
-                    </button>
-                    <button class="chest-tab-btn" id="chest-tab-stars" onclick="switchChestTab('stars')">
-                        ⭐ Звёздный
-                    </button>
-                </div>
-
                 <div class="treasure-divider"></div>
 
                 <!-- Слот-машина -->
@@ -336,6 +326,19 @@
                     <div id="free-spin-timer" class="free-spin-timer" style="display:none;">⏳ Следующий бесплатный через <span id="free-spin-countdown">00:00:00</span></div>
                     <button id="spin-btn" class="glow-button spin-btn" onclick="spinTreasure(window.currentChestTab === 'stars' ? 'stars' : 'paid')">
                         🎰 Крутить
+                    </button>
+                </div>
+
+                <!-- Стоимость прокрута -->
+                <p id="spin-cost-label" class="spin-cost-label"></p>
+
+                <!-- Табы выбора сундука -->
+                <div class="chest-tabs">
+                    <button class="chest-tab-btn active" id="chest-tab-regular" onclick="switchChestTab('regular')">
+                        📦 Обычный
+                    </button>
+                    <button class="chest-tab-btn" id="chest-tab-stars" onclick="switchChestTab('stars')">
+                        ⭐ Звёздный
                     </button>
                 </div>
 

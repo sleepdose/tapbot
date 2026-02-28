@@ -208,8 +208,8 @@ function updateBattleResultModalVisibility() {
                 const medal = entries.indexOf(entries.find(e => e[0] === uid)) === 0 ? '🥇 ' : '';
                 const highlightClass = isCurrentUser ? ' class="current-user-row"' : '';
                 const avatarHtml = photoUrl
-                    ? `<div class="member-avatar" style="width:32px;height:32px;flex-shrink:0;"><img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none'">${level ? `<span class="member-level-badge">${level}</span>` : ''}</div>`
-                    : `<div class="member-avatar" style="width:32px;height:32px;flex-shrink:0;"><span class="member-avatar-initials">${name.charAt(0).toUpperCase()}</span>${level ? `<span class="member-level-badge">${level}</span>` : ''}</div>`;
+                    ? `<div class="member-avatar"><img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none'">${level ? `<span class="member-level-badge">${level}</span>` : ''}</div>`
+                    : `<div class="member-avatar"><span class="member-avatar-initials">${name.charAt(0).toUpperCase()}</span>${level ? `<span class="member-level-badge">${level}</span>` : ''}</div>`;
                 html += `<tr${highlightClass}><td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;">${medal}${avatarHtml}${name}</span></td><td style="text-align:right;">${dmg}</td></tr>`;
             }
         }
@@ -362,7 +362,8 @@ async function loadUserFromFirestore() {
             musicEnabled: true,
             equipped: {},
             skin: null,
-            completedTasks: [] // <-- новое поле для выполненных заданий
+            completedTasks: [], // <-- новое поле для выполненных заданий
+            authUid: uid
         };
         await userRef.set(newUser);
         store.user = newUser;
@@ -405,6 +406,7 @@ async function loadUserFromFirestore() {
     if (!Array.isArray(data.pendingRequests)) { data.pendingRequests = []; needsUpdate = true; }
     if (!Array.isArray(data.inventory)) { data.inventory = []; needsUpdate = true; }
     if (!Array.isArray(data.completedTasks)) { data.completedTasks = []; needsUpdate = true; } // <-- добавили
+    if (!data.authUid || data.authUid !== uid) { data.authUid = uid; needsUpdate = true; }
 
     const now = Date.now();
     const originalEnergy = data.energy || 0;
@@ -1644,11 +1646,16 @@ async function loadGuildMemberNames(guildId) {
     const names = {};
     membersSnapshot.forEach(doc => {
         const data = doc.data();
-        names[doc.id] = {
+        const memberInfo = {
             name: data.name || doc.id.slice(0, 6),
             photoUrl: data.photoUrl || '',
             level: data.level || 1
         };
+        names[doc.id] = memberInfo;
+        // Also index by Firebase Auth UID so damageLog keys match
+        if (data.authUid && data.authUid !== doc.id) {
+            names[data.authUid] = memberInfo;
+        }
     });
     store.guildMemberNames[guildId] = names;
 }
@@ -1690,7 +1697,7 @@ function updateDamagePopup() {
             : `<span class="member-avatar-initials">${name.charAt(0).toUpperCase()}</span><span class="member-level-badge">${level}</span>`;
         html += `<div class="damage-popup-row ${isCurrent ? 'current' : ''}">
             <div class="damage-popup-player-info">
-                <div class="member-avatar" style="width:32px;height:32px;flex-shrink:0;">${avatarInner}</div>
+                <div class="member-avatar">${avatarInner}</div>
                 <span class="damage-popup-name">${name}</span>
             </div>
             <span class="damage-popup-value">${dmg}</span>
@@ -4034,9 +4041,10 @@ let _countdownTimer = null;
 
 // Показывает нужную кнопку и таймер в зависимости от доступности бесплатного прокрута
 function updateSpinButtons(type) {
-    const freeBtn  = document.getElementById('free-spin-btn');
-    const spinBtn  = document.getElementById('spin-btn');
-    const timerDiv = document.getElementById('free-spin-timer');
+    const freeBtn   = document.getElementById('free-spin-btn');
+    const spinBtn   = document.getElementById('spin-btn');
+    const timerDiv  = document.getElementById('free-spin-timer');
+    const costLabel = document.getElementById('spin-cost-label');
     if (!spinBtn) return;
 
     const hasFree = (type === 'regular') && checkTodayFreeSpin();
@@ -4044,6 +4052,17 @@ function updateSpinButtons(type) {
     if (freeBtn)  freeBtn.style.display  = hasFree ? '' : 'none';
     if (timerDiv) timerDiv.style.display = (!hasFree && type === 'regular') ? '' : 'none';
     spinBtn.style.display = hasFree ? 'none' : '';
+
+    // Show cost outside button
+    if (costLabel) {
+        if (hasFree) {
+            costLabel.textContent = '';
+        } else if (type === 'stars') {
+            costLabel.textContent = `Стоимость: ${STARS_COST} ⭐ Telegram Stars`;
+        } else {
+            costLabel.textContent = `Стоимость: ${GACHA_COST} 🪙`;
+        }
+    }
 
     if (!hasFree && type === 'regular') {
         startFreeSpinCountdown();
@@ -4391,7 +4410,7 @@ async function finalizeSpin(winner, mode) {
             if (activeTab === 'pets') loadPetsGrid();
         }
 
-        updateInlineResult(winner);
+        updateInlineResult(winner, alreadyOwned);
         hapticFeedback('heavy');
     } catch (e) {
         console.error('Ошибка гачи:', e);
@@ -4405,7 +4424,7 @@ async function finalizeSpin(winner, mode) {
     }
 }
 
-function updateInlineResult(item) {
+function updateInlineResult(item, alreadyOwned) {
     const inlineDiv = document.getElementById('treasure-inline-result');
     if (!inlineDiv) return;
     const nameSpan = inlineDiv.querySelector('.inline-result-name');
@@ -4415,7 +4434,8 @@ function updateInlineResult(item) {
     nameSpan.textContent = item.name;
 
     const user = store.user;
-    const owned = user.inventory && user.inventory.some(inv => inv.id === item.id);
+    // Use pre-transaction alreadyOwned flag when available (avoids false positive after inventory update)
+    const owned = (alreadyOwned !== undefined) ? alreadyOwned : (user.inventory && user.inventory.some(inv => inv.id === item.id));
 
     let statusText = '';
     let statusClass = '';
