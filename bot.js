@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 // Required modules
 const express = require('express');
 const cors = require('cors');
@@ -5,7 +7,15 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 
 // Middleware for CORS
-app.use(cors({ origin: 'https://your-allowed-origin.com' })); // Adjust accordingly
+const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'https://hiko-bot-backend.onrender.com')
+    .split(',').map(o => o.trim());
+app.use(cors({
+    origin: (origin, cb) => {
+        // Allow requests with no origin (e.g. mobile apps, curl) or matching whitelist
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+        cb(new Error('Not allowed by CORS'));
+    }
+}));
 
 // Rate limiting middleware
 const limiter = rateLimit({
@@ -44,8 +54,44 @@ async function callTelegramAPI(method, body) {
     return res.json();
 }
 
+// Validate Telegram initData HMAC signature
+const crypto = require('crypto');
+
+function validateTelegramInitData(initData) {
+    if (!initData) return false;
+    try {
+        const params = new URLSearchParams(initData);
+        const hash = params.get('hash');
+        if (!hash) return false;
+        params.delete('hash');
+        const dataCheckString = [...params.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, value]) => `${key}=${value}`)
+            .join('\n');
+        const secretKey = crypto.createHmac('sha256', 'WebAppData')
+            .update(TELEGRAM_TOKEN)
+            .digest();
+        const expectedHash = crypto.createHmac('sha256', secretKey)
+            .update(dataCheckString)
+            .digest('hex');
+        return expectedHash === hash;
+    } catch (e) {
+        console.error('initData validation error:', e);
+        return false;
+    }
+}
+
+function requireTelegramAuth(req, res, next) {
+    const initData = req.headers['x-telegram-init-data'] || req.body.initData;
+    if (!initData || !validateTelegramInitData(initData)) {
+        console.warn('Rejected request: invalid or missing initData');
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+    next();
+}
+
 // Create a Telegram Stars invoice link
-app.post('/api/create-stars-invoice', async (req, res) => {
+app.post('/api/create-stars-invoice', requireTelegramAuth, async (req, res) => {
     try {
         validateInput(req.body);
         const { userId, stars = 50 } = req.body;

@@ -62,6 +62,7 @@ const auth = firebase.auth();
 // ГЛОБАЛЬНОЕ СОСТОЯНИЕ (СТОР) И ПОДПИСКИ
 // =======================================================
 const store = {
+    docId: null, // Firestore document ID: telegramId if available, else Firebase UID
     user: null,
     guild: null,
     authUser: null,
@@ -307,17 +308,39 @@ async function getUser(forceReload = false) {
 async function loadUserFromFirestore() {
     if (!store.authUser) throw new Error('Not authenticated');
     const uid = store.authUser.uid;
-    const userRef = db.collection('users').doc(uid);
-    const doc = await userRef.get();
-
     const tgUser = tg.initDataUnsafe?.user;
+    const telegramId = tgUser?.id ? String(tgUser.id) : null;
     const currentPhotoUrl = tgUser?.photo_url || '';
+
+    // Use telegramId as doc key — survives cache clears / device switches
+    // Fall back to Firebase UID in debug mode (no real Telegram)
+    const docId = telegramId || uid;
+    store.docId = docId;
+    console.log(`[Auth] docId=${docId} (tgId=${telegramId}, uid=${uid})`);
+
+    let userRef = db.collection('users').doc(docId);
+    let doc = await userRef.get();
+
+    // Migration: move old uid-keyed doc to telegramId-keyed doc
+    if (!doc.exists && telegramId && telegramId !== uid) {
+        const oldRef = db.collection('users').doc(uid);
+        const oldDoc = await oldRef.get();
+        if (oldDoc.exists) {
+            console.log('[Auth] Migrating user data: uid → telegramId doc');
+            const oldData = oldDoc.data();
+            oldData.telegramId = telegramId;
+            oldData.id = docId;
+            await userRef.set(oldData);
+            await oldRef.delete();
+            doc = await userRef.get();
+        }
+    }
 
     if (!doc.exists) {
         const newUser = {
-            id: uid,
+            id: docId,
             name: tgUser?.first_name || 'Игрок',
-            telegramId: String(tgUser?.id || ''),
+            telegramId: telegramId || '',
             photoUrl: currentPhotoUrl,
             energy: 100,
             maxEnergy: 100,
@@ -428,7 +451,7 @@ async function loadUserFromFirestore() {
 }
 async function updateUser(updates) {
     if (!store.user || !store.authUser) return;
-    const userRef = db.collection('users').doc(store.authUser.uid);
+    const userRef = db.collection('users').doc(store.docId);
     try {
         await userRef.update(updates);
         Object.assign(store.user, updates);
@@ -629,7 +652,7 @@ window.buySkin = async function(skinId) {
     }
     const user = await getUser();
     const skinRef = db.collection('shop_items').doc(skinId);
-    const userRef = db.collection('users').doc(store.authUser.uid);
+    const userRef = db.collection('users').doc(store.docId);
 
     try {
         await db.runTransaction(async (transaction) => {
@@ -753,7 +776,7 @@ window.buyPet = async function(petId) {
         return;
     }
     const itemRef = db.collection('shop_items').doc(petId);
-    const userRef = db.collection('users').doc(store.authUser.uid);
+    const userRef = db.collection('users').doc(store.docId);
 
     try {
         await db.runTransaction(async (transaction) => {
@@ -1487,7 +1510,7 @@ async function createGuild(name, description, chatLink) {
 window.joinGuild = async function(guildId) {
     if (!store.authUser) return;
     const guildRef = db.collection('guilds').doc(guildId);
-    const userRef = db.collection('users').doc(store.authUser.uid);
+    const userRef = db.collection('users').doc(store.docId);
     try {
         await db.runTransaction(async (transaction) => {
             const guildDoc = await transaction.get(guildRef);
@@ -3356,7 +3379,7 @@ window.acceptFriendRequest = async function(requestId, fromId) {
     const user = await getUser();
     try {
         await db.runTransaction(async (transaction) => {
-            const userRef = db.collection('users').doc(store.authUser.uid);
+            const userRef = db.collection('users').doc(store.docId);
             const friendRef = db.collection('users').doc(fromId);
             const requestRef = db.collection('friendRequests').doc(requestId);
             transaction.update(userRef, {
@@ -3393,7 +3416,7 @@ window.removeFriend = async function(friendId, event) {
     if (!user.friends.includes(friendId)) return;
     try {
         await db.runTransaction(async (transaction) => {
-            const userRef = db.collection('users').doc(store.authUser.uid);
+            const userRef = db.collection('users').doc(store.docId);
             const friendRef = db.collection('users').doc(friendId);
             transaction.update(userRef, {
                 friends: firebase.firestore.FieldValue.arrayRemove(friendId)
@@ -3434,7 +3457,7 @@ async function leaveGuild(guildId) {
     }
 
     const guildRef = db.collection('guilds').doc(guildId);
-    const userRef = db.collection('users').doc(store.authUser.uid);
+    const userRef = db.collection('users').doc(store.docId);
 
     try {
         const guildDoc = await guildRef.get();
@@ -3807,7 +3830,7 @@ window.onload = async () => {
         document.getElementById('close-battle-result').onclick = async () => {
             const res = store.battleResult;
             if (res && res.visible && res.timestamp && store.guild) {
-                const userRef = db.collection('users').doc(store.authUser.uid);
+                const userRef = db.collection('users').doc(store.docId);
                 await userRef.update({
                     [`battleResultsSeen.${store.guild.id}`]: res.timestamp
                 });
@@ -3846,7 +3869,7 @@ window.onload = async () => {
 async function updateLastSeen() {
     if (!store.authUser) return;
     try {
-        await db.collection('users').doc(store.authUser.uid).update({
+        await db.collection('users').doc(store.docId).update({
             lastSeen: Date.now()
         });
         console.log('lastSeen обновлён');
@@ -4213,8 +4236,11 @@ window.spinTreasure = async function(spinType) {
         try {
             const resp = await fetch('https://hiko-bot-backend.onrender.com/api/create-stars-invoice', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: store.authUser?.uid, stars: STARS_COST })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-telegram-init-data': tg.initData || ''
+                },
+                body: JSON.stringify({ userId: store.user?.telegramId || store.docId, stars: STARS_COST })
             });
             const data = await resp.json();
             if (!data.success || !data.link) {
@@ -4318,7 +4344,7 @@ window.spinTreasure = async function(spinType) {
 async function finalizeSpin(winner, mode) {
     const spinBtn = document.getElementById('spin-btn');
     try {
-        const userRef = db.collection('users').doc(store.authUser.uid);
+        const userRef = db.collection('users').doc(store.docId);
         let alreadyOwned = false;
         await db.runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
