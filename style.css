@@ -113,6 +113,7 @@ body::before {
     gap: 10px;
     position: sticky;
     top: 0;
+    position: relative;
     z-index: 201;
     background: rgba(6, 2, 20, 0.90);
     backdrop-filter: blur(20px);
@@ -297,6 +298,7 @@ body::before {
     border-top: 1px solid var(--border-subtle);
     box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
     gap: 8px;
+    position: relative;
     z-index: 201;
 }
 .nav-btn {
@@ -2833,7 +2835,7 @@ body::before {
    MODAL SHELL
 ══════════════════════════════════════════ */
 .treasure-modal-content {
-    max-height: 92vh;
+    max-height: 75vh;
     overflow-y: auto;
     padding: 0 0 22px;
     display: flex;
