@@ -4188,7 +4188,7 @@ const EXCLUSIVE_GACHA_ITEMS = [
 ];
 
 const GACHA_COST = 200;
-const STARS_COST = 50; // Telegram Stars price
+const STARS_COST = 10; // Telegram Stars price
 
 let _countdownTimer = null;
 
