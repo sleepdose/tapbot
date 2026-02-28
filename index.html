@@ -287,9 +287,9 @@
         </div>
 
         <!-- ========== МОДАЛЬНОЕ ОКНО: СУНДУК С СОКРОВИЩАМИ ========== -->
-        <div id="treasure-modal" class="modal hidden">
+        <div id="treasure-modal" class="modal hidden" style="position:relative;">
+            <button class="treasure-close-btn" onclick="closeTreasureModal()">✕</button>
             <div class="modal-content treasure-modal-content">
-                <button class="treasure-close-btn" onclick="closeTreasureModal()">✕</button>
                 <div class="treasure-modal-header">
                     <div class="treasure-title-wrap">
                         <span class="treasure-chest-emoji" id="treasure-chest-icon">📦</span>
@@ -334,7 +334,6 @@
                         🎁 Бесплатный прокрут
                     </button>
                     <div id="free-spin-timer" class="free-spin-timer" style="display:none;">⏳ Следующий бесплатный через <span id="free-spin-countdown">00:00:00</span></div>
-                    <div id="spin-cost-display" class="spin-cost-display">Стоимость: 200 🪙</div>
                     <button id="spin-btn" class="glow-button spin-btn" onclick="spinTreasure(window.currentChestTab === 'stars' ? 'stars' : 'paid')">
                         🎰 Крутить
                     </button>
@@ -354,6 +353,19 @@
                 <h3>⚔️ Нанесённый урон</h3>
                 <div id="damage-popup-list" class="damage-popup-list"></div>
                 <button class="close-modal-btn glow-button" onclick="closeDamagePopup()">Закрыть</button>
+            </div>
+        </div>
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО: ПРИГЛАСИТЬ В ГИЛЬДИЮ ========== -->
+        <div id="guild-invite-modal" class="modal hidden" onclick="if(event.target===this)closeGuildInviteModal()">
+            <div class="modal-content guild-invite-modal-content">
+                <div class="guild-invite-header">
+                    <h3>📨 Пригласить в гильдию</h3>
+                    <button class="invite-modal-close" onclick="closeGuildInviteModal()">✕</button>
+                </div>
+                <div id="guild-invite-list" class="guild-invite-list">
+                    <p class="empty-msg">Загрузка друзей...</p>
+                </div>
             </div>
         </div>
 

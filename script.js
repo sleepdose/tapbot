@@ -195,12 +195,21 @@ function updateBattleResultModalVisibility() {
         if (entries.length === 0) {
             html += '<tr><td colspan="2" style="text-align:center; padding: 20px; color: var(--text-secondary);">Никто не нанёс урон</td></tr>';
         } else {
+            const guildNames = store.guildMemberNames[store.guild?.id] || {};
             for (const [uid, dmg] of entries) {
-                const name = res.userNames[uid] || uid.slice(0, 6);
+                const memberData = guildNames[uid];
+                const name = (typeof memberData === 'object' && memberData?.name)
+                    ? memberData.name
+                    : (res.userNames[uid] || uid.slice(0, 6));
+                const photoUrl = (typeof memberData === 'object' && memberData?.photoUrl) ? memberData.photoUrl : '';
+                const level = (typeof memberData === 'object' && memberData?.level) ? memberData.level : '';
                 const isCurrentUser = uid === store.authUser?.uid;
                 const medal = entries.indexOf(entries.find(e => e[0] === uid)) === 0 ? '🥇 ' : '';
                 const highlightClass = isCurrentUser ? ' class="current-user-row"' : '';
-                html += `<tr${highlightClass}><td style="text-align:left;">${medal}${name}</td><td style="text-align:right;">${dmg}</td></tr>`;
+                const avatarHtml = photoUrl
+                    ? `<div class="member-avatar" style="width:32px;height:32px;flex-shrink:0;"><img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none'">${level ? `<span class="member-level-badge">${level}</span>` : ''}</div>`
+                    : `<div class="member-avatar" style="width:32px;height:32px;flex-shrink:0;"><span class="member-avatar-initials">${name.charAt(0).toUpperCase()}</span>${level ? `<span class="member-level-badge">${level}</span>` : ''}</div>`;
+                html += `<tr${highlightClass}><td style="text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;">${medal}${avatarHtml}${name}</span></td><td style="text-align:right;">${dmg}</td></tr>`;
             }
         }
         html += '</table>';
@@ -1653,12 +1662,12 @@ function updateDamagePopup() {
         const photoUrl = (typeof memberData === 'object' && memberData?.photoUrl) ? memberData.photoUrl : '';
         const level = (typeof memberData === 'object' && memberData?.level) ? memberData.level : 1;
         const isCurrent = userId === store.authUser?.uid;
-        const avatarHtml = photoUrl
-            ? `<img class="damage-mini-avatar" src="${photoUrl}" onerror="this.style.display='none'">`
-            : `<div class="damage-mini-avatar-fallback">${name.charAt(0).toUpperCase()}</div>`;
+        const avatarInner = photoUrl
+            ? `<img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none'"><span class="member-level-badge">${level}</span>`
+            : `<span class="member-avatar-initials">${name.charAt(0).toUpperCase()}</span><span class="member-level-badge">${level}</span>`;
         html += `<div class="damage-popup-row ${isCurrent ? 'current' : ''}">
             <div class="damage-popup-player-info">
-                <div class="damage-mini-avatar-wrapper">${avatarHtml}<span class="damage-avatar-level">${level}</span></div>
+                <div class="member-avatar" style="width:32px;height:32px;flex-shrink:0;">${avatarInner}</div>
                 <span class="damage-popup-name">${name}</span>
             </div>
             <span class="damage-popup-value">${dmg}</span>
@@ -1689,7 +1698,41 @@ async function loadGuildScreen() {
         const guilds = guildsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         showLoader('guild-view', false);
 
+        // Load pending guild invitations for this user
+        let invitationsHtml = '';
+        try {
+            const invSnap = await db.collection('guildInvitations')
+                .where('toUserId', '==', store.authUser.uid)
+                .where('status', '==', 'pending')
+                .get();
+            if (!invSnap.empty) {
+                invitationsHtml = `<div class="guild-invitations-section">
+                    <h3 class="guild-invitations-title">📬 Приглашения в гильдию</h3>
+                    ${invSnap.docs.map(doc => {
+                        const inv = doc.data();
+                        return `<div class="guild-invitation-card">
+                            <div class="guild-inv-info">
+                                <div class="guild-inv-name">${inv.guildName}</div>
+                                <div class="guild-inv-stats">
+                                    <span>🏆 Ур. ${inv.guildLevel}</span>
+                                    <span>👥 ${inv.memberCount}/${inv.maxMembers}</span>
+                                    <span>⭐ ${inv.rating || 0}</span>
+                                </div>
+                            </div>
+                            <div class="guild-inv-actions">
+                                <button class="glow-button guild-inv-accept-btn" onclick="acceptGuildInvitation('${doc.id}','${inv.guildId}')">✅ Принять</button>
+                                <button class="guild-inv-decline-btn" onclick="declineGuildInvitation('${doc.id}')">❌</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            }
+        } catch(e) {
+            console.warn('Ошибка загрузки приглашений:', e);
+        }
+
         container.innerHTML = `
+             ${invitationsHtml}
              <div class="guild-header">
                  <h2>🏰 Гильдии</h2>
                  <button id="create-guild-btn" class="glow-button">✨ Создать</button>
@@ -3480,34 +3523,120 @@ async function removeFromGuild(guildId, memberId, event) {
 function showInviteMenu() {
     const guild = store.guild;
     if (!guild) return;
+    const modal = document.getElementById('guild-invite-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    loadGuildInviteList(guild);
+}
 
-    function fallbackInvite() {
-        const id = prompt('ID гильдии (скопируйте и отправьте другу):', guild.id);
-        if (id) copyToClipboard(id);
+window.closeGuildInviteModal = function() {
+    const modal = document.getElementById('guild-invite-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
+async function loadGuildInviteList(guild) {
+    const container = document.getElementById('guild-invite-list');
+    if (!container) return;
+    const user = store.user;
+    if (!user || !user.friends || user.friends.length === 0) {
+        container.innerHTML = '<p class="empty-msg">У вас нет друзей для приглашения</p>';
+        return;
     }
-
-    if (tg && typeof tg.showPopup === 'function') {
-        try {
-            tg.showPopup({
-                title: 'Приглашение в гильдию',
-                message: `ID гильдии: ${guild.id}\n\nОтправьте этот ID другу, он сможет вступить, нажав "Вступить" в списке гильдий или через поиск.`,
-                buttons: [
-                    { type: 'default', text: 'Скопировать ID' },
-                    { type: 'cancel', text: 'Закрыть' }
-                ]
-            }, (btnId) => {
-                if (btnId === '0') {
-                    copyToClipboard(guild.id);
-                }
-            });
-        } catch (e) {
-            console.warn('Telegram WebApp showPopup не поддерживается, используем prompt', e);
-            fallbackInvite();
+    container.innerHTML = '<p class="empty-msg">Загрузка...</p>';
+    try {
+        const friendDocs = await Promise.all(user.friends.map(fid => db.collection('users').doc(fid).get()));
+        const friends = friendDocs.filter(doc => doc.exists).map(doc => ({ id: doc.id, ...doc.data() }));
+        if (friends.length === 0) {
+            container.innerHTML = '<p class="empty-msg">Нет друзей</p>';
+            return;
         }
-    } else {
-        fallbackInvite();
+        // Check existing invitations to avoid duplicates
+        const existingInvSnap = await db.collection('guildInvitations')
+            .where('guildId', '==', guild.id)
+            .where('status', '==', 'pending')
+            .get();
+        const alreadyInvited = new Set(existingInvSnap.docs.map(d => d.data().toUserId));
+
+        let html = '';
+        for (const friend of friends) {
+            const inGuild = !!friend.guildId;
+            const invited = alreadyInvited.has(friend.id);
+            const avatarInner = friend.photoUrl
+                ? `<img class="member-avatar-img" src="${friend.photoUrl}" onerror="this.style.display='none'">`
+                : `<div class="member-avatar-initials">${(friend.name || '?').charAt(0).toUpperCase()}</div>`;
+            const levelBadge = `<div class="member-level-badge">${friend.level || 1}</div>`;
+            let btnHtml;
+            if (inGuild) {
+                btnHtml = `<div class="invite-friend-cell">
+                    <button class="glow-button invite-send-btn" disabled style="opacity:0.45;cursor:not-allowed;">В гильдии</button>
+                    <span class="invite-in-guild-note">Уже состоит в гильдии</span>
+                </div>`;
+            } else if (invited) {
+                btnHtml = `<div class="invite-friend-cell">
+                    <button class="glow-button invite-send-btn" disabled style="opacity:0.55;cursor:not-allowed;">Отправлено</button>
+                </div>`;
+            } else {
+                btnHtml = `<div class="invite-friend-cell">
+                    <button class="glow-button invite-send-btn" onclick="sendGuildInvitation('${guild.id}','${friend.id}',this)">📨 Пригласить</button>
+                </div>`;
+            }
+            html += `<div class="guild-invite-friend-row">
+                <div class="member-avatar" style="flex-shrink:0;">${avatarInner}${levelBadge}</div>
+                <div class="member-name">${friend.name || 'Игрок'}</div>
+                ${btnHtml}
+            </div>`;
+        }
+        container.innerHTML = html;
+    } catch (e) {
+        console.error('Ошибка загрузки списка друзей для приглашения:', e);
+        container.innerHTML = '<p class="empty-msg">Ошибка загрузки</p>';
     }
 }
+
+window.sendGuildInvitation = async function(guildId, toUserId, btn) {
+    const guild = store.guild;
+    if (!guild) return;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+        await db.collection('guildInvitations').add({
+            guildId,
+            guildName: guild.name || 'Гильдия',
+            guildLevel: guild.level || 1,
+            memberCount: guild.members?.length || 0,
+            maxMembers: guild.maxMembers || 20,
+            rating: guild.rating || 0,
+            fromUserId: store.authUser.uid,
+            toUserId,
+            status: 'pending',
+            createdAt: Date.now()
+        });
+        if (btn) { btn.textContent = '✅ Отправлено'; btn.disabled = true; btn.style.opacity = '0.55'; }
+        console.log('✉️ Приглашение отправлено игроку', toUserId);
+    } catch (e) {
+        console.error('Ошибка отправки приглашения:', e);
+        if (btn) { btn.disabled = false; btn.textContent = '📨 Пригласить'; }
+        showNotification('Ошибка', 'Не удалось отправить приглашение');
+    }
+};
+
+window.acceptGuildInvitation = async function(invId, guildId) {
+    try {
+        await db.collection('guildInvitations').doc(invId).update({ status: 'accepted' });
+        await joinGuild(guildId);
+    } catch(e) {
+        console.error('Ошибка принятия приглашения:', e);
+        showNotification('Ошибка', 'Не удалось принять приглашение');
+    }
+};
+
+window.declineGuildInvitation = async function(invId) {
+    try {
+        await db.collection('guildInvitations').doc(invId).update({ status: 'declined' });
+        loadGuildScreen();
+    } catch(e) {
+        console.error('Ошибка отклонения приглашения:', e);
+    }
+};
 
 // =======================================================
 // ВИЗИТ К ДРУГОМУ ИГРОКУ (улучшенная версия)
@@ -3977,9 +4106,7 @@ window.switchChestTab = function(type) {
     }
     const spinBtn = document.getElementById('spin-btn');
     if (spinBtn) {
-        spinBtn.innerHTML = type === 'stars'
-            ? '⭐ Крутить — ' + STARS_COST + ' Stars'
-            : '🎰 Крутить — ' + GACHA_COST + ' 🪙';
+        spinBtn.innerHTML = type === 'stars' ? '⭐ Крутить' : '🎰 Крутить';
     }
     updateSpinButtons(type);
     gachaTreasurePool = getActivePool();
@@ -4006,7 +4133,8 @@ window.openTreasureModal = async function() {
         if (chestIcon) chestIcon.textContent = '📦';
         if (titleText) titleText.textContent = 'Сундук с сокровищами';
         const spinBtn = document.getElementById('spin-btn');
-        if (spinBtn) spinBtn.innerHTML = '🎰 Крутить — ' + GACHA_COST + ' 🪙';
+        if (spinBtn) spinBtn.innerHTML = '🎰 Крутить';
+
         updateSpinButtons('regular');
         await loadTreasurePool();
         renderTreasurePool();
