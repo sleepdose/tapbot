@@ -31,19 +31,76 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
-// Securely handle Telegram token validation
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN; // Use environment variable for security
-app.post('/webhook', (req, res) => {
-  try {
-    validateInput(req.body);
-    if (req.body.token !== TELEGRAM_TOKEN) {
-      return res.status(403).send('Forbidden');
+// Telegram Bot Token
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+
+// Helper: call Telegram Bot API
+async function callTelegramAPI(method, body) {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/${method}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    return res.json();
+}
+
+// Create a Telegram Stars invoice link
+app.post('/api/create-stars-invoice', async (req, res) => {
+    try {
+        validateInput(req.body);
+        const { userId, stars = 50 } = req.body;
+        const amount = parseInt(stars, 10) || 50;
+        const payload = `stars_spin_${userId || 'anon'}_${Date.now()}`;
+
+        const result = await callTelegramAPI('createInvoiceLink', {
+            title: 'Звёздный сундук',
+            description: 'Прокрути звёздный сундук и получи эксклюзивный предмет!',
+            payload,
+            currency: 'XTR',
+            prices: [{ label: 'Прокрут сундука', amount }]
+        });
+
+        console.log('createInvoiceLink result:', result);
+
+        if (result.ok) {
+            res.json({ success: true, link: result.result });
+        } else {
+            console.error('Telegram API error:', result);
+            res.json({ success: false, error: result.description || 'Telegram API error' });
+        }
+    } catch (e) {
+        console.error('/api/create-stars-invoice error:', e);
+        res.status(500).json({ success: false, error: e.message });
     }
-    // handle the incoming update from Telegram
-    res.status(200).send('Webhook received');
-  } catch (error) {
-    res.status(400).send(error.message);
-  }
+});
+
+// Telegram webhook — handles pre_checkout_query and successful_payment
+app.post('/webhook', async (req, res) => {
+    try {
+        const update = req.body;
+        console.log('Webhook update:', JSON.stringify(update));
+
+        // REQUIRED: answer pre_checkout_query to confirm the payment
+        if (update.pre_checkout_query) {
+            const pq = update.pre_checkout_query;
+            console.log('pre_checkout_query from user', pq.from.id, '| payload:', pq.invoice_payload);
+            await callTelegramAPI('answerPreCheckoutQuery', {
+                pre_checkout_query_id: pq.id,
+                ok: true
+            });
+        }
+
+        // Stars payment confirmed
+        if (update.message?.successful_payment) {
+            const payment = update.message.successful_payment;
+            console.log('successful_payment:', payment.invoice_payload, '| amount:', payment.total_amount, 'XTR');
+        }
+
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('Webhook error:', error);
+        res.status(200).send('OK'); // always 200 to Telegram
+    }
 });
 
 // Start the server

@@ -4061,9 +4061,46 @@ window.spinTreasure = async function(spinType) {
             return;
         }
     } else if (mode === 'stars') {
-        // Stars payment via Telegram – show invoice
-        showNotification('⭐ Telegram Stars', 'Оплата через Telegram Stars скоро будет добавлена!');
+        // Stars payment via Telegram – open invoice then spin
+        const spinBtn = document.getElementById('spin-btn');
+        const freeBtn = document.getElementById('free-spin-btn');
+        if (spinBtn) { spinBtn.disabled = true; spinBtn.classList.add('spinning'); }
+        if (freeBtn) freeBtn.disabled = true;
+        try {
+            const resp = await fetch('https://hiko-bot-backend.onrender.com/api/create-stars-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: store.authUser?.uid, stars: STARS_COST })
+            });
+            const data = await resp.json();
+            if (!data.success || !data.link) {
+                showNotification('Ошибка', data.error || 'Не удалось создать счёт Stars');
+                if (spinBtn) { spinBtn.disabled = false; spinBtn.classList.remove('spinning'); }
+                if (freeBtn) freeBtn.disabled = false;
+                return;
+            }
+            tg.openInvoice(data.link, (status) => {
+                console.log('⭐ Stars payment status:', status);
+                if (status === 'paid') {
+                    // Payment confirmed — spin without coin deduction
+                    spinTreasure('stars-paid');
+                } else {
+                    if (spinBtn) { spinBtn.disabled = false; spinBtn.classList.remove('spinning'); }
+                    if (freeBtn) freeBtn.disabled = false;
+                    if (status === 'failed') {
+                        showNotification('Оплата не прошла', 'Попробуйте ещё раз');
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Stars invoice error:', e);
+            showNotification('Ошибка', 'Сбой при создании оплаты Stars');
+            if (spinBtn) { spinBtn.disabled = false; spinBtn.classList.remove('spinning'); }
+            if (freeBtn) freeBtn.disabled = false;
+        }
         return;
+    } else if (mode === 'stars-paid') {
+        // Stars already paid – fall through to animation without deducting coins
     } else {
         // paid with coins
         if (user.money < GACHA_COST) {
