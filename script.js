@@ -3288,7 +3288,7 @@ async function loadFriendsList() {
 async function loadFriendRequests() {
     const container = document.getElementById('friends-requests-container');
     if (!container) return;
-    const requestsSnap = await db.collection('friendRequests').where('to', '==', store.authUser.uid).get();
+    const requestsSnap = await db.collection('friendRequests').where('to', '==', store.docId).get();
     const requests = requestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     // Синхронизируем pendingRequests в store.user и обновляем FAB
