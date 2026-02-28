@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const app = express();
 
 // Middleware for CORS
@@ -11,7 +12,6 @@ const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'https://hiko-bot-backend.o
     .split(',').map(o => o.trim());
 app.use(cors({
     origin: (origin, cb) => {
-        // Allow requests with no origin (e.g. mobile apps, curl) or matching whitelist
         if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
         cb(new Error('Not allowed by CORS'));
     }
@@ -20,7 +20,7 @@ app.use(cors({
 // Rate limiting middleware
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100
 });
 app.use(limiter);
 
@@ -29,7 +29,6 @@ app.use(express.json());
 
 // Function to validate input
 function validateInput(data) {
-  // Implement your validation logic here
   if (!data || typeof data !== 'object') {
     throw new Error('Invalid input');
   }
@@ -41,8 +40,9 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
-// Telegram Bot Token
+// Telegram Bot Token & Game URL
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const GAME_URL = process.env.GAME_URL || process.env.FRONTEND_URL || 'https://your-game-url.com';
 
 // Helper: call Telegram Bot API
 async function callTelegramAPI(method, body) {
@@ -55,8 +55,6 @@ async function callTelegramAPI(method, body) {
 }
 
 // Validate Telegram initData HMAC signature
-const crypto = require('crypto');
-
 function validateTelegramInitData(initData) {
     if (!initData) return false;
     try {
@@ -90,7 +88,121 @@ function requireTelegramAuth(req, res, next) {
     next();
 }
 
-// Create a Telegram Stars invoice link
+// =======================================================
+// /start COMMAND — Welcome message with game button
+// =======================================================
+async function handleStartCommand(message) {
+    const chatId = message.chat.id;
+    const user = message.from;
+    const firstName = user.first_name || 'Игрок';
+    const username = user.username ? `@${user.username}` : firstName;
+
+    console.log(`/start from user ${user.id} (${username})`);
+
+    await callTelegramAPI('sendMessage', {
+        chat_id: chatId,
+        text: `Привет, ${username}! 👋\n\nДобро пожаловать в игру «Hiko: Battle Time»!\nТвоя гильдия ждёт тебя. Нажми кнопку ниже, чтобы открыть игру.`,
+        reply_markup: {
+            inline_keyboard: [[
+                {
+                    text: '⚔️ Войти в игру',
+                    web_app: { url: GAME_URL }
+                }
+            ]]
+        }
+    });
+}
+
+// =======================================================
+// BATTLE START — Notify all guild members
+// POST /api/notify-battle
+// Body: { memberChatIds: [123, 456, ...], guildName: "...", opponentName: "..." }
+// =======================================================
+app.post('/api/notify-battle', requireTelegramAuth, async (req, res) => {
+    try {
+        validateInput(req.body);
+        const { memberChatIds, guildName, opponentName } = req.body;
+
+        if (!Array.isArray(memberChatIds) || memberChatIds.length === 0) {
+            return res.status(400).json({ success: false, error: 'memberChatIds is required' });
+        }
+
+        console.log(`Battle notification: guild "${guildName}" vs "${opponentName}", members: ${memberChatIds.length}`);
+
+        const text = `⚔️ БИТВА НАЧАЛАСЬ!\n\n🏰 Гильдия: ${guildName || 'Ваша гильдия'}\n👹 Противник: ${opponentName || 'Неизвестный'}\n\nСкорее заходи в игру — наноси урон!`;
+
+        const results = await Promise.allSettled(
+            memberChatIds.map(chatId =>
+                callTelegramAPI('sendMessage', {
+                    chat_id: chatId,
+                    text,
+                    reply_markup: {
+                        inline_keyboard: [[
+                            {
+                                text: '⚔️ В бой!',
+                                web_app: { url: GAME_URL }
+                            }
+                        ]]
+                    }
+                })
+            )
+        );
+
+        const sent = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
+        const failed = results.length - sent;
+        console.log(`Battle notifications: ${sent} sent, ${failed} failed`);
+
+        res.json({ success: true, sent, failed });
+    } catch (e) {
+        console.error('/api/notify-battle error:', e);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =======================================================
+// FRIEND REQUEST — Notify user about incoming friend request
+// POST /api/notify-friend-request
+// Body: { recipientChatId: 123, senderName: "...", initData: "..." }
+// =======================================================
+app.post('/api/notify-friend-request', requireTelegramAuth, async (req, res) => {
+    try {
+        validateInput(req.body);
+        const { recipientChatId, senderName } = req.body;
+
+        if (!recipientChatId) {
+            return res.status(400).json({ success: false, error: 'recipientChatId is required' });
+        }
+
+        console.log(`Friend request notification to ${recipientChatId} from "${senderName}"`);
+
+        const result = await callTelegramAPI('sendMessage', {
+            chat_id: recipientChatId,
+            text: `🤝 У тебя новая заявка в друзья!\n\n👤 ${senderName || 'Игрок'} хочет добавить тебя в друзья.\n\nЗайди в игру, чтобы принять или отклонить заявку.`,
+            reply_markup: {
+                inline_keyboard: [[
+                    {
+                        text: '👥 Открыть игру',
+                        web_app: { url: GAME_URL }
+                    }
+                ]]
+            }
+        });
+
+        if (result.ok) {
+            res.json({ success: true });
+        } else {
+            console.error('Telegram API error on friend request:', result);
+            res.json({ success: false, error: result.description || 'Telegram API error' });
+        }
+    } catch (e) {
+        console.error('/api/notify-friend-request error:', e);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =======================================================
+// STARS INVOICE
+// =======================================================
 app.post('/api/create-stars-invoice', requireTelegramAuth, async (req, res) => {
     try {
         validateInput(req.body);
@@ -120,11 +232,18 @@ app.post('/api/create-stars-invoice', requireTelegramAuth, async (req, res) => {
     }
 });
 
-// Telegram webhook — handles pre_checkout_query and successful_payment
+// =======================================================
+// WEBHOOK — handles all Telegram updates
+// =======================================================
 app.post('/webhook', async (req, res) => {
     try {
         const update = req.body;
         console.log('Webhook update:', JSON.stringify(update));
+
+        // Handle /start command
+        if (update.message?.text === '/start') {
+            await handleStartCommand(update.message);
+        }
 
         // REQUIRED: answer pre_checkout_query to confirm the payment
         if (update.pre_checkout_query) {
