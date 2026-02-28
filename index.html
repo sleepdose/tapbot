@@ -289,6 +289,7 @@
         <!-- ========== МОДАЛЬНОЕ ОКНО: СУНДУК С СОКРОВИЩАМИ ========== -->
         <div id="treasure-modal" class="modal hidden">
             <div class="modal-content treasure-modal-content">
+                <button class="treasure-close-btn" onclick="closeTreasureModal()">✕</button>
                 <div class="treasure-modal-header">
                     <div class="treasure-title-wrap">
                         <span class="treasure-chest-emoji" id="treasure-chest-icon">📦</span>
@@ -326,12 +327,6 @@
                     </div>
                 </div>
 
-                <!-- Пул предметов -->
-                <div class="treasure-pool-section">
-                    <p class="pool-label">🎲 Возможные предметы</p>
-                    <div id="treasure-pool-grid" class="treasure-pool-grid"></div>
-                </div>
-
                 <!-- Кнопки -->
                 <div class="modal-buttons treasure-buttons">
                     <!-- Кнопка бесплатного прокрута (только для обычного сундука) -->
@@ -339,10 +334,16 @@
                         🎁 Бесплатный прокрут
                     </button>
                     <div id="free-spin-timer" class="free-spin-timer" style="display:none;">⏳ Следующий бесплатный через <span id="free-spin-countdown">00:00:00</span></div>
+                    <div id="spin-cost-display" class="spin-cost-display">Стоимость: 200 🪙</div>
                     <button id="spin-btn" class="glow-button spin-btn" onclick="spinTreasure(window.currentChestTab === 'stars' ? 'stars' : 'paid')">
-                        🎰 Крутить — 200 🪙
+                        🎰 Крутить
                     </button>
-                    <button class="cancel-btn" onclick="closeTreasureModal()">Закрыть</button>
+                </div>
+
+                <!-- Пул предметов -->
+                <div class="treasure-pool-section">
+                    <p class="pool-label">🎲 Возможные предметы</p>
+                    <div id="treasure-pool-grid" class="treasure-pool-grid"></div>
                 </div>
             </div>
         </div>

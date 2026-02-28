@@ -4861,3 +4861,80 @@ body {
     padding: 10px;
 }
 
+/* ========== TREASURE MODAL ADDITIONS ========== */
+.treasure-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    line-height: 1;
+    transition: background 0.2s;
+}
+.treasure-close-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+.spin-cost-display {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+    margin-bottom: 8px;
+    font-family: 'Nunito', sans-serif;
+}
+
+/* ========== DAMAGE POPUP PLAYER ROW ========== */
+.damage-popup-player-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+.damage-mini-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+}
+.damage-mini-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.damage-mini-avatar-fallback {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent-primary, #7b5fff);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+}
+.damage-avatar-level {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: #f0b429;
+    color: #000;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 0 3px;
+    line-height: 14px;
+    pointer-events: none;
+}
+

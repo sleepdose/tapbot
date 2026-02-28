@@ -1251,11 +1251,11 @@ function createBattleTalentButtons() {
         const talent = user.talents[type];
         if (!talent || talent.level <= 0) return;
         const charges = user.attackCharges[type]?.charges || 0;
+        if (charges <= 0) return; // Hide talents with 0 charges
         const isSelected = user.selectedTalent === type;
-        const isDisabled = charges <= 0;
-        html += `<button class="talent-btn ${isSelected ? 'active' : ''} ${isDisabled ? 'disabled' : ''}"
+        html += `<button class="talent-btn ${isSelected ? 'active' : ''}"
             data-talent="${type}"
-            ${isDisabled ? 'disabled' : `onclick="selectBattleTalent('${type}')"`}>
+            onclick="selectBattleTalent('${type}')">
             <span class="talent-icon">${getTalentIcon(type)}</span>
             <span class="talent-name">${getTalentName(type)}</span>
             <span class="talent-charges">${charges}</span>
@@ -1612,7 +1612,11 @@ async function loadGuildMemberNames(guildId) {
     const names = {};
     membersSnapshot.forEach(doc => {
         const data = doc.data();
-        names[doc.id] = data.name || doc.id.slice(0, 6);
+        names[doc.id] = {
+            name: data.name || doc.id.slice(0, 6),
+            photoUrl: data.photoUrl || '',
+            level: data.level || 1
+        };
     });
     store.guildMemberNames[guildId] = names;
 }
@@ -1644,10 +1648,19 @@ function updateDamagePopup() {
 
     let html = '';
     entries.forEach(([userId, dmg]) => {
-        const name = names[userId] || userId.slice(0, 6);
+        const memberData = names[userId];
+        const name = (typeof memberData === 'object' && memberData?.name) ? memberData.name : (memberData || userId.slice(0, 6));
+        const photoUrl = (typeof memberData === 'object' && memberData?.photoUrl) ? memberData.photoUrl : '';
+        const level = (typeof memberData === 'object' && memberData?.level) ? memberData.level : 1;
         const isCurrent = userId === store.authUser?.uid;
+        const avatarHtml = photoUrl
+            ? `<img class="damage-mini-avatar" src="${photoUrl}" onerror="this.style.display='none'">`
+            : `<div class="damage-mini-avatar-fallback">${name.charAt(0).toUpperCase()}</div>`;
         html += `<div class="damage-popup-row ${isCurrent ? 'current' : ''}">
-            <span class="damage-popup-name">${name}</span>
+            <div class="damage-popup-player-info">
+                <div class="damage-mini-avatar-wrapper">${avatarHtml}<span class="damage-avatar-level">${level}</span></div>
+                <span class="damage-popup-name">${name}</span>
+            </div>
             <span class="damage-popup-value">${dmg}</span>
         </div>`;
     });
