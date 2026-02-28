@@ -3271,9 +3271,19 @@ async function loadFriendsList() {
     for (const friend of friends) {
         const lastSeen = friend.lastSeen || friend.lastEnergyUpdate || 0;
         const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
+        const photoUrl = friend.photoUrl || '';
+        const initial = (friend.name || '?').charAt(0).toUpperCase();
+        const level = friend.level || 1;
+        const avatarInner = photoUrl
+            ? `<img class="member-avatar-img" src="${photoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="member-avatar-initials" style="display:none">${initial}</span>`
+            : `<span class="member-avatar-initials">${initial}</span>`;
         html += `
             <div class="friend-item" data-user-id="${friend.id}" onclick="openVisitModal('${friend.id}')">
-                <div class="friend-status ${isOnline ? 'online' : 'offline'}"></div>
+                <div class="member-avatar" style="flex-shrink:0;">
+                    ${avatarInner}
+                    <span class="member-level-badge">${level}</span>
+                    <span class="friend-status ${isOnline ? 'online' : 'offline'}" style="position:absolute;bottom:-2px;left:-2px;z-index:11;"></span>
+                </div>
                 <div class="friend-info">
                     <div class="friend-name">${friend.name || 'Без имени'}</div>
                     <div class="friend-id">${friend.telegramId || friend.id.slice(0,8)}</div>
@@ -3309,11 +3319,21 @@ async function loadFriendRequests() {
         const fromName = fromData.name || req.from.slice(0,6);
         const lastSeen = fromData.lastSeen || fromData.lastEnergyUpdate || 0;
         const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
+        const reqPhotoUrl = fromData.photoUrl || '';
+        const reqInitial = (fromName || '?').charAt(0).toUpperCase();
+        const reqLevel = fromData.level || 1;
+        const reqAvatarInner = reqPhotoUrl
+            ? `<img class="member-avatar-img" src="${reqPhotoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="member-avatar-initials" style="display:none">${reqInitial}</span>`
+            : `<span class="member-avatar-initials">${reqInitial}</span>`;
         html += `
             <div class="friend-request">
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <div class="friend-status ${isOnline ? 'online' : 'offline'}"></div>
-                    <span>${fromName}</span>
+                <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                    <div class="member-avatar" style="flex-shrink:0;">
+                        ${reqAvatarInner}
+                        <span class="member-level-badge">${reqLevel}</span>
+                        <span class="friend-status ${isOnline ? 'online' : 'offline'}" style="position:absolute;bottom:-2px;left:-2px;z-index:11;"></span>
+                    </div>
+                    <span style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fromName}</span>
                 </div>
                 <div>
                     <button class="accept" onclick="acceptFriendRequest('${req.id}', '${req.from}')">✅</button>
@@ -3984,9 +4004,19 @@ async function updateLastSeen() {
                 const foundUser = foundUserDoc.data();
                 const lastSeen = foundUser.lastSeen || foundUser.lastEnergyUpdate || 0;
                 const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
+                const srPhotoUrl = foundUser.photoUrl || '';
+                const srInitial = (foundUser.name || '?').charAt(0).toUpperCase();
+                const srLevel = foundUser.level || 1;
+                const srAvatarInner = srPhotoUrl
+                    ? `<img class="member-avatar-img" src="${srPhotoUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="member-avatar-initials" style="display:none">${srInitial}</span>`
+                    : `<span class="member-avatar-initials">${srInitial}</span>`;
                 resultDiv.innerHTML = `
                     <div class="friend-item">
-                        <div class="friend-status ${isOnline ? 'online' : 'offline'}"></div>
+                        <div class="member-avatar" style="flex-shrink:0;">
+                            ${srAvatarInner}
+                            <span class="member-level-badge">${srLevel}</span>
+                            <span class="friend-status ${isOnline ? 'online' : 'offline'}" style="position:absolute;bottom:-2px;left:-2px;z-index:11;"></span>
+                        </div>
                         <div class="friend-info">
                             <div class="friend-name">${foundUser.name || foundUser.telegramId}</div>
                             <div class="friend-id">${foundUser.telegramId}</div>
