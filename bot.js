@@ -136,7 +136,7 @@ bot.onText(/\/start/, async (msg) => {
   const welcomeText = `
 Привет, ${firstName}! 👋
 
-👋 Добро пожаловать в «Hiko Adventure»!
+👋 Добро пожаловать в «Hiko: Battle Time»!
 
 Ты попал в игру, где можно:
 — ⚔️ сражаться с боссами вместе с гильдией;

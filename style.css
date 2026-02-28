@@ -1494,7 +1494,11 @@ body::before {
     height: 38px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--accent-primary);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 10px rgba(123, 95, 255, 0.6), 0 0 20px rgba(123, 95, 255, 0.3);
     display: block;
 }
 .member-avatar-initials {
@@ -3769,21 +3773,23 @@ body {
     width: 95%;
     padding: 0;
     overflow: hidden auto;
-    border: 1px solid rgba(255, 215, 140, 0.3);
-    box-shadow: 0 0 30px rgba(123, 95, 255, 0.3), 0 20px 60px rgba(0,0,0,0.8);
+    border: 1px solid rgba(255, 215, 140, 0.4);
+    box-shadow: 0 0 40px rgba(123, 95, 255, 0.4), 0 20px 60px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.05);
     background: transparent;
+    background-size: cover;
+    background-position: center top;
 }
 
 .visit-bg-gradient {
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(123, 95, 255, 0.25) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(180, 60, 20, 0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(123, 95, 255, 0.2) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(180, 60, 20, 0.12) 0%, transparent 60%),
         linear-gradient(160deg,
-            rgba(35, 16, 8, 0.98) 0%,
-            rgba(60, 28, 12, 0.95) 40%,
-            rgba(90, 44, 18, 0.92) 100%);
+            rgba(10, 5, 2, 0.78) 0%,
+            rgba(25, 12, 5, 0.72) 40%,
+            rgba(40, 20, 8, 0.68) 100%);
     z-index: 0;
 }
 .visit-bg-gradient::after {
@@ -3923,15 +3929,15 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
+    border-radius: 18px;
+    overflow: visible;
 }
 .visit-character-bg {
     position: absolute;
     inset: 0;
-    border-radius: 50% 50% 40% 40%;
-    background: radial-gradient(ellipse 70% 60% at 50% 45%,
-        rgba(123, 95, 255, 0.15) 0%,
-        rgba(40, 20, 10, 0.4) 60%,
-        transparent 100%);
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(2px);
     pointer-events: none;
 }
 .visit-character-platform {
@@ -3961,7 +3967,6 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
 }
 
 #visit-equipment-layer {
@@ -3980,13 +3985,13 @@ body {
     right: -10px;
     width: 90px;
     height: 90px;
-    background: rgba(30, 20, 10, 0.7);
+    background: rgba(30, 20, 10, 0.5);
     border-radius: 50%;
-    border: 2px solid rgba(255, 208, 96, 0.4);
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    box-shadow: none;
     backdrop-filter: blur(4px);
     transition: all 0.2s;
 }
@@ -4549,7 +4554,6 @@ body {
     50%       { box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 20px var(--accent-glow), 0 0 0 8px rgba(255, 80, 80, 0); }
 }
 .fab.fab-pending {
-    animation: fab-pulse 1.6s ease-in-out infinite;
 }
 .fab.fab-pending::after {
     content: '';

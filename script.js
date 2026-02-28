@@ -471,7 +471,7 @@ async function updateUser(updates) {
 function getCurrentEnergy(userData = store.user) {
     if (!userData) return 0;
     const now = Date.now();
-    const delta = Math.floor((now - (userData.lastEnergyUpdate || now)) / 1000);
+    const delta = Math.floor((now - (userData.lastEnergyUpdate || now)) / 2000);
     return Math.min(userData.maxEnergy || 100, userData.energy + Math.max(0, delta));
 }
 async function spendEnergy(amount = 1) {
@@ -924,7 +924,7 @@ window.showPetUpgradePreview = async function(petId) {
             </div>
             <button class="glow-button pet-upgrade-btn" onclick="upgradePet('${petId}')"
                 ${canAfford ? '' : 'disabled'}>
-                ${canAfford ? `⬆️ Улучшить (${cost} 💰)` : '💸 Недостаточно монет'}
+                ${canAfford ? '⬆️ Улучшить' : '💸 Недостаточно монет'}
             </button>
         `;
     } else {
@@ -2232,7 +2232,7 @@ async function notifyGuildBattleStart(guildId) {
 
         const guild = guildDoc.data();
         const bossId = guild.bossId || 'boss1';
-        const bossName = bossId === 'boss2' ? '💀 Босс 2' : '👹 Босс 1';
+        const bossName = bossId === 'boss2' ? 'Вокс' : 'Зарг';
 
         // Получаем telegramId всех участников гильдии
         const memberIds = guild.members || [];
@@ -3304,10 +3304,16 @@ async function loadFriendRequests() {
     let html = '';
     for (const req of requests) {
         const fromDoc = await db.collection('users').doc(req.from).get();
-        const fromName = fromDoc.exists ? fromDoc.data().name : req.from.slice(0,6);
+        const fromData = fromDoc.exists ? fromDoc.data() : {};
+        const fromName = fromData.name || req.from.slice(0,6);
+        const lastSeen = fromData.lastSeen || fromData.lastEnergyUpdate || 0;
+        const isOnline = Date.now() - lastSeen < 5 * 60 * 1000;
         html += `
             <div class="friend-request">
-                <span>${fromName}</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="friend-status ${isOnline ? 'online' : 'offline'}"></div>
+                    <span>${fromName}</span>
+                </div>
                 <div>
                     <button class="accept" onclick="acceptFriendRequest('${req.id}', '${req.from}')">✅</button>
                     <button onclick="declineFriendRequest('${req.id}')">❌</button>
@@ -3338,8 +3344,7 @@ async function updateFriendsOnlineCount() {
 function updateFriendsFabState() {
     const fab = document.getElementById('friends-fab');
     if (!fab) return;
-    const pending = store.user?.pendingRequests?.length || 0;
-    console.log('🔔 Входящих запросов в друзья:', pending);
+    const pending = store.incomingFriendRequestsCount || store.user?.pendingRequests?.length || 0;
     if (pending > 0) {
         fab.classList.add('fab-pending');
     } else {
@@ -3688,10 +3693,12 @@ async function openVisitModal(userId) {
     const modal = document.getElementById('visit-modal');
     if (!modal) return;
 
-    // Устанавливаем фон (путь к фону можно изменить)
-    const modalContent = document.getElementById('visit-content');
+    // Устанавливаем фон персонажа
+    const modalContent = document.querySelector('.modal-content.visit-content');
     if (modalContent) {
         modalContent.style.backgroundImage = "url('img/background.JPG')";
+        modalContent.style.backgroundSize = 'cover';
+        modalContent.style.backgroundPosition = 'center top';
     }
 
     // Сброс содержимого
@@ -3816,6 +3823,17 @@ window.onload = async () => {
 
         setPreloaderProgress(65, 'Загрузка профиля...');
         await getUser();
+
+        // Слушатель входящих заявок в друзья в реальном времени
+        store.friendRequestsListener = db.collection('friendRequests')
+            .where('to', '==', store.authUser.uid)
+            .onSnapshot(snapshot => {
+                store.incomingFriendRequestsCount = snapshot.size;
+                console.log('🔔 Входящих заявок в друзья (live):', snapshot.size);
+                updateFriendsFabState();
+            }, err => {
+                console.error('Ошибка слушателя заявок:', err);
+            });
 
         setPreloaderProgress(90, 'Подготовка...');
         updateMainUI();
