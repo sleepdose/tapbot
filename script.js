@@ -111,6 +111,26 @@ function hidePreloader() {
     }, 650);
 }
 
+// Предзагрузка изображений — возвращает Promise, который резолвится когда все картинки загружены
+function preloadImages(urls) {
+    let loaded = 0;
+    const total = urls.length;
+    return new Promise(resolve => {
+        if (total === 0) { resolve(); return; }
+        urls.forEach(url => {
+            const img = new Image();
+            img.onload = img.onerror = () => {
+                loaded++;
+                // Обновляем прогресс-бар от 90% до 99% по мере загрузки картинок
+                const progress = 90 + Math.floor((loaded / total) * 9);
+                setPreloaderProgress(progress, `Загрузка ресурсов... ${loaded}/${total}`);
+                if (loaded === total) resolve();
+            };
+            img.src = url;
+        });
+    });
+}
+
 // =======================================================
 // УВЕДОМЛЕНИЯ — поддержка старых версий Telegram
 // =======================================================
@@ -4042,6 +4062,29 @@ async function updateLastSeen() {
         if (musicBtn) {
             musicBtn.addEventListener('click', toggleMusic);
         }
+
+        setPreloaderProgress(90, 'Загрузка ресурсов...');
+
+        // Предзагружаем все ключевые изображения игры
+        const KEY_IMAGES = [
+            'img/men.png',
+            'img/battle1.png',
+            'img/battle2.JPG',
+            'img/battleboss1.png',
+            'img/battleboss2.png',
+            'img/boss1_preview.png',
+            'img/boss2_preview.png',
+            'img/background.JPG',
+            'img/pet1.png',
+            'img/pet2.png',
+            'img/skin_knight.png',
+            'img/skin_mage.png',
+            'img/skin_rogue.png',
+            'img/skin_dragon.png',
+            'img/skin_druid.png',
+            'img/skin_phantom.png',
+        ];
+        await preloadImages(KEY_IMAGES);
 
         setPreloaderProgress(100, 'Готово!');
         setTimeout(hidePreloader, 400);
