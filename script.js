@@ -3368,7 +3368,7 @@ window.sendFriendRequest = async function(targetId) {
         return;
     }
     await db.collection('friendRequests').add({
-        from: store.authUser.uid,
+        from: store.docId,
         to: targetId,
         timestamp: Date.now()
     });
@@ -3408,7 +3408,7 @@ window.acceptFriendRequest = async function(requestId, fromId) {
                 friends: firebase.firestore.FieldValue.arrayUnion(fromId)
             });
             transaction.update(friendRef, {
-                friends: firebase.firestore.FieldValue.arrayUnion(store.authUser.uid)
+                friends: firebase.firestore.FieldValue.arrayUnion(store.docId)
             });
             transaction.delete(requestRef);
         });
@@ -3444,7 +3444,7 @@ window.removeFriend = async function(friendId, event) {
                 friends: firebase.firestore.FieldValue.arrayRemove(friendId)
             });
             transaction.update(friendRef, {
-                friends: firebase.firestore.FieldValue.arrayRemove(store.authUser.uid)
+                friends: firebase.firestore.FieldValue.arrayRemove(store.docId)
             });
         });
 
