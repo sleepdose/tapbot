@@ -123,6 +123,30 @@ app.post('/api/create-stars-invoice', async (req, res) => {
   }
 });
 
+// Уведомление о приглашении в гильдию
+app.post('/api/notify-guild-invitation', async (req, res) => {
+  const { targetTelegramId, fromName, guildName } = req.body;
+
+  if (!targetTelegramId || !fromName || !guildName) {
+    return res.status(400).json({ error: 'Missing targetTelegramId, fromName or guildName' });
+  }
+
+  const text = `🏰 *${fromName}* приглашает тебя вступить в гильдию *${guildName}*!\n\nОткрой игру, чтобы принять или отклонить приглашение.`;
+
+  try {
+    await bot.sendMessage(targetTelegramId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🏰 Посмотреть приглашение', web_app: { url: WEB_APP_URL } }]]
+      }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка уведомления о приглашении в гильдию:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Запуск сервера
 app.listen(PORT, () => {
   console.log(`HTTP сервер запущен на порту ${PORT}`);

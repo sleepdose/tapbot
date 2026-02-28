@@ -1736,7 +1736,7 @@ async function loadGuildScreen() {
         let invitationsHtml = '';
         try {
             const invSnap = await db.collection('guildInvitations')
-                .where('toUserId', '==', store.authUser.uid)
+                .where('toUserId', '==', store.docId)
                 .where('status', '==', 'pending')
                 .get();
             if (!invSnap.empty) {
@@ -3657,6 +3657,26 @@ window.sendGuildInvitation = async function(guildId, toUserId, btn) {
         });
         if (btn) { btn.textContent = '✅ Отправлено'; btn.disabled = true; btn.style.opacity = '0.55'; }
         console.log('✉️ Приглашение отправлено игроку', toUserId);
+
+        // Уведомляем игрока через Telegram-бота
+        try {
+            const targetDoc = await db.collection('users').doc(toUserId).get();
+            if (targetDoc.exists) {
+                const targetUser = targetDoc.data();
+                const targetTelegramId = targetUser.telegramId;
+                const fromName = store.user?.name || 'Игрок';
+                if (targetTelegramId) {
+                    await fetch('https://hiko-bot-backend.onrender.com/api/notify-guild-invitation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targetTelegramId, fromName, guildName: guild.name || 'Гильдия' })
+                    });
+                    console.log('🔔 Уведомление о приглашении в гильдию отправлено игроку', targetTelegramId);
+                }
+            }
+        } catch (notifyErr) {
+            console.warn('Не удалось отправить уведомление о приглашении:', notifyErr);
+        }
     } catch (e) {
         console.error('Ошибка отправки приглашения:', e);
         if (btn) { btn.disabled = false; btn.textContent = '📨 Пригласить'; }
