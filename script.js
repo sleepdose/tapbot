@@ -3918,6 +3918,7 @@ let gachaTreasurePool = [];
 let regularTreasurePool = [];
 let starsTreasurePool = [];
 let currentChestTab = 'regular';
+window.currentChestTab = currentChestTab;
 let isSpinning = false;
 
 async function loadTreasurePool() {
@@ -3947,6 +3948,7 @@ function markFreeSpinUsed() {
 
 window.switchChestTab = function(type) {
     currentChestTab = type;
+    window.currentChestTab = type;
     document.getElementById('chest-tab-regular').classList.toggle('active', type === 'regular');
     document.getElementById('chest-tab-stars').classList.toggle('active', type === 'stars');
     const modalContent = document.querySelector('.treasure-modal-content');
@@ -3981,6 +3983,7 @@ window.openTreasureModal = async function() {
         modal.classList.remove('hidden');
         // Reset to regular tab on open
         currentChestTab = 'regular';
+        window.currentChestTab = 'regular';
         document.getElementById('chest-tab-regular').classList.add('active');
         document.getElementById('chest-tab-stars').classList.remove('active');
         const modalContent = document.querySelector('.treasure-modal-content');

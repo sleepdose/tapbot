@@ -4243,6 +4243,16 @@ body {
     overflow: hidden;
 }
 
+.preloader-bg {
+    position: absolute;
+    inset: 0;
+    background-image: url('img/preview-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.35;
+    z-index: 0;
+}
+
 .preloader-particles {
     position: absolute;
     inset: 0;
@@ -4300,20 +4310,31 @@ body {
 
 .preloader-title {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 32px;
     font-weight: 900;
-    color: #e8e4ff;
-    letter-spacing: 4px;
     margin: 0;
-    text-shadow: 0 0 20px rgba(123, 95, 255, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
 }
 
-.preloader-title span {
-    display: block;
-    font-size: 14px;
+.preloader-title-main {
+    font-size: 48px;
+    color: #e8e4ff;
     letter-spacing: 8px;
-    color: #7b5fff;
+    text-shadow: 0 0 24px rgba(123, 95, 255, 0.9), 0 0 60px rgba(123, 95, 255, 0.4);
+    line-height: 1;
+}
+
+.preloader-title-sub {
+    display: block;
+    font-size: 13px;
+    letter-spacing: 6px;
+    color: #a080ff;
     font-weight: 700;
+    text-transform: uppercase;
+    opacity: 0.9;
 }
 
 .preloader-bar-container {

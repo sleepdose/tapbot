@@ -10,14 +10,14 @@
 <body>
 
     <!-- ========== ПРЕЛОАДЕР ========== -->
-    <div id="preloader">
+    <div id="preloader"><div class="preloader-bg"></div>
         <div class="preloader-particles">
             <span></span><span></span><span></span><span></span><span></span>
             <span></span><span></span><span></span><span></span><span></span>
         </div>
         <div class="preloader-content">
             <div class="preloader-icon">⚔️</div>
-            <h1 class="preloader-title">HIKO<span>ADVENTURE</span></h1>
+            <h1 class="preloader-title"><span class="preloader-title-main">HIKO</span><span class="preloader-title-sub">BATTLE TIME</span></h1>
             <div class="preloader-bar-container">
                 <div class="preloader-bar-track">
                     <div id="preloader-progress-bar" class="preloader-bar-fill"></div>
@@ -339,7 +339,7 @@
                         🎁 Бесплатный прокрут
                     </button>
                     <div id="free-spin-timer" class="free-spin-timer" style="display:none;">⏳ Следующий бесплатный через <span id="free-spin-countdown">00:00:00</span></div>
-                    <button id="spin-btn" class="glow-button spin-btn" onclick="spinTreasure('paid')">
+                    <button id="spin-btn" class="glow-button spin-btn" onclick="spinTreasure(window.currentChestTab === 'stars' ? 'stars' : 'paid')">
                         🎰 Крутить — 200 🪙
                     </button>
                     <button class="cancel-btn" onclick="closeTreasureModal()">Закрыть</button>
