@@ -119,20 +119,108 @@ body::before {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     padding: 8px 14px;
-    border-bottom: 1px solid var(--border-subtle);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(123,95,255,0.2);
+    border-bottom: none;
+    box-shadow:
+        0 4px 24px rgba(0,0,0,0.4),
+        0 6px 40px rgba(123,95,255,0.25),
+        0 10px 70px rgba(0,212,255,0.08);
     font-size: 16px;
     font-weight: 700;
     color: var(--text-gold);
     letter-spacing: 0.02em;
 }
 
+/* ======= MAGIC TEXTURE SEPARATOR — TOP ======= */
+#stats::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background:
+        linear-gradient(90deg,
+            transparent 0%,
+            rgba(255,255,255,0) 20%,
+            rgba(255,255,255,0.9) 50%,
+            rgba(255,255,255,0) 80%,
+            transparent 100%
+        ),
+        linear-gradient(90deg,
+            transparent 0%,
+            rgba(0,212,255,0.4) 10%,
+            rgba(123,95,255,0.9) 30%,
+            rgba(210,185,255,1)  50%,
+            rgba(123,95,255,0.9) 70%,
+            rgba(0,212,255,0.4)  90%,
+            transparent 100%
+        );
+    background-size: 35% 100%, 100% 100%;
+    background-repeat: no-repeat;
+    box-shadow:
+        0 0 6px rgba(160,128,255,1),
+        0 0 18px rgba(123,95,255,0.7),
+        0 0 40px rgba(123,95,255,0.35),
+        0 0 8px rgba(0,212,255,0.5);
+    animation: magic-shimmer 3s ease-in-out infinite, magic-wave 4s linear infinite;
+    z-index: 1;
+}
+
+
+/* ── Stat badges (energy & gold) ─────────────────────────── */
+.stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    position: relative;
+    white-space: nowrap;
+    transition: box-shadow 0.3s ease;
+}
+
+.stat-badge--energy,
 #energy-display {
     color: var(--accent-cyan);
     margin-right: auto;
-    font-size: 15px;
-    font-weight: 700;
+    background: rgba(0, 212, 255, 0.07);
+    border: 1.5px solid rgba(0, 212, 255, 0.38);
+    box-shadow:
+        0 0 10px rgba(0, 212, 255, 0.18),
+        0 0 22px rgba(0, 212, 255, 0.08),
+        inset 0 1px 0 rgba(0, 212, 255, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25);
     text-shadow: 0 0 10px var(--accent-cyan-glow);
+}
+
+.stat-badge--gold {
+    color: var(--text-gold);
+    background: rgba(255, 208, 96, 0.07);
+    border: 1.5px solid rgba(255, 208, 96, 0.38);
+    box-shadow:
+        0 0 10px rgba(255, 208, 96, 0.18),
+        0 0 22px rgba(255, 208, 96, 0.08),
+        inset 0 1px 0 rgba(255, 208, 96, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+    text-shadow: 0 0 10px var(--accent-gold-glow);
+}
+
+.stat-badge--energy:hover,
+#energy-display:hover {
+    box-shadow:
+        0 0 16px rgba(0, 212, 255, 0.32),
+        0 0 36px rgba(0, 212, 255, 0.14),
+        inset 0 1px 0 rgba(0, 212, 255, 0.22);
+}
+
+.stat-badge--gold:hover {
+    box-shadow:
+        0 0 16px rgba(255, 208, 96, 0.32),
+        0 0 36px rgba(255, 208, 96, 0.14),
+        inset 0 1px 0 rgba(255, 208, 96, 0.22);
 }
 
 #money {
@@ -295,11 +383,62 @@ body::before {
     padding: 8px 12px 12px;
     background: rgba(6, 2, 20, 0.92);
     backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border-subtle);
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+    border-top: none;
+    box-shadow:
+        0 -4px 24px rgba(0,0,0,0.4),
+        0 -6px 40px rgba(123,95,255,0.25),
+        0 -10px 70px rgba(0,212,255,0.08);
     gap: 8px;
     position: relative;
     z-index: 201;
+}
+
+/* ======= MAGIC TEXTURE SEPARATOR — BOTTOM ======= */
+#bottom-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background:
+        linear-gradient(90deg,
+            transparent 0%,
+            rgba(255,255,255,0) 20%,
+            rgba(255,255,255,0.9) 50%,
+            rgba(255,255,255,0) 80%,
+            transparent 100%
+        ),
+        linear-gradient(90deg,
+            transparent 0%,
+            rgba(0,212,255,0.4) 10%,
+            rgba(123,95,255,0.9) 30%,
+            rgba(210,185,255,1)  50%,
+            rgba(123,95,255,0.9) 70%,
+            rgba(0,212,255,0.4)  90%,
+            transparent 100%
+        );
+    background-size: 35% 100%, 100% 100%;
+    background-repeat: no-repeat;
+    box-shadow:
+        0 0 6px rgba(160,128,255,1),
+        0 0 18px rgba(123,95,255,0.7),
+        0 0 40px rgba(123,95,255,0.35),
+        0 0 8px rgba(0,212,255,0.5);
+    animation: magic-shimmer 3s ease-in-out infinite, magic-wave 4s linear infinite;
+    z-index: 1;
+}
+
+
+/* ======= SHIMMER & WAVE KEYFRAMES ======= */
+@keyframes magic-shimmer {
+    0%   { opacity: 0.65; filter: brightness(0.9); }
+    50%  { opacity: 1;    filter: brightness(1.4); }
+    100% { opacity: 0.65; filter: brightness(0.9); }
+}
+@keyframes magic-wave {
+    0%   { background-position: -60% 0,   0% 0; }
+    100% { background-position: 160% 0,  0% 0; }
 }
 .nav-btn {
     background: var(--bg-card);

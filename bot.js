@@ -13,6 +13,46 @@ if (!TOKEN) {
 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
+// ===== КНОПКА-МЕНЮ В ДИАЛОГАХ =====
+// Устанавливает постоянную кнопку «🎮 Играть» у всех пользователей в диалоге с ботом
+(async () => {
+  try {
+    await bot.setMyCommands([
+      { command: 'start', description: '🎮 Открыть игру Hiko Adventure' },
+    ]);
+    console.log('[Bot] Команды бота установлены');
+  } catch (err) {
+    console.error('[Bot] Ошибка setMyCommands:', err.message);
+  }
+
+  try {
+    // Устанавливает кнопку с WebApp по умолчанию для всех личных чатов
+    await bot.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: '🎮 Играть',
+        web_app: { url: WEB_APP_URL }
+      }
+    });
+    console.log('[Bot] Кнопка меню успешно установлена — кнопка «🎮 Играть» появится у всех пользователей');
+  } catch (err) {
+    console.error('[Bot] Ошибка setChatMenuButton:', err.message);
+    // Фолбэк: если setChatMenuButton не поддерживается версией библиотеки
+    try {
+      await bot.request('setChatMenuButton', {
+        menu_button: JSON.stringify({
+          type: 'web_app',
+          text: '🎮 Играть',
+          web_app: { url: WEB_APP_URL }
+        })
+      });
+      console.log('[Bot] Кнопка меню установлена через прямой запрос');
+    } catch (err2) {
+      console.error('[Bot] Фолбэк тоже не удался:', err2.message);
+    }
+  }
+})();
+
 // ===== HTTP СЕРВЕР =====
 const app = express();
 const PORT = process.env.PORT || 3000;
