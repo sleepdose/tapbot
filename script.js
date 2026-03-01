@@ -24,6 +24,10 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
+// ===== НАСТРОЙКИ РЕФЕРАЛЬНОЙ СИСТЕМЫ =====
+// Замени на имя своего бота (без @)
+const BOT_USERNAME = 'aiko_tapbot';
+
 // Функция установки аватара пользователя из Telegram
 function setUserAvatar() {
     const user = tg.initDataUnsafe?.user;
@@ -395,10 +399,14 @@ async function loadUserFromFirestore() {
             equipped: {},
             skin: null,
             completedTasks: [], // <-- новое поле для выполненных заданий
+            referredBy: null,
+            referralCount: 0,
             authUid: uid
         };
         await userRef.set(newUser);
         store.user = newUser;
+        // Обрабатываем реферальную ссылку для нового игрока
+        await processReferral();
         return store.user;
     }
 
@@ -438,6 +446,8 @@ async function loadUserFromFirestore() {
     if (!Array.isArray(data.pendingRequests)) { data.pendingRequests = []; needsUpdate = true; }
     if (!Array.isArray(data.inventory)) { data.inventory = []; needsUpdate = true; }
     if (!Array.isArray(data.completedTasks)) { data.completedTasks = []; needsUpdate = true; } // <-- добавили
+    if (data.referralCount === undefined) { data.referralCount = 0; needsUpdate = true; }
+    if (data.referredBy === undefined) { data.referredBy = null; needsUpdate = true; }
     if (!data.authUid || data.authUid !== uid) { data.authUid = uid; needsUpdate = true; }
 
     const now = Date.now();
@@ -3289,12 +3299,143 @@ function resetCheckButton(taskId) {
 // =======================================================
 // СИСТЕМА ДРУЗЕЙ
 // =======================================================
+// =======================================================
+// РЕФЕРАЛЬНАЯ СИСТЕМА
+// =======================================================
+
+/**
+ * Вызывается при создании нового пользователя.
+ * Считывает start_param из Telegram WebApp и записывает реферальную связь.
+ */
+async function processReferral() {
+    const startParam = tg.initDataUnsafe?.start_param || '';
+    if (!startParam.startsWith('ref_')) return;
+
+    const referrerTelegramId = startParam.replace('ref_', '').trim();
+    const myTelegramId = store.user?.telegramId || store.docId;
+
+    if (!referrerTelegramId || referrerTelegramId === myTelegramId) {
+        console.log('[Referral] Самоприглашение — пропускаем');
+        return;
+    }
+
+    // Если уже записан реферер — пропускаем (повторный заход по ссылке)
+    if (store.user?.referredBy) return;
+
+    try {
+        // Ищем реферера по telegramId (он же docId)
+        const referrerRef = db.collection('users').doc(referrerTelegramId);
+        const referrerDoc = await referrerRef.get();
+        if (!referrerDoc.exists) {
+            console.warn('[Referral] Реферер не найден:', referrerTelegramId);
+            return;
+        }
+
+        // Сохраняем реферера у текущего пользователя
+        await db.collection('users').doc(store.docId).update({ referredBy: referrerTelegramId });
+        store.user.referredBy = referrerTelegramId;
+
+        // Увеличиваем счётчик рефералов у пригласившего
+        await referrerRef.update({
+            referralCount: firebase.firestore.FieldValue.increment(1)
+        });
+
+        console.log(`[Referral] ✅ ${referrerTelegramId} пригласил ${myTelegramId}`);
+
+        // Уведомляем пригласившего через бота
+        const newPlayerName = store.user?.name || 'Новый игрок';
+        fetch('https://hiko-bot-backend.onrender.com/api/notify-referral-joined', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ referrerTelegramId, newPlayerName })
+        }).catch(e => console.warn('[Referral] Не удалось отправить уведомление боту:', e));
+
+    } catch (e) {
+        console.warn('[Referral] Ошибка записи реферала:', e);
+    }
+}
+
+/**
+ * Отрисовывает вкладку «Рефералы» в модалке друзей.
+ */
+async function loadReferralTab() {
+    const container = document.getElementById('referral-tab-container');
+    if (!container) return;
+    const user = store.user;
+    if (!user) return;
+
+    const telegramId = user.telegramId || store.docId;
+    const referralLink = `https://t.me/${BOT_USERNAME}?start=ref_${telegramId}`;
+    const referralCount = user.referralCount || 0;
+
+    // Перечитываем актуальный счётчик из Firestore (мог измениться)
+    try {
+        const freshDoc = await db.collection('users').doc(store.docId).get();
+        if (freshDoc.exists) {
+            const fresh = freshDoc.data();
+            if (fresh.referralCount !== undefined) {
+                store.user.referralCount = fresh.referralCount;
+            }
+        }
+    } catch (e) {
+        console.warn('[Referral] Не удалось обновить счётчик:', e);
+    }
+
+    const count = store.user.referralCount || 0;
+
+    container.innerHTML = `
+        <div class="referral-section">
+            <div class="referral-count-block">
+                <span class="referral-count-num">${count}</span>
+                <span class="referral-count-label">приглашено игроков</span>
+            </div>
+
+            <p class="referral-hint">Поделись ссылкой — и друг попадёт в игру через тебя!</p>
+
+            <div class="referral-link-row">
+                <input class="referral-link-input" type="text" readonly id="referral-link-value" value="${referralLink}">
+                <button class="copy-btn referral-copy-btn" onclick="window.copyReferralLink()">📋</button>
+            </div>
+
+            <button class="glow-button referral-share-btn" onclick="window.shareReferralLink()">📤 Поделиться в Telegram</button>
+        </div>
+    `;
+}
+
+window.copyReferralLink = function() {
+    const input = document.getElementById('referral-link-value');
+    if (!input) return;
+    navigator.clipboard.writeText(input.value)
+        .then(() => showNotification('Скопировано!', 'Реферальная ссылка скопирована'))
+        .catch(() => {
+            // Fallback для старых браузеров / Telegram WebView
+            input.select();
+            document.execCommand('copy');
+            showNotification('Скопировано!', 'Реферальная ссылка скопирована');
+        });
+};
+
+window.shareReferralLink = function() {
+    const input = document.getElementById('referral-link-value');
+    if (!input) return;
+    const link = input.value;
+    const text = encodeURIComponent('Присоединяйся к Hiko: Battle Time! Сражайся с боссами, создавай гильдии и прокачивай героя 🎮⚔️');
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${text}`;
+    try {
+        tg.openTelegramLink(shareUrl);
+    } catch (e) {
+        window.open(shareUrl, '_blank');
+    }
+    console.log('[Referral] Поделился ссылкой:', link);
+};
+
 async function openFriendsModal() {
     const modal = document.getElementById('friends-modal');
     if (!modal) return;
     await loadFriendsList();
     await loadFriendRequests();
     updateFriendsMyId();
+    loadReferralTab();
     modal.classList.remove('hidden');
 }
 function closeFriendsModal() {

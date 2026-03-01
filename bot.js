@@ -147,6 +147,30 @@ app.post('/api/notify-guild-invitation', async (req, res) => {
   }
 });
 
+// Уведомление пригласившему — новый игрок зарегистрировался по реферальной ссылке
+app.post('/api/notify-referral-joined', async (req, res) => {
+  const { referrerTelegramId, newPlayerName } = req.body;
+
+  if (!referrerTelegramId || !newPlayerName) {
+    return res.status(400).json({ error: 'Missing referrerTelegramId or newPlayerName' });
+  }
+
+  const text = `🎉 По твоей ссылке зарегистрировался новый игрок — *${newPlayerName}*!\n\nПродолжай приглашать друзей! 🔗`;
+
+  try {
+    await bot.sendMessage(referrerTelegramId, text, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🚀 Открыть игру', web_app: { url: WEB_APP_URL } }]]
+      }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Ошибка уведомления о реферале:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Запуск сервера
 app.listen(PORT, () => {
   console.log(`HTTP сервер запущен на порту ${PORT}`);
