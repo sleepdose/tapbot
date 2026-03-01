@@ -1768,26 +1768,44 @@ async function loadGuildScreen() {
                 .where('status', '==', 'pending')
                 .get();
             if (!invSnap.empty) {
-                invitationsHtml = `<div class="guild-invitations-section">
-                    <h3 class="guild-invitations-title">📬 Приглашения в гильдию</h3>
-                    ${invSnap.docs.map(doc => {
-                        const inv = doc.data();
-                        return `<div class="guild-invitation-card">
-                            <div class="guild-inv-info">
-                                <div class="guild-inv-name">${inv.guildName}</div>
-                                <div class="guild-inv-stats">
-                                    <span>🏆 Ур. ${inv.guildLevel}</span>
-                                    <span>👥 ${inv.memberCount}/${inv.maxMembers}</span>
-                                    <span>⭐ ${inv.rating || 0}</span>
+                // Проверяем, существуют ли гильдии, и отменяем приглашения от расформированных
+                const validInvitations = [];
+                const cancelBatch = db.batch();
+                let hasCancellations = false;
+                for (const doc of invSnap.docs) {
+                    const inv = doc.data();
+                    const guildDoc = await db.collection('guilds').doc(inv.guildId).get();
+                    if (guildDoc.exists) {
+                        validInvitations.push({ doc, inv });
+                    } else {
+                        cancelBatch.update(doc.ref, { status: 'cancelled' });
+                        hasCancellations = true;
+                        console.log(`[Guild] Автоматически отменено приглашение ${doc.id} — гильдия ${inv.guildId} расформирована`);
+                    }
+                }
+                if (hasCancellations) await cancelBatch.commit();
+
+                if (validInvitations.length > 0) {
+                    invitationsHtml = `<div class="guild-invitations-section">
+                        <h3 class="guild-invitations-title">📬 Приглашения в гильдию</h3>
+                        ${validInvitations.map(({ doc, inv }) => {
+                            return `<div class="guild-invitation-card">
+                                <div class="guild-inv-info">
+                                    <div class="guild-inv-name">${inv.guildName}</div>
+                                    <div class="guild-inv-stats">
+                                        <span>🏆 Ур. ${inv.guildLevel}</span>
+                                        <span>👥 ${inv.memberCount}/${inv.maxMembers}</span>
+                                        <span>⭐ ${inv.rating || 0}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="guild-inv-actions">
-                                <button class="glow-button guild-inv-accept-btn" onclick="acceptGuildInvitation('${doc.id}','${inv.guildId}')">✅ Принять</button>
-                                <button class="guild-inv-decline-btn" onclick="declineGuildInvitation('${doc.id}')">❌</button>
-                            </div>
-                        </div>`;
-                    }).join('')}
-                </div>`;
+                                <div class="guild-inv-actions">
+                                    <button class="glow-button guild-inv-accept-btn" onclick="acceptGuildInvitation('${doc.id}','${inv.guildId}')">✅ Принять</button>
+                                    <button class="guild-inv-decline-btn" onclick="declineGuildInvitation('${doc.id}')">❌</button>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>`;
+                }
             }
         } catch(e) {
             console.warn('Ошибка загрузки приглашений:', e);
@@ -3560,6 +3578,19 @@ async function leaveGuild(guildId) {
                 const memberRef = db.collection('users').doc(memberId);
                 batch.update(memberRef, { guildId: null });
             }
+            // Отменяем все ожидающие приглашения в эту гильдию
+            try {
+                const pendingInvSnap = await db.collection('guildInvitations')
+                    .where('guildId', '==', guildId)
+                    .where('status', '==', 'pending')
+                    .get();
+                for (const invDoc of pendingInvSnap.docs) {
+                    batch.update(invDoc.ref, { status: 'cancelled' });
+                }
+                console.log(`[Guild] Отменено ${pendingInvSnap.size} pending-приглашений для расформированной гильдии`);
+            } catch (invErr) {
+                console.warn('[Guild] Не удалось отменить приглашения:', invErr);
+            }
             await batch.commit();
             showNotification('Гильдия расформирована', '');
         } else {
@@ -3744,6 +3775,15 @@ window.sendGuildInvitation = async function(guildId, toUserId, btn) {
 
 window.acceptGuildInvitation = async function(invId, guildId) {
     try {
+        // Сначала проверяем, существует ли гильдия
+        const guildDoc = await db.collection('guilds').doc(guildId).get();
+        if (!guildDoc.exists) {
+            await db.collection('guildInvitations').doc(invId).update({ status: 'cancelled' });
+            console.log('[Guild] Попытка принять приглашение в расформированную гильдию, приглашение отменено');
+            showNotification('Гильдия расформирована', 'Эта гильдия больше не существует');
+            loadGuildScreen();
+            return;
+        }
         await db.collection('guildInvitations').doc(invId).update({ status: 'accepted' });
         await joinGuild(guildId);
     } catch(e) {
@@ -4612,8 +4652,3 @@ window.openTreasureModal   = openTreasureModal;
 window.closeTreasureModal  = closeTreasureModal;
 window.spinTreasure        = spinTreasure;
 window.switchChestTab      = switchChestTab;
-
-// =======================================================
-// ЗАДАНИЯ (старые глобальные функции удалены, оставлены только новые)
-// =======================================================
-// (всё уже реализовано выше)
