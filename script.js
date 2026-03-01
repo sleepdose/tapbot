@@ -3308,13 +3308,27 @@ function resetCheckButton(taskId) {
  * Считывает start_param из Telegram WebApp и записывает реферальную связь.
  */
 async function processReferral() {
-    const startParam = tg.initDataUnsafe?.start_param || '';
-    if (!startParam.startsWith('ref_')) return;
+    // Читаем реферера из URL-параметра ?ref= (передаётся ботом при /start ref_...)
+    // Запасной вариант: start_param (для ?startapp= ссылок)
+    let referrerTelegramId = '';
+    const urlParams = new URLSearchParams(window.location.search);
+    const refFromUrl = urlParams.get('ref');
+    if (refFromUrl) {
+        referrerTelegramId = refFromUrl.trim();
+        console.log('[Referral] Реферер из URL ?ref=:', referrerTelegramId);
+    } else {
+        const startParam = tg.initDataUnsafe?.start_param || '';
+        if (startParam.startsWith('ref_')) {
+            referrerTelegramId = startParam.replace('ref_', '').trim();
+            console.log('[Referral] Реферер из start_param:', referrerTelegramId);
+        }
+    }
 
-    const referrerTelegramId = startParam.replace('ref_', '').trim();
+    if (!referrerTelegramId) return;
+
     const myTelegramId = store.user?.telegramId || store.docId;
 
-    if (!referrerTelegramId || referrerTelegramId === myTelegramId) {
+    if (referrerTelegramId === myTelegramId) {
         console.log('[Referral] Самоприглашение — пропускаем');
         return;
     }
@@ -3323,7 +3337,6 @@ async function processReferral() {
     if (store.user?.referredBy) return;
 
     try {
-        // Ищем реферера по telegramId (он же docId)
         const referrerRef = db.collection('users').doc(referrerTelegramId);
         const referrerDoc = await referrerRef.get();
         if (!referrerDoc.exists) {
@@ -3331,16 +3344,23 @@ async function processReferral() {
             return;
         }
 
-        // Сохраняем реферера у текущего пользователя
-        await db.collection('users').doc(store.docId).update({ referredBy: referrerTelegramId });
-        store.user.referredBy = referrerTelegramId;
+        // Используем batch: сохраняем реферера, увеличиваем счётчик и добавляем в друзья
+        const batch = db.batch();
+        const myRef = db.collection('users').doc(store.docId);
 
-        // Увеличиваем счётчик рефералов у пригласившего
-        await referrerRef.update({
-            referralCount: firebase.firestore.FieldValue.increment(1)
+        batch.update(myRef, {
+            referredBy: referrerTelegramId,
+            friends: firebase.firestore.FieldValue.arrayUnion(referrerTelegramId)
+        });
+        batch.update(referrerRef, {
+            referralCount: firebase.firestore.FieldValue.increment(1),
+            friends: firebase.firestore.FieldValue.arrayUnion(store.docId)
         });
 
-        console.log(`[Referral] ✅ ${referrerTelegramId} пригласил ${myTelegramId}`);
+        await batch.commit();
+
+        store.user.referredBy = referrerTelegramId;
+        console.log(`[Referral] ✅ ${referrerTelegramId} пригласил ${myTelegramId}, добавлены в друзья`);
 
         // Уведомляем пригласившего через бота
         const newPlayerName = store.user?.name || 'Новый игрок';

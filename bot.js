@@ -177,9 +177,18 @@ app.listen(PORT, () => {
 });
 
 // ===== КОМАНДА /start =====
-bot.onText(/\/start/, async (msg) => {
+bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
   const firstName = msg.from.first_name || 'Игрок';
+  const param = match && match[1] ? match[1].trim() : '';
+
+  // Если пришёл реферальный параметр — добавляем его в URL WebApp
+  let webAppUrl = WEB_APP_URL;
+  if (param.startsWith('ref_')) {
+    const referrerId = param.replace('ref_', '');
+    webAppUrl = `${WEB_APP_URL}?ref=${referrerId}`;
+    console.log(`[Referral] Реферальный запуск: новый игрок ${chatId}, пригласил ${referrerId}`);
+  }
 
   const welcomeText = `
 Привет, ${firstName}! 👋
@@ -198,7 +207,7 @@ bot.onText(/\/start/, async (msg) => {
   await bot.sendMessage(chatId, welcomeText, {
     parse_mode: 'Markdown',
     reply_markup: {
-      inline_keyboard: [[{ text: '🚀 Открыть игру', web_app: { url: WEB_APP_URL } }]]
+      inline_keyboard: [[{ text: '🚀 Открыть игру', web_app: { url: webAppUrl } }]]
     }
   });
 });
