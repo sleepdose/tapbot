@@ -1103,13 +1103,17 @@ function resetCraftingSlots() {
 function checkRecipe() {
     const slots = document.querySelectorAll('.craft-slot');
     const talents = Array.from(slots).map(s => s.dataset.talent).filter(Boolean);
-    if (talents.length !== 2) return;
-    const counts = {};
-    talents.forEach(t => counts[t] = (counts[t] || 0) + 1);
-
     const sonicBtn = document.getElementById('sonicButton');
     const fireBtn = document.getElementById('fireButton');
     const iceBtn = document.getElementById('iceButton');
+    if (talents.length !== 2) {
+        sonicBtn.style.display = 'none';
+        fireBtn.style.display = 'none';
+        iceBtn.style.display = 'none';
+        return;
+    }
+    const counts = {};
+    talents.forEach(t => counts[t] = (counts[t] || 0) + 1);
 
     sonicBtn.style.display = (counts.basic >= 1 && counts.critical >= 1) ? 'block' : 'none';
     fireBtn.style.display = (counts.critical >= 1 && counts.poison >= 1) ? 'block' : 'none';
@@ -2643,6 +2647,12 @@ window.attackBoss = async function() {
         }
 
         store.lastTalentUse = now;
+
+        // Обновляем totalDamage локально сразу после удара
+        if (store.user && finalDamage > 0) {
+            store.user.totalDamage = (store.user.totalDamage || 0) + finalDamage;
+        }
+
         showDamageEffect(finalDamage, talentIcon);
         hapticFeedback('light');
 
@@ -4030,6 +4040,18 @@ async function openVisitModal(userId) {
                     addBtn.disabled = false;
                     addBtn.onclick = () => sendFriendRequest(userId);
                 }
+            }
+        }
+
+        // Кнопка «Написать в TG»
+        const tgBtn = document.getElementById('visit-tg-profile-btn');
+        if (tgBtn) {
+            const telegramId = userData.telegramId;
+            if (telegramId) {
+                tgBtn.style.display = 'block';
+                tgBtn.onclick = () => window.open(`tg://user?id=${telegramId}`, '_blank');
+            } else {
+                tgBtn.style.display = 'none';
             }
         }
 
