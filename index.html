@@ -381,43 +381,42 @@
         <!-- ========== МОДАЛЬНОЕ ОКНО ВИЗИТА (улучшенный дизайн) ========== -->
         <div id="visit-modal" class="modal hidden">
             <div class="modal-content visit-content">
-                <div class="visit-bg-gradient"></div>
-                <div class="visit-header">
+                <!-- Фон игрока — заполняет весь контейнер -->
+                <div class="visit-full-bg" id="visit-full-bg"></div>
+                <div class="visit-overlay"></div>
+
+                <!-- Верхняя панель: аватар слева + ник, ID, клан -->
+                <div class="visit-top-bar">
                     <div class="visit-avatar-wrapper">
-                        <div class="visit-avatar-ring">
-                            <div class="visit-avatar">
-                                <img id="visit-avatar-img" src="" alt="Avatar">
-                            </div>
+                        <div class="visit-avatar">
+                            <img id="visit-avatar-img" src="" alt="Avatar">
                         </div>
                         <span class="visit-level-badge" id="visit-level-badge">1</span>
                     </div>
-                    <div class="visit-name" id="visit-name">Загрузка...</div>
-                    <div class="visit-info-card">
-                        <div class="visit-info-row">
-                            <span class="visit-label">ID:</span>
-                            <span class="visit-value" id="visit-telegram-id-value"></span>
-                        </div>
-                        <div class="visit-info-row">
-                            <span class="visit-label">Клан:</span>
-                            <span class="visit-value" id="visit-guild-value"></span>
+                    <div class="visit-top-info">
+                        <div class="visit-name" id="visit-name">Загрузка...</div>
+                        <div class="visit-meta-row">
+                            <span class="visit-meta-pill">🆔 <span id="visit-telegram-id-value"></span></span>
+                            <span class="visit-meta-pill visit-clan-pill">⚔️ <span id="visit-guild-value"></span></span>
                         </div>
                     </div>
                 </div>
 
+                <!-- Персонаж + питомец (полная ширина, как в главном меню) -->
                 <div class="visit-character-area">
-                    <div class="visit-character-bg"></div>
                     <div class="visit-character-container">
                         <img id="visit-base-character" src="img/men.png" alt="Персонаж">
                         <div id="visit-equipment-layer"></div>
                     </div>
-                    <div class="visit-character-platform"></div>
-                    <div class="visit-pet-badge" id="visit-pet-container"></div>
+                    <div class="visit-pet-container" id="visit-pet-container"></div>
+                    <div class="visit-platform-glow"></div>
                 </div>
 
+                <!-- Действия -->
                 <div class="visit-actions">
-                    <button id="visit-add-friend-btn" class="glow-button visit-friend-btn">Добавить в друзья</button>
+                    <button id="visit-add-friend-btn" class="glow-button visit-friend-btn">➕ Добавить в друзья</button>
+                    <button class="visit-close-btn" id="close-visit-modal">✕ Закрыть</button>
                 </div>
-                <button class="close-modal-btn visit-close-btn" id="close-visit-modal">Закрыть</button>
             </div>
         </div>
 

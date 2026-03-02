@@ -3973,16 +3973,10 @@ async function openVisitModal(userId) {
     const modal = document.getElementById('visit-modal');
     if (!modal) return;
 
-    // Устанавливаем фон только на контейнер персонажа
-    const modalContent = document.querySelector('.modal-content.visit-content');
-    if (modalContent) {
-        modalContent.style.backgroundImage = '';
-        modalContent.style.backgroundSize = '';
-        modalContent.style.backgroundPosition = '';
-    }
-    const visitCharBg = modal.querySelector('.visit-character-bg');
-    if (visitCharBg) {
-        visitCharBg.style.backgroundImage = "url('img/background.JPG')";
+    // Устанавливаем фон по умолчанию (будет обновлён после загрузки данных игрока)
+    const visitFullBg = document.getElementById('visit-full-bg');
+    if (visitFullBg) {
+        visitFullBg.style.backgroundImage = "url('img/background.JPG')";
     }
 
     // Сброс содержимого
@@ -3995,21 +3989,37 @@ async function openVisitModal(userId) {
     document.getElementById('visit-equipment-layer').innerHTML = '';
     document.getElementById('visit-pet-container').innerHTML = '';
 
+    // Чистим инициалы если были
+    const visitAvatarDiv = document.querySelector('.visit-avatar');
+    if (visitAvatarDiv) {
+        const oldInit = visitAvatarDiv.querySelector('.avatar-initials');
+        if (oldInit) oldInit.remove();
+    }
+
+    modal.classList.remove('hidden');
+
     try {
         const userDoc = await db.collection('users').doc(userId).get();
         if (!userDoc.exists) {
             showNotification('Ошибка', 'Пользователь не найден');
+            modal.classList.add('hidden');
             return;
         }
         const userData = userDoc.data();
 
+        // Фон игрока (если есть своя картинка, иначе — стандартная)
+        if (visitFullBg) {
+            const bgUrl = userData.backgroundUrl || 'img/background.JPG';
+            visitFullBg.style.backgroundImage = `url('${bgUrl}')`;
+        }
+
         // Основная информация
         document.getElementById('visit-name').textContent = userData.name || 'Без имени';
         document.getElementById('visit-level-badge').textContent = userData.level || 1;
-        document.getElementById('visit-telegram-id-value').textContent = userData.telegramId || userData.id.slice(0,8);
+        document.getElementById('visit-telegram-id-value').textContent = userData.telegramId || userId.slice(0,8);
 
         // Гильдия
-        let guildName = 'Нет гильдии';
+        let guildName = 'Нет';
         if (userData.guildId) {
             const guildDoc = await db.collection('guilds').doc(userData.guildId).get();
             if (guildDoc.exists) {
@@ -4020,20 +4030,19 @@ async function openVisitModal(userId) {
 
         // Аватар
         const avatarImg = document.getElementById('visit-avatar-img');
+        const avatarDiv = document.querySelector('.visit-avatar');
         if (userData.photoUrl) {
             avatarImg.src = userData.photoUrl;
             avatarImg.style.display = '';
-            const visitAvatarDiv = avatarImg.parentElement;
-            const existingInit = visitAvatarDiv?.querySelector('.avatar-initials');
+            const existingInit = avatarDiv?.querySelector('.avatar-initials');
             if (existingInit) existingInit.remove();
         } else {
             avatarImg.style.display = 'none';
-            const visitAvatarDiv = avatarImg.parentElement;
-            if (visitAvatarDiv && !visitAvatarDiv.querySelector('.avatar-initials')) {
+            if (avatarDiv && !avatarDiv.querySelector('.avatar-initials')) {
                 const span = document.createElement('span');
                 span.className = 'avatar-initials';
                 span.textContent = (userData.name?.[0] || '?').toUpperCase();
-                visitAvatarDiv.appendChild(span);
+                avatarDiv.appendChild(span);
             }
         }
 
@@ -4045,15 +4054,13 @@ async function openVisitModal(userId) {
             baseChar.src = 'img/men.png';
         }
 
-        // Питомец
+        // Питомец — позиционирован как в главном меню (справа снизу)
         const petContainer = document.getElementById('visit-pet-container');
         if (userData.pets && userData.pets.length > 0) {
             const pet = userData.pets[0];
             const img = document.createElement('img');
             img.src = pet.imageUrl;
-            img.style.width = '80px';
-            img.style.height = '80px';
-            img.style.objectFit = 'contain';
+            img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;';
             petContainer.appendChild(img);
         }
 
@@ -4062,6 +4069,7 @@ async function openVisitModal(userId) {
         if (isSelf) {
             addBtn.style.display = 'none';
         } else {
+            addBtn.style.display = 'block';
             const isFriend = currentUser.friends && currentUser.friends.includes(userId);
             if (isFriend) {
                 addBtn.textContent = '✅ Уже в друзьях';
@@ -4073,18 +4081,17 @@ async function openVisitModal(userId) {
                     .where('to', '==', userId)
                     .get();
                 if (!existingReq.empty) {
-                    addBtn.textContent = 'Заявка отправлена';
+                    addBtn.textContent = '⏳ Заявка отправлена';
                     addBtn.disabled = true;
                 } else {
-                    addBtn.textContent = 'Добавить в друзья';
+                    addBtn.textContent = '➕ Добавить в друзья';
                     addBtn.disabled = false;
                     addBtn.onclick = () => sendFriendRequest(userId);
                 }
             }
-            addBtn.style.display = 'block';
         }
 
-        modal.classList.remove('hidden');
+        console.log('[VisitModal] Открыт профиль:', userData.name, '| Уровень:', userData.level);
     } catch (e) {
         console.error('Ошибка загрузки профиля для визита:', e);
         showNotification('Ошибка', 'Не удалось загрузить данные пользователя');
