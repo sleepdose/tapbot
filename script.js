@@ -4444,11 +4444,11 @@ const EXCLUSIVE_GACHA_ITEMS = [
           exclusive: true
     },
     {
-        id: 'gacha_pet_wolf',
-        name: 'Волк',
+        id: 'gacha_pet3',
+        name: 'Буня',
         type: 'pet',
         price: 0,
-        imageUrl: 'img/pet_wolf.png',
+        imageUrl: 'img/pet3.png',
         exclusive: true
     }
 ];
