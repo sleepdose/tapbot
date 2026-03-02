@@ -4073,10 +4073,10 @@ async function openVisitModal(userId) {
                     .where('to', '==', userId)
                     .get();
                 if (!existingReq.empty) {
-                    addBtn.textContent = '⏳ Заявка отправлена';
+                    addBtn.textContent = 'Заявка отправлена';
                     addBtn.disabled = true;
                 } else {
-                    addBtn.textContent = '➕ Добавить в друзья';
+                    addBtn.textContent = 'Добавить в друзья';
                     addBtn.disabled = false;
                     addBtn.onclick = () => sendFriendRequest(userId);
                 }
