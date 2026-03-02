@@ -594,23 +594,6 @@ body::before {
     padding: 4px;
 }
 
-/* Цена — красивый бейдж в правом верхнем углу */
-.item-card .item-price {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0,0,0,0.7);
-    border: 1px solid #ffd060;
-    border-radius: 20px;
-    padding: 4px 10px;
-    font-size: 12px;
-    font-weight: 800;
-    color: #ffd060;
-    box-shadow: 0 0 8px rgba(255,208,96,0.5);
-    backdrop-filter: blur(4px);
-    z-index: 2;
-}
-
 .item-card .chest-only-badge {
     display: inline-block;
     margin-top: 8px;

@@ -688,54 +688,6 @@ async function renderSkins() {
     updatePreviewCharacter(user);
 }
 
-// Покупка скина
-window.buySkin = async function(skinId) {
-    if (!store.authUser) {
-        showNotification('Ошибка', 'Пользователь не авторизован');
-        return;
-    }
-    const user = await getUser();
-    const skinRef = db.collection('shop_items').doc(skinId);
-    const userRef = db.collection('users').doc(store.docId);
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            const skinDoc = await transaction.get(skinRef);
-            const userDoc = await transaction.get(userRef);
-            if (!skinDoc.exists) throw new Error('Скин не найден');
-            const skin = skinDoc.data();
-            if (userDoc.data().money < skin.price) throw new Error('Недостаточно денег');
-            const inventory = userDoc.data().inventory || [];
-            if (inventory.some(inv => inv.id === skinId)) {
-                throw new Error('Скин уже есть в инвентаре');
-            }
-
-            const inventoryItem = {
-                id: skinId,
-                name: skin.name,
-                type: 'skin',
-                price: skin.price,
-                imageUrl: skin.imageUrl,
-                instanceId: `${Date.now()}_${Math.random()}`
-            };
-
-            transaction.update(userRef, {
-                money: firebase.firestore.FieldValue.increment(-skin.price),
-                inventory: firebase.firestore.FieldValue.arrayUnion(inventoryItem)
-            });
-        });
-
-        await loadUserFromFirestore(true);
-        renderSkins();
-        updateMainUI();
-        showNotification('Успех', 'Скин куплен!');
-        hapticFeedback();
-    } catch (e) {
-        console.error('Ошибка покупки скина:', e);
-        showNotification('Ошибка', e.message || 'Не удалось купить скин');
-    }
-};
-
 // Выбор скина (экипировка)
 window.equipSkin = async function(skinId) {
     const user = await getUser();
@@ -813,59 +765,6 @@ async function loadPetsGrid() {
         `;
     }).join('');
 }
-
-window.buyPet = async function(petId) {
-    if (!store.authUser) {
-        showNotification('Ошибка', 'Пользователь не авторизован');
-        return;
-    }
-    const itemRef = db.collection('shop_items').doc(petId);
-    const userRef = db.collection('users').doc(store.docId);
-
-    try {
-        await db.runTransaction(async (transaction) => {
-            const petDoc = await transaction.get(itemRef);
-            const userDoc = await transaction.get(userRef);
-            if (!petDoc.exists) throw new Error('Питомец не найден');
-            const pet = petDoc.data();
-            if (userDoc.data().money < pet.price) throw new Error('Недостаточно денег');
-            const inventory = userDoc.data().inventory || [];
-            if (inventory.some(inv => inv.id === petId)) {
-                throw new Error('Питомец уже есть в инвентаре');
-            }
-
-            const inventoryItem = {
-                id: String(petId),
-                name: String(pet.name || ''),
-                type: String(pet.type || ''),
-                price: typeof pet.price === 'number' ? pet.price : 0,
-                imageUrl: String(pet.imageUrl || ''),
-                instanceId: `${Date.now()}_${Math.random()}`
-            };
-
-            Object.keys(inventoryItem).forEach(key => {
-                if (inventoryItem[key] === undefined) {
-                    console.error(`⚠️ Поле ${key} оказалось undefined — заменено на null`);
-                    inventoryItem[key] = null;
-                }
-            });
-
-            transaction.update(userRef, {
-                money: firebase.firestore.FieldValue.increment(-pet.price),
-                inventory: firebase.firestore.FieldValue.arrayUnion(inventoryItem)
-            });
-        });
-
-        await loadUserFromFirestore(true);
-        await loadPetsGrid();
-        updateMainUI();
-        showNotification('Успех', 'Питомец куплен!');
-        hapticFeedback();
-    } catch (e) {
-        console.error('Ошибка покупки питомца:', e);
-        showNotification('Ошибка', e.message || 'Не удалось купить питомца');
-    }
-};
 
 window.activatePet = async function(petId) {
     const user = await getUser();
@@ -990,29 +889,37 @@ window.showPetUpgradePreview = async function(petId) {
 };
 
 window.upgradePet = async function(petId) {
-    const user = await getUser();
-    const petLevels = { ...(user.petLevels || {}) };
-    const currentLevel = petLevels[petId] || 1;
-
-    if (currentLevel >= PET_MAX_LEVEL) {
-        showNotification('Максимум', 'Питомец уже на максимальном уровне');
+    if (!store.authUser) {
+        showNotification('Ошибка', 'Пользователь не авторизован');
         return;
     }
-
-    const nextLevel = currentLevel + 1;
-    const cost = PET_LEVELS[nextLevel].cost;
-
-    if (user.money < cost) {
-        showNotification('Недостаточно монет', `Нужно ${cost} 💰`);
-        return;
-    }
-
+    const userRef = db.collection('users').doc(store.docId);
     try {
-        petLevels[petId] = nextLevel;
-        await updateUser({
-            money: user.money - cost,
-            petLevels
+        let nextLevel;
+        await db.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            const userData = userDoc.data();
+            const petLevels = userData.petLevels || {};
+            const currentLevel = petLevels[petId] || 1;
+
+            if (currentLevel >= PET_MAX_LEVEL) {
+                throw new Error('Питомец уже на максимальном уровне');
+            }
+
+            nextLevel = currentLevel + 1;
+            const cost = PET_LEVELS[nextLevel].cost;
+
+            if (userData.money < cost) {
+                throw new Error(`Нужно ${cost} 💰`);
+            }
+
+            const updatedPetLevels = { ...petLevels, [petId]: nextLevel };
+            transaction.update(userRef, {
+                money: firebase.firestore.FieldValue.increment(-cost),
+                petLevels: updatedPetLevels
+            });
         });
+
         await loadUserFromFirestore(true);
         await loadPetUpgradeList();
         await showPetUpgradePreview(petId);
@@ -1021,9 +928,10 @@ window.upgradePet = async function(petId) {
         showNotification('Успех', `Питомец улучшен до уровня ${nextLevel}!`);
     } catch (e) {
         console.error('Ошибка улучшения питомца:', e);
-        showNotification('Ошибка', 'Не удалось улучшить питомца');
+        showNotification('Ошибка', e.message || 'Не удалось улучшить питомца');
     }
 };
+
 
 // =======================================================
 // СИСТЕМА ТАЛАНТОВ И КРАФТА
@@ -4368,7 +4276,6 @@ async function updateLastSeen() {
 // =======================================================
 // ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ
 // =======================================================
-window.buyPet = window.buyPet;
 window.activatePet = window.activatePet;
 window.buyCharges = window.buyCharges;
 window.upgradeTalent = window.upgradeTalent;
@@ -4392,7 +4299,6 @@ window.hideCreateGuildModal = window.hideCreateGuildModal;
 window.openDailyBonusModal = openDailyBonusModal;
 window.closeDailyBonusModal = closeDailyBonusModal;
 window.showInviteMenu = showInviteMenu;
-window.buySkin = window.buySkin;
 window.equipSkin = window.equipSkin;
 window.previewSkin = window.previewSkin;
 window.openVisitModal = openVisitModal;
@@ -4801,14 +4707,14 @@ async function finalizeSpin(winner, mode) {
             // Free spin: no coin deduction; stars handled externally
 
             if (!alreadyOwned) {
-                const invItem = {
-                    id: winner.id,
-                    name: winner.name,
-                    type: winner.type,
-                    price: winner.price || 0,
-                    imageUrl: winner.imageUrl || null,
-                    instanceId: `${Date.now()}_${Math.random()}`
-                };
+              const invItem = {
+    id: winner.id,
+    name: winner.name,
+    type: winner.type,
+    imageUrl: winner.imageUrl || null,
+    instanceId: `${Date.now()}_${Math.random()}`
+};
+
                 if (winner.exclusive) invItem.exclusive = true;
                 updates.inventory = firebase.firestore.FieldValue.arrayUnion(invItem);
             }
