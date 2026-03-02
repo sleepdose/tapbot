@@ -4434,6 +4434,14 @@ const EXCLUSIVE_GACHA_ITEMS = [
         price: 0,
         imageUrl: 'img/skin_phoenix.png',
         exclusive: true
+      },
+      {
+          id: 'gacha_skin_phoenix',
+          name: 'Волк',
+          type: 'skin',
+          price: 0,
+          imageUrl: 'img/skin_wolf.png',
+          exclusive: true
     },
     {
         id: 'gacha_pet_wolf',
@@ -4517,14 +4525,14 @@ window.currentChestTab = currentChestTab;
 let isSpinning = false;
 
 async function loadTreasurePool() {
-    console.log('📦 Загружаем пулы сундуков...');
+    console.log('Загружаем пулы сундуков...');
     const snapshot = await db.collection('shop_items').get();
     const shopItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     regularTreasurePool = shopItems.filter(item => !item.exclusive);
     if (regularTreasurePool.length === 0) regularTreasurePool = shopItems; // fallback
     starsTreasurePool = [...EXCLUSIVE_GACHA_ITEMS];
     gachaTreasurePool = currentChestTab === 'stars' ? starsTreasurePool : regularTreasurePool;
-    console.log('📦 Обычный:', regularTreasurePool.length, '| Звёздный:', starsTreasurePool.length);
+    console.log('Обычный:', regularTreasurePool.length, '| Звёздный:', starsTreasurePool.length);
 }
 
 function getActivePool() {
@@ -4851,13 +4859,13 @@ function updateInlineResult(item, alreadyOwned) {
     let statusText = '';
     let statusClass = '';
     if (item.exclusive) {
-        statusText = '✨ Эксклюзивный!';
+        statusText = 'Эксклюзивный!';
         statusClass = 'exclusive';
     } else if (!owned) {
-        statusText = '🎉 Новый предмет!';
+        statusText = 'Новый предмет!';
         statusClass = 'new';
     } else {
-        statusText = '📦 Уже есть в инвентаре';
+        statusText = 'Уже есть в инвентаре';
         statusClass = 'owned';
     }
     statusSpan.textContent = statusText;
