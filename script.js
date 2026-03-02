@@ -1934,12 +1934,20 @@ function generateBattleHTML(guild, isLeader) {
     const bossId = guild.bossId;
     const bossNames = {
         boss1: 'Зарг',
-        boss2: 'Вокс'
+        boss2: 'Вокс',
+        boss3: 'Малефар',
+        boss4: 'Кромвар'
     };
     const bossName = bossNames[bossId] || bossId;
 
     let bgImageUrl, bossImageUrl;
-    if (bossId === 'boss2') {
+    if (bossId === 'boss4') {
+        bgImageUrl = 'img/battle4.JPG';
+        bossImageUrl = 'img/battleboss4.png';
+    } else if (bossId === 'boss3') {
+        bgImageUrl = 'img/battle3.JPG';
+        bossImageUrl = 'img/battleboss3.png';
+    } else if (bossId === 'boss2') {
         bgImageUrl = 'img/battle2.JPG';
         bossImageUrl = 'img/battleboss2.png';
     } else {
@@ -2058,6 +2066,9 @@ async function renderGuildPage(guild) {
 
     const displayedBossId = guild.battleActive ? guild.bossId : (user.preferredBoss || 'boss1');
     const canAccessBoss2 = (guild.keys?.boss2 || 0) >= 3;
+    const canAccessBoss3 = (guild.keys?.boss3 || 0) >= 3;
+    const canAccessBoss4 = (guild.keys?.boss4 || 0) >= 3;
+    const bossAccess = { boss2: canAccessBoss2, boss3: canAccessBoss3, boss4: canAccessBoss4 };
 
     const memberPromises = guild.members.map(async (memberId) => {
         const memberDoc = await db.collection('users').doc(memberId).get();
@@ -2143,10 +2154,10 @@ async function renderGuildPage(guild) {
          </div>
 
          <div id="boss-battle-area">
-            ${renderBossBattle(guild, displayedBossId, canAccessBoss2, isLeader)}
+            ${renderBossBattle(guild, displayedBossId, bossAccess, isLeader)}
          </div>
 
-        ${isLeader && !guild.battleActive && (displayedBossId !== 'boss2' || canAccessBoss2) ? `
+        ${isLeader && !guild.battleActive && (displayedBossId === 'boss1' || (displayedBossId === 'boss2' && canAccessBoss2) || (displayedBossId === 'boss3' && canAccessBoss3) || (displayedBossId === 'boss4' && canAccessBoss4)) ? `
              <div style="display: flex; justify-content: center; margin: 20px 0;">
                  <button class="glow-button" onclick="startBattle('${guild.id}')">⚔️ Начать сражение</button>
              </div>
@@ -2171,32 +2182,37 @@ async function renderGuildPage(guild) {
     document.getElementById('leave-guild-btn')?.addEventListener('click', () => leaveGuild(guild.id));
     document.getElementById('invite-friend-btn')?.addEventListener('click', showInviteMenu);
 }
-function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
+function renderBossBattle(guild, currentBossId, bossAccess, isLeader) {
     const isBattleActive = guild.battleActive;
     const hpPercent = isBattleActive ? (guild.bossHp / guild.maxBossHp) * 100 : 100;
 
-    const bossNames = { boss1: 'Зарг', boss2: 'Вокс' };
+    const bossNames = { boss1: 'Зарг', boss2: 'Вокс', boss3: 'Малефар', boss4: 'Кромвар' };
     const bossDisplayName = bossNames[currentBossId] || currentBossId;
 
-    let bossImageUrl;
-    if (isBattleActive) {
-        bossImageUrl = currentBossId === 'boss2' ? 'img/battleboss2.png' : 'img/battleboss1.png';
-    } else {
-        bossImageUrl = currentBossId === 'boss2' ? 'img/boss2_preview.png' : 'img/boss1_preview.png';
-    }
+    const battleImages = { boss1: 'img/battleboss1.png', boss2: 'img/battleboss2.png', boss3: 'img/battleboss3.png', boss4: 'img/battleboss4.png' };
+    const previewImages = { boss1: 'img/boss1_preview.png', boss2: 'img/boss2_preview.png', boss3: 'img/boss3_preview.png', boss4: 'img/boss4_preview.png' };
+    const bossImageUrl = isBattleActive ? (battleImages[currentBossId] || 'img/battleboss1.png') : (previewImages[currentBossId] || 'img/boss1_preview.png');
 
     let remainingSeconds = 0;
     if (isBattleActive && guild.battleEndTime) {
         remainingSeconds = Math.max(0, Math.floor((guild.battleEndTime - Date.now()) / 1000));
     }
 
-    const showLeftArrow = !isBattleActive && currentBossId !== 'boss1';
-    const showRightArrow = !isBattleActive && currentBossId !== 'boss2';
+    const bossOrder = ['boss1', 'boss2', 'boss3', 'boss4'];
+    const currentIndex = bossOrder.indexOf(currentBossId);
+    const prevBossId = currentIndex > 0 ? bossOrder[currentIndex - 1] : null;
+    const nextBossId = currentIndex < bossOrder.length - 1 ? bossOrder[currentIndex + 1] : null;
+
+    const showLeftArrow = !isBattleActive && prevBossId !== null;
+    const showRightArrow = !isBattleActive && nextBossId !== null;
+
+    const keysForBoss = currentBossId !== 'boss1' ? (guild.keys?.[currentBossId] || 0) : null;
+    const bossNumber = currentBossId.replace('boss', '');
 
     return `
         <div class="boss-wrapper">
             ${showLeftArrow ?
-                `<button class="boss-arrow" onclick="changePreferredBoss('boss1')">◀</button>` :
+                `<button class="boss-arrow" onclick="changePreferredBoss('${prevBossId}')">◀</button>` :
                 '<div style="width:48px;"></div>'}
 
             <div class="boss-container">
@@ -2212,12 +2228,12 @@ function renderBossBattle(guild, currentBossId, canAccessBoss2, isLeader) {
             </div>
 
             ${showRightArrow ?
-                `<button class="boss-arrow" onclick="changePreferredBoss('boss2')">▶</button>` :
+                `<button class="boss-arrow" onclick="changePreferredBoss('${nextBossId}')">▶</button>` :
                 '<div style="width:48px;"></div>'}
         </div>
 
-        ${currentBossId === 'boss2' && !isBattleActive ? `
-            <div class="boss-keys">🔑 Ключи для босса 2: ${guild.keys?.boss2 || 0} / 3</div>
+        ${currentBossId !== 'boss1' && !isBattleActive ? `
+            <div class="boss-keys">🔑 Ключи для босса ${bossNumber}: ${keysForBoss} / 3</div>
         ` : ''}
     `;
 }
@@ -2252,9 +2268,21 @@ async function startBattle(guildId) {
                 transaction.update(guildRef, {
                     'keys.boss2': firebase.firestore.FieldValue.increment(-3)
                 });
+            } else if (bossId === 'boss3') {
+                const keys = guild.keys?.boss3 || 0;
+                if (keys < 3) throw new Error('Недостаточно ключей для босса 3');
+                transaction.update(guildRef, {
+                    'keys.boss3': firebase.firestore.FieldValue.increment(-3)
+                });
+            } else if (bossId === 'boss4') {
+                const keys = guild.keys?.boss4 || 0;
+                if (keys < 3) throw new Error('Недостаточно ключей для босса 4');
+                transaction.update(guildRef, {
+                    'keys.boss4': firebase.firestore.FieldValue.increment(-3)
+                });
             }
 
-            const maxBossHp = bossId === 'boss2' ? 15000 : 5000;
+            const maxBossHp = bossId === 'boss4' ? 500000 : bossId === 'boss3' ? 150000 : bossId === 'boss2' ? 15000 : 5000;
 
             battleEndTime = Date.now() + 120000;
             transaction.update(guildRef, {
@@ -2289,7 +2317,7 @@ async function notifyGuildBattleStart(guildId) {
 
         const guild = guildDoc.data();
         const bossId = guild.bossId || 'boss1';
-        const bossName = bossId === 'boss2' ? 'Вокс' : 'Зарг';
+        const bossName = { boss1: 'Зарг', boss2: 'Вокс', boss3: 'Малефар', boss4: 'Кромвар' }[bossId] || 'Зарг';
 
         // Получаем telegramId всех участников гильдии
         const memberIds = guild.members || [];
@@ -2362,8 +2390,8 @@ function startBattleTimer(endTime, guildId) {
 
 // ========== НОВАЯ ФУНКЦИЯ ДЛЯ НАЧИСЛЕНИЯ НАГРАД ==========
 async function applyRewards(userIds, damageLog, bossId) {
-    const rewardAmount = bossId === 'boss2' ? 8000 : 2500;
-    const xpReward = bossId === 'boss2' ? 300 : 100;
+    const rewardAmount = bossId === 'boss4' ? 100000 : bossId === 'boss3' ? 30000 : bossId === 'boss2' ? 8000 : 2500;
+    const xpReward = bossId === 'boss4' ? 1000 : bossId === 'boss3' ? 600 : bossId === 'boss2' ? 300 : 100;
     let attempts = 0;
     const maxAttempts = 3;
 
@@ -2518,6 +2546,10 @@ async function endBattle(victory, guildId) {
 
                     if (freshGuild.bossId === 'boss1') {
                         updates['keys.boss2'] = firebase.firestore.FieldValue.increment(1);
+                    } else if (freshGuild.bossId === 'boss2') {
+                        updates['keys.boss3'] = firebase.firestore.FieldValue.increment(1);
+                    } else if (freshGuild.bossId === 'boss3') {
+                        updates['keys.boss4'] = firebase.firestore.FieldValue.increment(1);
                     }
 
                     finalRating = newRating;
@@ -3968,7 +4000,12 @@ window.declineGuildInvitation = async function(invId) {
 async function openVisitModal(userId) {
     if (!userId) return;
     const currentUser = store.user;
-    const isSelf = currentUser && currentUser.id === userId;
+    const isSelf = currentUser && (currentUser.id === userId || store.docId === userId);
+
+    if (isSelf) {
+        console.log('[VisitModal] Нельзя открыть свой профиль через визит');
+        return;
+    }
 
     const modal = document.getElementById('visit-modal');
     if (!modal) return;
@@ -4066,14 +4103,11 @@ async function openVisitModal(userId) {
 
         // Кнопка добавления в друзья
         const addBtn = document.getElementById('visit-add-friend-btn');
-        if (isSelf) {
-            addBtn.style.display = 'none';
-        } else {
+        if (addBtn) {
             addBtn.style.display = 'block';
             const isFriend = currentUser.friends && currentUser.friends.includes(userId);
             if (isFriend) {
-                addBtn.textContent = 'Уже в друзьях';
-                addBtn.disabled = true;
+                addBtn.style.display = 'none';
             } else {
                 // Проверяем, не отправлена ли уже заявка
                 const existingReq = await db.collection('friendRequests')
@@ -4391,6 +4425,22 @@ const EXCLUSIVE_GACHA_ITEMS = [
         type: 'skin',
         price: 0,
         imageUrl: 'img/skin_phantom.png',
+        exclusive: true
+    },
+    {
+        id: 'gacha_skin_phoenix',
+        name: 'Феникс',
+        type: 'skin',
+        price: 0,
+        imageUrl: 'img/skin_phoenix.png',
+        exclusive: true
+    },
+    {
+        id: 'gacha_pet_wolf',
+        name: 'Волк',
+        type: 'pet',
+        price: 0,
+        imageUrl: 'img/pet_wolf.png',
         exclusive: true
     }
 ];

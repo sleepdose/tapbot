@@ -162,7 +162,7 @@ body::before {
         0 0 18px rgba(123,95,255,0.7),
         0 0 40px rgba(123,95,255,0.35),
         0 0 8px rgba(0,212,255,0.5);
-    animation: magic-shimmer 3s ease-in-out infinite, magic-wave 4s linear infinite;
+    animation: none;
     z-index: 1;
 }
 
@@ -425,7 +425,7 @@ body::before {
         0 0 18px rgba(123,95,255,0.7),
         0 0 40px rgba(123,95,255,0.35),
         0 0 8px rgba(0,212,255,0.5);
-    animation: magic-shimmer 3s ease-in-out infinite, magic-wave 4s linear infinite;
+    animation: none;
     z-index: 1;
 }
 
