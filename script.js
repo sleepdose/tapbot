@@ -4072,7 +4072,7 @@ async function openVisitModal(userId) {
             addBtn.style.display = 'block';
             const isFriend = currentUser.friends && currentUser.friends.includes(userId);
             if (isFriend) {
-                addBtn.textContent = '✅ Уже в друзьях';
+                addBtn.textContent = 'Уже в друзьях';
                 addBtn.disabled = true;
             } else {
                 // Проверяем, не отправлена ли уже заявка
@@ -4081,10 +4081,10 @@ async function openVisitModal(userId) {
                     .where('to', '==', userId)
                     .get();
                 if (!existingReq.empty) {
-                    addBtn.textContent = '⏳ Заявка отправлена';
+                    addBtn.textContent = 'Заявка отправлена';
                     addBtn.disabled = true;
                 } else {
-                    addBtn.textContent = '➕ Добавить в друзья';
+                    addBtn.textContent = 'Добавить в друзья';
                     addBtn.disabled = false;
                     addBtn.onclick = () => sendFriendRequest(userId);
                 }
@@ -4277,7 +4277,7 @@ async function updateLastSeen() {
                             <div class="friend-name">${foundUser.name || foundUser.telegramId}</div>
                             <div class="friend-id">${foundUser.telegramId}</div>
                         </div>
-                        <button onclick="sendFriendRequest('${foundUserDoc.id}')">➕ Добавить</button>
+                        <button onclick="sendFriendRequest('${foundUserDoc.id}')">Добавить</button>
                     </div>
                 `;
             } else {
