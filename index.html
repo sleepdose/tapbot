@@ -378,27 +378,12 @@
             </div>
         </div>
 
-        <!-- ========== МОДАЛЬНОЕ ОКНО ВИЗИТА ========== -->
+        <!-- ========== МОДАЛЬНОЕ ОКНО ВИЗИТА (улучшенный дизайн) ========== -->
         <div id="visit-modal" class="modal hidden">
             <div class="modal-content visit-content">
-
-                <!-- Фоновые эффекты -->
                 <div class="visit-bg-gradient"></div>
-                <div class="visit-particles">
-                    <span></span><span></span><span></span><span></span>
-                    <span></span><span></span><span></span><span></span>
-                </div>
-
-                <!-- Угловые украшения -->
-                <div class="visit-corner visit-corner--tl"></div>
-                <div class="visit-corner visit-corner--tr"></div>
-                <div class="visit-corner visit-corner--bl"></div>
-                <div class="visit-corner visit-corner--br"></div>
-
-                <!-- Шапка: аватар + имя + статы -->
                 <div class="visit-header">
                     <div class="visit-avatar-wrapper">
-                        <div class="visit-avatar-orbit"></div>
                         <div class="visit-avatar-ring">
                             <div class="visit-avatar">
                                 <img id="visit-avatar-img" src="" alt="Avatar">
@@ -407,43 +392,32 @@
                         <span class="visit-level-badge" id="visit-level-badge">1</span>
                     </div>
                     <div class="visit-name" id="visit-name">Загрузка...</div>
-                    <div class="visit-stats-row">
-                        <div class="visit-stat-pill">
-                            <span>🆔</span>
-                            <span id="visit-telegram-id-value">—</span>
+                    <div class="visit-info-card">
+                        <div class="visit-info-row">
+                            <span class="visit-label">ID:</span>
+                            <span class="visit-value" id="visit-telegram-id-value"></span>
                         </div>
-                        <div class="visit-stat-pill visit-stat-pill--guild">
-                            <span>🏰</span>
-                            <span id="visit-guild-value">—</span>
+                        <div class="visit-info-row">
+                            <span class="visit-label">Клан:</span>
+                            <span class="visit-value" id="visit-guild-value"></span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Декоративный разделитель -->
-                <div class="visit-divider"><span>⚔️</span></div>
-
-                <!-- Персонаж -->
                 <div class="visit-character-area">
                     <div class="visit-character-bg"></div>
-                    <div class="visit-rune-ring visit-rune-ring--outer"></div>
-                    <div class="visit-rune-ring visit-rune-ring--inner"></div>
                     <div class="visit-character-container">
                         <img id="visit-base-character" src="img/men.png" alt="Персонаж">
                         <div id="visit-equipment-layer"></div>
                     </div>
                     <div class="visit-character-platform"></div>
-                    <div class="visit-light-rays"></div>
                     <div class="visit-pet-badge" id="visit-pet-container"></div>
                 </div>
 
-                <!-- Кнопки -->
                 <div class="visit-actions">
-                    <button id="visit-add-friend-btn" class="visit-friend-btn">
-                        ➕ Добавить в друзья
-                    </button>
-                    <button class="visit-close-btn" id="close-visit-modal">✕ Закрыть</button>
+                    <button id="visit-add-friend-btn" class="glow-button visit-friend-btn">➕ Добавить в друзья</button>
                 </div>
-
+                <button class="close-modal-btn visit-close-btn" id="close-visit-modal">✕ Закрыть</button>
             </div>
         </div>
 
