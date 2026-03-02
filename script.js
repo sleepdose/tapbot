@@ -2531,7 +2531,13 @@ window.attackBoss = async function() {
             return;
         }
 
-        const user = await getUser(true);
+        const prevTotalDamage = store.user?.totalDamage || 0;
+const user = await getUser(true);
+// Восстанавливаем накопленный урон — getUser(true) перезатирает его из Firestore
+if (store.user && prevTotalDamage > (store.user.totalDamage || 0)) {
+    store.user.totalDamage = prevTotalDamage;
+}
+
 
         if (!user.selectedTalent) {
             showNotification('Ошибка', 'Сначала выберите талант для атаки');
