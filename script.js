@@ -327,12 +327,14 @@ function getLevelFromXP(xp) {
 }
 
 function getXPProgress(user) {
-    const currentLevelXP = getXPForLevel(user.level);
-    const nextLevelXP = getXPForLevel(user.level + 1);
-    const xpInThisLevel = user.xp - currentLevelXP;
+    // Всегда считаем уровень из XP — защита от рассинхронизации user.level и user.xp
+    const effectiveLevel = getLevelFromXP(user.xp) || 1;
+    const currentLevelXP = getXPForLevel(effectiveLevel);
+    const nextLevelXP = getXPForLevel(effectiveLevel + 1);
+    const xpInThisLevel = Math.max(0, user.xp - currentLevelXP);
     const neededForNext = nextLevelXP - currentLevelXP;
     const progress = neededForNext > 0 ? (xpInThisLevel / neededForNext) * 100 : 100;
-    return { xpInThisLevel, neededForNext, progress };
+    return { xpInThisLevel, neededForNext, progress, effectiveLevel };
 }
 
 async function getUser(forceReload = false) {
@@ -1331,6 +1333,15 @@ function startPoisonEffectFromData(effect, guildId) {
         });
 
         showDamageEffect(damage, '☠️');
+
+        // Обновляем totalDamage текущего игрока при каждом тике яда
+        if (userId === store.docId && store.user) {
+            const newTotalDamage = (store.user.totalDamage || 0) + damage;
+            store.user.totalDamage = newTotalDamage;
+            updateUser({ totalDamage: newTotalDamage }).catch(err => {
+                console.error('[Poison] Не удалось сохранить totalDamage:', err);
+            });
+        }
 
         const updatedGuildDoc = await guildRef.get();
         if (updatedGuildDoc.exists && updatedGuildDoc.data().bossHp <= 0) {
@@ -2350,7 +2361,8 @@ async function applyRewards(userIds, damageLog, bossId, victory = true) {
                 };
                 if (victory) {
                     updatesForMember.money = firebase.firestore.FieldValue.increment(rewardAmount);
-                    updatesForMember.xp = newXP;
+                    // Используем increment чтобы избежать гонки данных при параллельных начислениях
+                    updatesForMember.xp = firebase.firestore.FieldValue.increment(xpReward);
                 }
                 if (newLevel !== (memberData.level || 1)) {
                     updatesForMember.level = newLevel;
@@ -3052,9 +3064,8 @@ function updateProfileModal() {
     if (profileName) profileName.textContent = user.name || 'Игрок';
     const profileId = document.getElementById('profile-id');
     if (profileId) profileId.textContent = user.telegramId || (user.id ? user.id.slice(0,8) : '—');
-    document.getElementById('profile-level').textContent = user.level;
-
-    const { xpInThisLevel, neededForNext, progress } = getXPProgress(user);
+    const { xpInThisLevel, neededForNext, progress, effectiveLevel } = getXPProgress(user);
+    document.getElementById('profile-level').textContent = effectiveLevel;
     document.getElementById('profile-xp-current').textContent = xpInThisLevel;
     document.getElementById('profile-xp-next').textContent = neededForNext;
     document.getElementById('profile-xp-fill').style.width = progress + '%';
