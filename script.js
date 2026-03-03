@@ -1134,9 +1134,6 @@ function renderBuyChargesUI() {
                  ${getTalentIcon(type)}
                  <span class="talent-charges-badge">${data.charges}</span>
              </div>
-             <div class="charges-info">
-                 <strong>${getTalentName(type)}</strong>
-             </div>
              <button onclick="buyCharges('${type}')">+5 за ${data.basePrice} 🪙</button>
          </div>
     `).join('');
