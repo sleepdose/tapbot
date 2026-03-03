@@ -1444,8 +1444,8 @@ async function createGuild(name, description, chatLink) {
         level: 1,
         rating: 0,
         bossId: 'boss1',
-        bossHp: 5000,
-        maxBossHp: 5000,
+        bossHp: 500,
+        maxBossHp: 500,
         battleActive: false,
         battleEndTime: null,
         keys: { boss2: 0 },
@@ -1783,6 +1783,20 @@ async function loadGuildScreen() {
                         const hpPct = Math.max(0, (updatedGuild.bossHp / updatedGuild.maxBossHp) * 100);
                         hpFill.style.width = hpPct + '%';
                         hpText.textContent = `${updatedGuild.bossHp}/${updatedGuild.maxBossHp}`;
+
+                        // Смена картинки босса при падении HP до 50%
+                        const bossImg = document.getElementById('boss-battle-img');
+                        if (bossImg && updatedGuild.bossId) {
+                            const phase2Images = { boss1: 'img/battleboss1_2.png', boss2: 'img/battleboss2_2.png', boss3: 'img/battleboss3_2.png', boss4: 'img/battleboss4_2.png' };
+                            const phase1Images = { boss1: 'img/battleboss1.png', boss2: 'img/battleboss2.png', boss3: 'img/battleboss3.png', boss4: 'img/battleboss4.png' };
+                            const targetSrc = hpPct <= 50
+                                ? (phase2Images[updatedGuild.bossId] || phase1Images[updatedGuild.bossId])
+                                : phase1Images[updatedGuild.bossId];
+                            if (targetSrc && !bossImg.src.endsWith(targetSrc)) {
+                                console.log(`[Boss] Смена фазы: ${bossImg.src} → ${targetSrc} (HP: ${hpPct.toFixed(1)}%)`);
+                                bossImg.src = targetSrc;
+                            }
+                        }
                     }
                 } else {
                     renderGuildPage(updatedGuild);
@@ -2194,7 +2208,7 @@ async function startBattle(guildId) {
                 });
             }
 
-            const maxBossHp = bossId === 'boss4' ? 500000 : bossId === 'boss3' ? 150000 : bossId === 'boss2' ? 15000 : 5000;
+            const maxBossHp = bossId === 'boss4' ? 500000 : bossId === 'boss3' ? 150000 : bossId === 'boss2' ? 15000 : 500;
 
             battleEndTime = Date.now() + 120000;
             transaction.update(guildRef, {
@@ -2301,7 +2315,7 @@ function startBattleTimer(endTime, guildId) {
 }
 
 // ========== НОВАЯ ФУНКЦИЯ ДЛЯ НАЧИСЛЕНИЯ НАГРАД ==========
-async function applyRewards(userIds, damageLog, bossId) {
+async function applyRewards(userIds, damageLog, bossId, victory = true) {
     const rewardAmount = bossId === 'boss4' ? 100000 : bossId === 'boss3' ? 30000 : bossId === 'boss2' ? 8000 : 2500;
     const xpReward = bossId === 'boss4' ? 1000 : bossId === 'boss3' ? 600 : bossId === 'boss2' ? 300 : 100;
     let attempts = 0;
@@ -2328,11 +2342,12 @@ async function applyRewards(userIds, damageLog, bossId) {
                 const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
                 const newLevel = getLevelFromXP(newXP);
                 const updatesForMember = {
-                    // increment — атомарная операция на сервере
-                    money: firebase.firestore.FieldValue.increment(rewardAmount),
-                    xp: newXP,
                     totalDamage: newTotalDamage
                 };
+                if (victory) {
+                    updatesForMember.money = firebase.firestore.FieldValue.increment(rewardAmount);
+                    updatesForMember.xp = newXP;
+                }
                 if (newLevel !== (memberData.level || 1)) {
                     updatesForMember.level = newLevel;
                 }
@@ -2343,21 +2358,22 @@ async function applyRewards(userIds, damageLog, bossId) {
             console.log(`✅ Награды начислены: +${rewardAmount} монет, +${xpReward} XP`);
 
             // После успешного commit обновляем store.user для текущего игрока
-            const currentUid = store.authUser?.uid;
+            const currentUid = store.docId;
             if (currentUid && userIds.includes(currentUid) && store.user) {
                 const myData = memberDataMap[currentUid];
                 if (myData) {
-                    const newXP = (myData.xp || 0) + xpReward;
-                    const newLevel = getLevelFromXP(newXP);
                     const newTotalDamage = (myData.totalDamage || 0) + (damageLog[currentUid] || 0);
-
-                    store.user.money = (myData.money || 0) + rewardAmount;
-                    store.user.xp = newXP;
                     store.user.totalDamage = newTotalDamage;
 
-                    if (newLevel !== store.user.level) {
-                        store.user.level = newLevel;
-                        showNotification('🎉 Новый уровень!', `Вы достигли ${newLevel} уровня!`);
+                    if (victory) {
+                        const newXP = (myData.xp || 0) + xpReward;
+                        const newLevel = getLevelFromXP(newXP);
+                        store.user.money = (myData.money || 0) + rewardAmount;
+                        store.user.xp = newXP;
+                        if (newLevel !== store.user.level) {
+                            store.user.level = newLevel;
+                            showNotification('🎉 Новый уровень!', `Вы достигли ${newLevel} уровня!`);
+                        }
                     }
                 }
                 // Принудительно обновляем UI — баланс и XP
@@ -2482,8 +2498,8 @@ async function endBattle(victory, guildId) {
             });
 
             if (success) {
-                if (victory && userIds.length > 0) {
-                    await applyRewards(userIds, damageLog, guild.bossId);
+                if (userIds.length > 0) {
+                    await applyRewards(userIds, damageLog, guild.bossId, victory);
                 }
                 break;
             }
@@ -4049,13 +4065,13 @@ async function openVisitModal(userId) {
             }
         }
 
-        // Кнопка «Написать в TG»
+        // Иконка «Написать в TG»
         const tgBtn = document.getElementById('visit-tg-profile-btn');
         if (tgBtn) {
             const telegramId = userData.telegramId;
             if (telegramId) {
-                tgBtn.style.display = 'block';
-                tgBtn.onclick = () => window.open(`tg://user?id=${telegramId}`, '_blank');
+                tgBtn.style.display = 'inline-flex';
+                tgBtn.href = `tg://user?id=${telegramId}`;
             } else {
                 tgBtn.style.display = 'none';
             }
