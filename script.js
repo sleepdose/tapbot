@@ -1130,11 +1130,14 @@ function renderBuyChargesUI() {
     if (!user) return;
     container.innerHTML = Object.entries(user.attackCharges).map(([type, data]) => `
          <div class="attack-charges-item">
-             <div>
-                 <strong>${getTalentIcon(type)} ${getTalentName(type)}</strong>
-                 <span class="charge-counter">${data.charges} шт</span>
+             <div class="talent-icon-wrap charges-icon-wrap">
+                 ${getTalentIcon(type)}
+                 <span class="talent-charges-badge">${data.charges}</span>
              </div>
-             <button onclick="buyCharges('${type}')">Купить 5 за ${data.basePrice} 🪙</button>
+             <div class="charges-info">
+                 <strong>${getTalentName(type)}</strong>
+             </div>
+             <button onclick="buyCharges('${type}')">+5 за ${data.basePrice} 🪙</button>
          </div>
     `).join('');
 }
@@ -1245,12 +1248,11 @@ function createBattleTalentButtons() {
         const charges = user.attackCharges[type]?.charges || 0;
         if (charges <= 0) return; // Hide talents with 0 charges
         const isSelected = user.selectedTalent === type;
-        html += `<button class="talent-btn ${isSelected ? 'active' : ''}"
-            data-talent="${type}"
-            onclick="selectBattleTalent('${type}')">
-            <span class="talent-icon">${getTalentIcon(type)}</span>
-            <span class="talent-name">${getTalentName(type)}</span>
-            <span class="talent-charges">${charges}</span>
+        html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
+            <div class="talent-icon-wrap">
+                ${getTalentIcon(type)}
+                <span class="talent-charges-badge">${charges}</span>
+            </div>
         </button>`;
     });
 
@@ -1261,9 +1263,10 @@ function createBattleTalentButtons() {
         if (!data || data.charges <= 0) return;
         const isSelected = user.selectedTalent === type;
         html += `<button class="talent-btn ${isSelected ? 'active' : ''}" data-talent="${type}" onclick="selectBattleTalent('${type}')">
-            <span class="talent-icon">${getTalentIcon(type)}</span>
-            <span class="talent-name">${getTalentName(type)}</span>
-            <span class="talent-charges">${data.charges}</span>
+            <div class="talent-icon-wrap">
+                ${getTalentIcon(type)}
+                <span class="talent-charges-badge">${data.charges}</span>
+            </div>
         </button>`;
     });
 
@@ -2674,9 +2677,13 @@ if (store.user && prevTotalDamage > (store.user.totalDamage || 0)) {
 
         store.lastTalentUse = now;
 
-        // Обновляем totalDamage локально сразу после удара
+        // Обновляем totalDamage локально и в Firestore сразу после удара
         if (store.user && finalDamage > 0) {
-            store.user.totalDamage = (store.user.totalDamage || 0) + finalDamage;
+            const newTotalDamage = (store.user.totalDamage || 0) + finalDamage;
+            store.user.totalDamage = newTotalDamage;
+            updateUser({ totalDamage: newTotalDamage }).catch(err => {
+                console.error('[Battle] Не удалось сохранить totalDamage:', err);
+            });
         }
 
         showDamageEffect(finalDamage, talentIcon);

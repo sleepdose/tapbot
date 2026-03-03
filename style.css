@@ -690,6 +690,16 @@ body::before {
     color: var(--accent-gold);
     text-shadow: 0 0 8px var(--accent-gold-glow);
 }
+.attack-charges-item .charges-icon-wrap {
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+.attack-charges-item .charges-info {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
 .attack-charges-item button {
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-bright));
     border: none;
@@ -824,13 +834,21 @@ body::before {
 .talent-card {
     background: var(--bg-surface);
     border: 1px solid rgba(123, 95, 255, 0.3);
-    padding: 8px 14px;
+    padding: 8px 12px;
     border-radius: var(--radius-pill);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
     color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.talent-card .talent-icon-img {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
 }
 .talent-card:hover {
     background: rgba(123, 95, 255, 0.2);
@@ -1430,8 +1448,8 @@ body::before {
 }
 
 .talents-container .talent-btn {
-  min-width: 80px;
-  padding: 10px 8px;
+  min-width: 64px;
+  padding: 10px;
   background: rgba(13, 11, 26, 0.75);
   border-color: rgba(160, 128, 255, 0.4);
   backdrop-filter: blur(10px);
@@ -1518,8 +1536,8 @@ body::before {
 .talent-buttons::-webkit-scrollbar { display: none; }
 .talent-btn {
     flex: 0 0 auto;
-    min-width: 88px;
-    padding: 12px 8px;
+    min-width: 64px;
+    padding: 10px;
     background: var(--bg-surface);
     border: 1px solid rgba(123, 95, 255, 0.3);
     border-radius: var(--radius-md);
@@ -1530,7 +1548,7 @@ body::before {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 0;
     transition: all 0.15s;
     font-family: 'Nunito', sans-serif;
     backdrop-filter: blur(8px);
@@ -1550,6 +1568,39 @@ body::before {
     object-fit: cover;
     border-radius: 10px;
     display: block;
+}
+.talent-icon-sm {
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    border-radius: 5px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+.talent-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.talent-charges-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    background: var(--accent-gold);
+    color: #1a1025;
+    font-size: 11px;
+    font-weight: 900;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid rgba(13, 11, 26, 0.85);
+    line-height: 1;
+    pointer-events: none;
+    padding: 0 3px;
 }
 .talent-name {
     font-size: 11px;
