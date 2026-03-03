@@ -977,9 +977,13 @@ function getTalentName(type) {
     return names[type] || type;
 }
 function getTalentIcon(type) {
-    const icons = { basic: '🗡️', critical: '💥', poison: '☠️',
-                    sonic: '🔊', fire: '🔥', ice: '❄️' };
-    return icons[type] || '';
+    const imgs = { basic: 'img/talent_basic.png', critical: 'img/talent_critical.png', poison: 'img/talent_poison.png',
+                   sonic: 'img/talent_sonic.png', fire: 'img/talent_fire.png', ice: 'img/talent_ice.png' };
+    const emojiFallback = { basic: '🗡️', critical: '💥', poison: '☠️', sonic: '🔊', fire: '🔥', ice: '❄️' };
+    if (imgs[type]) {
+        return `<img src="${imgs[type]}" alt="${type}" class="talent-icon-img">`;
+    }
+    return emojiFallback[type] || '';
 }
 window.buyCharges = async function(type) {
     const user = await getUser();
