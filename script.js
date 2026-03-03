@@ -24,6 +24,18 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+
+
 // ===== НАСТРОЙКИ РЕФЕРАЛЬНОЙ СИСТЕМЫ =====
 // Замени на имя своего бота (без @)
 const BOT_USERNAME = 'aiko_tapbot';
@@ -512,7 +524,7 @@ async function updateUser(updates) {
 function getCurrentEnergy(userData = store.user) {
     if (!userData) return 0;
     const now = Date.now();
-    const delta = Math.floor((now - (userData.lastEnergyUpdate || now)) / 2000);
+    const delta = Math.floor((now - (userData.lastEnergyUpdate || now)) / 1000);
     return Math.min(userData.maxEnergy || 100, userData.energy + Math.max(0, delta));
 }
 async function spendEnergy(amount = 1) {
@@ -1308,7 +1320,10 @@ function startPoisonEffectFromData(effect, guildId) {
     }, 200);
 
     let ticks = Math.ceil(remaining / 1000);
+    let _poisonTicking = false;
     const damageInterval = setInterval(async () => {
+        if (_poisonTicking) return;
+        _poisonTicking = true;
         if (!store.guild?.battleActive || store.guild?.id !== guildId || ticks <= 0) {
             clearInterval(damageInterval);
             clearInterval(timerInterval);
@@ -1431,7 +1446,8 @@ window.hideCreateGuildModal = function() {
 function validateUrl(url) {
     if (!url) return true;
     try {
-        new URL(url);
+        const u = new URL(url);
+        if (u.protocol !== 'https:') return false;
         return true;
     } catch {
         return false;
@@ -1988,7 +2004,9 @@ async function renderGuildPage(guild) {
 
     const currentLevel = guild.level || 1;
     const rating = guild.rating || 0;
-    const progress = currentLevel === 3 ? 100 : (rating % (currentLevel === 1 ? 100 : 200)) / ((currentLevel === 1 ? 100 : 200)) * 100;
+    const levelStart = currentLevel === 1 ? 0 : 100;
+    const levelSize = currentLevel === 1 ? 100 : 200;
+    const progress = currentLevel === 3 ? 100 : Math.min(100, Math.max(0, ((rating - levelStart) / levelSize) * 100));
     const toNextLevel = currentLevel === 3 ? 0 : (currentLevel === 1 ? 100 - rating : 300 - rating);
     const expBarHtml = `
         <div style="margin: 15px 0;">
@@ -2038,7 +2056,7 @@ async function renderGuildPage(guild) {
          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
             <div style="width: 100px;"></div>
             <h1 id="guild-title" style="cursor: pointer; text-align: center; margin: 0;">
-                ${guild.name}
+                ${escapeHtml(guild.name)}
             </h1>
             <button onclick="showGuildRatingModal()" class="glow-button" style="width: auto; padding: 8px 16px;">Рейтинг</button>
          </div>
@@ -2047,7 +2065,7 @@ async function renderGuildPage(guild) {
              <h3>📋 Информация о гильдии ${isLeader && !editing ? '<span class="edit-icon" onclick="toggleEditMode(event)">✏️</span>' : ''}</h3>
              ${editing ? `
                  <div class="edit-fields">
-                     <input type="text" id="edit-guild-name" class="edit-input" value="${guild.name}" placeholder="Название (мин. 5 симв.)" autofocus>
+                     <input type="text" id="edit-guild-name" class="edit-input" value="${escapeHtml(guild.name)}" placeholder="Название (мин. 5 симв.)" autofocus>
                      <textarea id="edit-guild-desc" class="edit-input" placeholder="Описание">${guild.description || ''}</textarea>
                      <input type="url" id="edit-guild-chatLink" class="edit-input" value="${guild.chatLink || ''}" placeholder="Ссылка на чат/канал">
                      <div class="edit-actions">
@@ -2078,7 +2096,7 @@ async function renderGuildPage(guild) {
                                     <span class="member-level-badge">${member.level}</span>
                                 </div>
                                 <div>
-                                    <div>${member.name}${leaderStar}</div>
+                                    <div>${escapeHtml(member.name)}${leaderStar}</div>
                                     <div style="font-size: 12px; color: #aaa;">${member.telegramId}</div>
                                 </div>
                             </div>
@@ -2272,7 +2290,7 @@ async function notifyGuildBattleStart(guildId) {
             }
         }));
 
-        console.log(`Отправляем уведомление о битве ${memberTelegramIds.length} участникам гильдии ${guild.name}`);
+        console.log(`Отправляем уведомление о битве ${memberTelegramIds.length} участникам гильдии ${escapeHtml(guild.name)}`);
 
         await fetch('https://hiko-bot-backend.onrender.com/api/notify-battle-start', {
             method: 'POST',
@@ -2352,12 +2370,13 @@ async function applyRewards(userIds, damageLog, bossId, victory = true) {
                     console.warn(`⚠️ Пользователь ${uid} не найден, пропускаем награду`);
                     continue;
                 }
-                const newXP = (memberData.xp || 0) + xpReward;
                 const damageDealt = damageLog[uid] || 0;
-                const newTotalDamage = (memberData.totalDamage || 0) + damageDealt;
+                const baseXP = memberData.xp || 0;
+                const earnedXP = victory ? xpReward : 0;
+                const newXP = baseXP + earnedXP;
                 const newLevel = getLevelFromXP(newXP);
                 const updatesForMember = {
-                    totalDamage: newTotalDamage
+                    totalDamage: firebase.firestore.FieldValue.increment(damageDealt)
                 };
                 if (victory) {
                     updatesForMember.money = firebase.firestore.FieldValue.increment(rewardAmount);
@@ -2838,7 +2857,7 @@ async function claimDailyBonus() {
 
     const reward = dailyBonusConfig[(currentDay - 1) % dailyBonusConfig.length].reward;
     const updates = {
-        money: user.money + reward.money,
+        money: firebase.firestore.FieldValue.increment(reward.money),
         dailyBonus: {
             currentDay: (currentDay % dailyBonusConfig.length) + 1,
             lastClaim: Date.now(),
@@ -3588,7 +3607,7 @@ window.sendFriendRequest = async function(targetId) {
         return;
     }
     const existing = await db.collection('friendRequests')
-        .where('from', '==', store.authUser.uid)
+        .where('from', '==', store.docId)
         .where('to', '==', targetId)
         .get();
     if (!existing.empty) {
@@ -4070,7 +4089,7 @@ async function openVisitModal(userId) {
             } else {
                 // Проверяем, не отправлена ли уже заявка
                 const existingReq = await db.collection('friendRequests')
-                    .where('from', '==', store.authUser.uid)
+                    .where('from', '==', store.docId)
                     .where('to', '==', userId)
                     .get();
                 if (!existingReq.empty) {
@@ -4132,7 +4151,7 @@ window.onload = async () => {
 
         // Слушатель входящих заявок в друзья в реальном времени
         store.friendRequestsListener = db.collection('friendRequests')
-            .where('to', '==', store.authUser.uid)
+            .where('to', '==', store.docId)
             .onSnapshot(snapshot => {
                 store.incomingFriendRequestsCount = snapshot.size;
                 console.log('🔔 Входящих заявок в друзья (live):', snapshot.size);
@@ -4405,7 +4424,7 @@ const EXCLUSIVE_GACHA_ITEMS = [
         exclusive: true
       },
       {
-          id: 'gacha_skin_phoenix',
+          id: 'gacha_skin_wolf',
           name: 'Волк',
           type: 'skin',
           price: 0,
@@ -4509,13 +4528,16 @@ function getActivePool() {
 }
 
 function checkTodayFreeSpin() {
-    const lastSpin = localStorage.getItem('lastFreeSpinTimestamp');
+    if (!store.user) return false;
+    const lastSpin = store.user.lastFreeSpinDate;
     if (!lastSpin) return true;
-    return (Date.now() - parseInt(lastSpin)) >= 24 * 60 * 60 * 1000;
+    const today = new Date().toDateString();
+    const lastSpinDay = new Date(lastSpin).toDateString();
+    return today !== lastSpinDay;
 }
 
-function markFreeSpinUsed() {
-    localStorage.setItem('lastFreeSpinTimestamp', Date.now().toString());
+async function markFreeSpinUsed() {
+    await updateUser({ lastFreeSpinDate: Date.now() });
 }
 
 window.switchChestTab = function(type) {
