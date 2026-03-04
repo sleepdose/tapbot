@@ -24,6 +24,20 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.ready();
 
+// ===== КОНФИГУРАЦИЯ BACKEND API =====
+// API_SECRET должен совпадать с переменной API_SECRET на сервере bot.js
+// Для безопасности: не храните настоящий секрет в открытом репозитории!
+const BOT_API_SECRET = typeof process !== 'undefined' && process.env?.BOT_API_SECRET
+    ? process.env.BOT_API_SECRET
+    : ''; // Установите через переменную окружения или задайте здесь
+
+function getBotHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        ...(BOT_API_SECRET ? { 'x-api-secret': BOT_API_SECRET } : {})
+    };
+}
+
 function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -893,9 +907,9 @@ window.showPetUpgradePreview = async function(petId) {
         <div class="pet-preview-stars">${levelStars}</div>
         <div class="pet-preview-level">Уровень ${currentLevel} / ${PET_MAX_LEVEL}</div>
         <div class="pet-preview-ability">
-            🛡️ Пассивная способность:<br>
+            Пассивная способность:<br>
             <strong>+${bonus}% урона в бою</strong><br>
-            <small>${isActive ? '✅ Экипирован (бонус активен)' : '⚠️ Не экипирован — бонус неактивен'}</small>
+            <small>${isActive ? 'Экипирован (бонус активен)' : 'Не экипирован — бонус неактивен'}</small>
         </div>
         ${upgradeSection}
         ${!isActive ? `<button class="glow-button" style="margin-top:8px;" onclick="activatePet('${petId}')">Экипировать</button>` : ''}
@@ -1297,6 +1311,14 @@ function createBattleTalentButtons() {
     });
 
     html += '</div>';
+
+    // Если все кнопки скрыты — показываем подсказку
+    const hasAnyButton = /<button/.test(html);
+    if (!hasAnyButton) {
+        container.innerHTML = '<div class="talent-empty-msg">⚠️ Заряды кончились — купи новые в Мастерской</div>';
+        return;
+    }
+
     container.innerHTML = html;
 }
 
@@ -1348,8 +1370,29 @@ function startPoisonEffectFromData(effect, guildId) {
         }
 
         const guildRef = db.collection('guilds').doc(guildId);
-        const guildDoc = await guildRef.get();
-        if (!guildDoc.exists || guildDoc.data().bossHp <= 0) {
+
+        // Используем транзакцию, чтобы урон яда не ушёл ниже 0 HP
+        let actualDamage = 0;
+        let bossKilledByPoison = false;
+        try {
+            await db.runTransaction(async (transaction) => {
+                const guildDoc = await transaction.get(guildRef);
+                if (!guildDoc.exists) return;
+                const currentHp = guildDoc.data().bossHp || 0;
+                if (currentHp <= 0) return;
+                actualDamage = Math.min(damage, currentHp);
+                transaction.update(guildRef, {
+                    bossHp: firebase.firestore.FieldValue.increment(-actualDamage),
+                    [`damageLog.${userId}`]: firebase.firestore.FieldValue.increment(actualDamage)
+                });
+                if (currentHp - actualDamage <= 0) bossKilledByPoison = true;
+            });
+        } catch (txErr) {
+            console.warn('[Poison] Ошибка транзакции тика яда:', txErr.message);
+            return;
+        }
+
+        if (actualDamage <= 0) {
             clearInterval(damageInterval);
             clearInterval(timerInterval);
             delete store.activePoisonEffects[effectId];
@@ -1357,20 +1400,14 @@ function startPoisonEffectFromData(effect, guildId) {
             return;
         }
 
-        await guildRef.update({
-            bossHp: firebase.firestore.FieldValue.increment(-damage),
-            [`damageLog.${userId}`]: firebase.firestore.FieldValue.increment(damage)
-        });
-
-        showDamageEffect(damage, '☠️');
+        showDamageEffect(actualDamage, '☠️');
 
         // Обновляем totalDamage только локально (Firestore обновит endBattle через increment)
         if (userId === store.docId && store.user) {
-            store.user.totalDamage = (store.user.totalDamage || 0) + damage;
+            store.user.totalDamage = (store.user.totalDamage || 0) + actualDamage;
         }
 
-        const updatedGuildDoc = await guildRef.get();
-        if (updatedGuildDoc.exists && updatedGuildDoc.data().bossHp <= 0) {
+        if (bossKilledByPoison) {
             clearInterval(damageInterval);
             clearInterval(timerInterval);
             delete store.activePoisonEffects[effectId];
@@ -1458,7 +1495,9 @@ function validateUrl(url) {
     if (!url) return true;
     try {
         const u = new URL(url);
+        // Разрешены только ссылки на Telegram (t.me / telegram.me)
         if (u.protocol !== 'https:') return false;
+        if (!['t.me', 'telegram.me'].includes(u.hostname)) return false;
         return true;
     } catch {
         return false;
@@ -1490,7 +1529,7 @@ async function createGuild(name, description, chatLink) {
         maxBossHp: 500,
         battleActive: false,
         battleEndTime: null,
-        keys: { boss2: 0 },
+        keys: { boss2: 0, boss3: 0, boss4: 0 },
         damageLog: {},
         poisonEffects: []
     };
@@ -1564,7 +1603,7 @@ async function showGuildRatingModal() {
         guilds.forEach((g, index) => {
             html += `<tr>
                 <td>${index + 1}</td>
-                <td>${g.name}</td>
+                <td>${escapeHtml(g.name)}</td>
                 <td>${g.level || 1}</td>
                 <td>${g.members?.length || 0}</td>
                 <td>${g.rating || 0}</td>
@@ -1755,7 +1794,7 @@ async function loadGuildScreen() {
                         ${validInvitations.map(({ doc, inv }) => {
                             return `<div class="guild-invitation-card">
                                 <div class="guild-inv-info">
-                                    <div class="guild-inv-name">${inv.guildName}</div>
+                                    <div class="guild-inv-name">${escapeHtml(inv.guildName || '')}</div>
                                     <div class="guild-inv-stats">
                                         <span>🏆 Ур. ${inv.guildLevel}</span>
                                         <span>👥 ${inv.memberCount}/${inv.maxMembers}</span>
@@ -1784,8 +1823,8 @@ async function loadGuildScreen() {
              <div class="guild-list">
                 ${guilds.length ? guilds.map(g => `
                      <div class="guild-card">
-                         <h3>${g.name}</h3>
-                         <p>${g.description || ''}</p>
+                         <h3>${escapeHtml(g.name)}</h3>
+                         <p>${escapeHtml(g.description || '')}</p>
                          <p>👥 ${g.members?.length || 0} / ${g.maxMembers || 20} участников</p>
                          <p>🏆 Уровень ${g.level || 1}</p>
                          <button onclick="joinGuild('${g.id}')">Вступить</button>
@@ -2305,7 +2344,7 @@ async function notifyGuildBattleStart(guildId) {
 
         await fetch('https://hiko-bot-backend.onrender.com/api/notify-battle-start', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getBotHeaders(),
             body: JSON.stringify({
                 guildName: guild.name || 'Гильдия',
                 bossName,
@@ -2366,15 +2405,16 @@ async function applyRewards(userIds, damageLog, bossId, victory = true) {
     let attempts = 0;
     const maxAttempts = 3;
 
-    // Собираем снапшоты участников заранее
-    const memberDataMap = {};
-    for (const uid of userIds) {
-        const memberDoc = await db.collection('users').doc(uid).get();
-        if (memberDoc.exists) memberDataMap[uid] = memberDoc.data();
-    }
-
     while (attempts < maxAttempts) {
         try {
+            // Перечитываем данные участников перед каждой попыткой,
+            // чтобы level рассчитывался на основе актуального XP (избегаем гонки)
+            const memberDataMap = {};
+            for (const uid of userIds) {
+                const memberDoc = await db.collection('users').doc(uid).get();
+                if (memberDoc.exists) memberDataMap[uid] = memberDoc.data();
+            }
+
             const batch = db.batch();
             for (const uid of userIds) {
                 const memberData = memberDataMap[uid];
@@ -2501,6 +2541,7 @@ async function endBattle(victory, guildId) {
     let success = false;
     let finalRating = guild.rating || 0;
     let finalLevel = guild.level || 1;
+    let resolvedBossId = guild.bossId; // будет перезаписан свежим значением внутри транзакции
 
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
@@ -2513,6 +2554,7 @@ async function endBattle(victory, guildId) {
                 const freshGuildDoc = await transaction.get(guildRef);
                 if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
                 const freshGuild = freshGuildDoc.data();
+                resolvedBossId = freshGuild.bossId; // используем актуальный bossId
 
                 if (!freshGuild.battleActive) {
                     console.log("Транзакция: бой уже завершён другим участником.");
@@ -2561,7 +2603,7 @@ async function endBattle(victory, guildId) {
 
             if (success) {
                 if (userIds.length > 0) {
-                    await applyRewards(userIds, damageLog, guild.bossId, victory);
+                    await applyRewards(userIds, damageLog, resolvedBossId, victory);
                 }
                 break;
             }
@@ -2690,14 +2732,39 @@ if (store.user && prevTotalDamage > (store.user.totalDamage || 0)) {
         }
 
         const guildRef = db.collection('guilds').doc(store.guild.id);
+        const userRef = db.collection('users').doc(store.docId);
         let finalDamage = 0;
         let bossKilled = false;
 
         await db.runTransaction(async (transaction) => {
-            const guildDoc = await transaction.get(guildRef);
+            const [guildDoc, userDoc] = await Promise.all([
+                transaction.get(guildRef),
+                transaction.get(userRef)
+            ]);
             if (!guildDoc.exists) throw new Error('Гильдия не найдена');
+            if (!userDoc.exists) throw new Error('Пользователь не найден');
             const guild = guildDoc.data();
+            const freshUser = userDoc.data();
             if (!guild.battleActive) throw new Error('Битва уже закончилась');
+
+            // Проверяем заряды по свежим данным из Firestore (защита от двойного тапа)
+            if (freshUser.talents && freshUser.talents[talentType] !== undefined) {
+                if ((freshUser.attackCharges?.[talentType]?.charges || 0) <= 0) {
+                    throw new Error('NO_CHARGES');
+                }
+                const newCharges = JSON.parse(JSON.stringify(freshUser.attackCharges));
+                newCharges[talentType].charges -= 1;
+                transaction.update(userRef, { attackCharges: newCharges });
+            } else if (freshUser.craftedTalents && freshUser.craftedTalents[talentType] !== undefined) {
+                if ((freshUser.craftedTalents[talentType]?.charges || 0) <= 0) {
+                    throw new Error('NO_CHARGES');
+                }
+                const newCrafted = JSON.parse(JSON.stringify(freshUser.craftedTalents));
+                newCrafted[talentType].charges -= 1;
+                transaction.update(userRef, { craftedTalents: newCrafted });
+            } else {
+                throw new Error('NO_CHARGES');
+            }
 
             const remainingHp = guild.bossHp;
             finalDamage = Math.min(damage, remainingHp);
@@ -2707,7 +2774,7 @@ if (store.user && prevTotalDamage > (store.user.totalDamage || 0)) {
                 [`damageLog.${store.docId}`]: firebase.firestore.FieldValue.increment(finalDamage)
             });
 
-            if (isPoison && finalDamage > 0 && !bossKilled) {
+            if (isPoison && finalDamage > 0) {
                 const endTime = Date.now() + poisonDuration * 1000;
                 const poisonEffect = {
                     userId: store.docId,
@@ -2724,16 +2791,6 @@ if (store.user && prevTotalDamage > (store.user.totalDamage || 0)) {
                 bossKilled = true;
             }
         });
-
-        if (user.talents[talentType]) {
-            const newCharges = { ...user.attackCharges };
-            newCharges[talentType].charges -= 1;
-            await updateUser({ attackCharges: newCharges });
-        } else if (user.craftedTalents[talentType]) {
-            const newCrafted = { ...user.craftedTalents };
-            newCrafted[talentType].charges -= 1;
-            await updateUser({ craftedTalents: newCrafted });
-        }
 
         store.lastTalentUse = now;
 
@@ -2753,8 +2810,14 @@ if (store.user && prevTotalDamage > (store.user.totalDamage || 0)) {
         createBattleTalentButtons();
 
     } catch (error) {
-        console.error('Ошибка при атаке босса:', error);
-        showNotification('Ошибка', 'Не удалось выполнить атаку');
+        if (error.message === 'NO_CHARGES') {
+            console.warn('[Attack] Заряды кончились (проверено транзакцией)');
+            await updateUser({ selectedTalent: null });
+            showNotification('Заряды кончились', 'Талант сброшен, выберите другой талант');
+        } else {
+            console.error('Ошибка при атаке босса:', error);
+            showNotification('Ошибка', 'Не удалось выполнить атаку');
+        }
     } finally {
         isAttacking = false;
     }
@@ -2843,7 +2906,12 @@ function getCurrentDailyBonus(user) {
     const lastClaimDate = lastClaim ? lastClaim.toDateString() : null;
 
     if (lastClaim) {
-        const diffDays = Math.floor((now - lastClaim) / (1000 * 60 * 60 * 24));
+        // Сравниваем по календарным дням (без учёта времени суток)
+        const lastClaimDay = new Date(lastClaim);
+        lastClaimDay.setHours(0, 0, 0, 0);
+        const todayDay = new Date(now);
+        todayDay.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((todayDay - lastClaimDay) / (1000 * 60 * 60 * 24));
         if (diffDays >= 2) {
             user.dailyBonus.streak = 0;
             user.dailyBonus.currentDay = 1;
@@ -2876,7 +2944,12 @@ async function claimDailyBonus() {
     let currentDay = user.dailyBonus.currentDay;
     let streak = user.dailyBonus.streak;
     if (lastClaim) {
-        const diffDays = Math.floor((now - lastClaim) / (1000 * 60 * 60 * 24));
+        // Сравниваем по календарным дням (без учёта времени суток)
+        const lastClaimDay = new Date(lastClaim);
+        lastClaimDay.setHours(0, 0, 0, 0);
+        const todayDay = new Date(now);
+        todayDay.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((todayDay - lastClaimDay) / (1000 * 60 * 60 * 24));
         if (diffDays >= 2) {
             currentDay = 1;
             streak = 0;
@@ -3404,7 +3477,7 @@ async function processReferral() {
         const newPlayerName = store.user?.name || 'Новый игрок';
         fetch('https://hiko-bot-backend.onrender.com/api/notify-referral-joined', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getBotHeaders(),
             body: JSON.stringify({ referrerTelegramId, newPlayerName })
         }).catch(e => console.warn('[Referral] Не удалось отправить уведомление боту:', e));
 
@@ -3659,7 +3732,7 @@ window.sendFriendRequest = async function(targetId) {
             if (targetTelegramId) {
                 await fetch('https://hiko-bot-backend.onrender.com/api/notify-friend-request', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getBotHeaders(),
                     body: JSON.stringify({ targetTelegramId, fromName })
                 });
                 console.log('Уведомление о заявке отправлено пользователю', targetTelegramId);
@@ -3956,7 +4029,7 @@ window.sendGuildInvitation = async function(guildId, toUserId, btn) {
                 if (targetTelegramId) {
                     await fetch('https://hiko-bot-backend.onrender.com/api/notify-guild-invitation', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getBotHeaders(),
                         body: JSON.stringify({ targetTelegramId, fromName, guildName: guild.name || 'Гильдия' })
                     });
                     console.log('🔔 Уведомление о приглашении в гильдию отправлено игроку', targetTelegramId);
@@ -4703,7 +4776,7 @@ window.spinTreasure = async function(spinType) {
             const resp = await fetch('https://hiko-bot-backend.onrender.com/api/create-stars-invoice', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    ...getBotHeaders(),
                     'x-telegram-init-data': tg.initData || ''
                 },
                 body: JSON.stringify({ userId: store.user?.telegramId || store.docId, stars: STARS_COST })
