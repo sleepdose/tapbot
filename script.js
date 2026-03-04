@@ -5001,10 +5001,11 @@ async function loadLeaderboard() {
             const avatarHtml = buildAvatarHtml(p.photoUrl, p.name, p.level, false);
             const meTag = isMe ? '<span class="lb-me-tag">ты</span>' : '';
             const delay = Math.min(i * 0.03, 0.8);
-            const isVisitable = !isMe;
+            const visitAttr = !isMe ? `onclick="openLeaderboardVisit('${p.id}')"` : '';
+            const cursorStyle = !isMe ? 'cursor:pointer;' : '';
 
             html += `
-<div class="lb-row${rankClass}${meClass}" style="animation-delay:${delay}s"${isVisitable ? ` onclick="openLeaderboardVisit('${p.id}')" style="animation-delay:${delay}s;cursor:pointer;"` : ''}>
+<div class="lb-row${rankClass}${meClass}" style="animation-delay:${delay}s;${cursorStyle}" ${visitAttr}>
     <div class="lb-rank">${rank}</div>
     ${avatarHtml}
     <div class="lb-info">
