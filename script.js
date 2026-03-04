@@ -2307,6 +2307,7 @@ async function notifyGuildBattleStart(guildId) {
 }
 
 const finishedBattles = new Set();
+const endingBattles = new Set(); // Блокирует конкурентные вызовы endBattle пока первый ещё выполняется
 let isAttacking = false;
 
 function startBattleTimer(endTime, guildId) {
@@ -2436,6 +2437,16 @@ async function endBattle(victory, guildId) {
         return;
     }
 
+    // Защита от конкурентных вызовов: если один endBattle уже выполняется,
+    // второй (из слушателя Firestore или яда) просто выходит.
+    if (endingBattles.has(guildId)) {
+        console.log("endBattle уже выполняется для гильдии", guildId, "— пропускаем дубликат.");
+        return;
+    }
+    endingBattles.add(guildId);
+
+    try {
+
     const timerKey = `battleTimer_${guildId}`;
     if (store.listeners[timerKey]) {
         clearInterval(store.listeners[timerKey]);
@@ -2483,6 +2494,11 @@ async function endBattle(victory, guildId) {
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
             await db.runTransaction(async (transaction) => {
+                // Сбрасываем флаг в начале каждого запуска транзакции —
+                // Firestore может перезапустить callback при конфликте, и старое
+                // значение success = true не должно утекать в следующую попытку.
+                success = false;
+
                 const freshGuildDoc = await transaction.get(guildRef);
                 if (!freshGuildDoc.exists) throw new Error('Гильдия не найдена');
                 const freshGuild = freshGuildDoc.data();
@@ -2560,6 +2576,11 @@ async function endBattle(victory, guildId) {
         getUser(true).then(() => updateMainUI()).catch(e => console.error('Ошибка перезагрузки пользователя:', e));
     } else {
         console.log("Бой не был завершён, модальное окно не показывается.");
+    }
+
+    } finally {
+        // Снимаем блокировку чтобы позволить будущие вызовы (например, после реконнекта)
+        endingBattles.delete(guildId);
     }
 }
 
