@@ -1136,6 +1136,11 @@ function checkRecipe() {
     sonicBtn.style.display = (counts.basic >= 1 && counts.critical >= 1) ? 'block' : 'none';
     fireBtn.style.display = (counts.critical >= 1 && counts.poison >= 1) ? 'block' : 'none';
     iceBtn.style.display = (counts.poison >= 1 && counts.basic >= 1) ? 'block' : 'none';
+    const emptyPlaceholder = document.querySelector('.craft-result-empty');
+    if (emptyPlaceholder) {
+        const anyVisible = sonicBtn.style.display === 'block' || fireBtn.style.display === 'block' || iceBtn.style.display === 'block';
+        emptyPlaceholder.style.display = anyVisible ? 'none' : 'flex';
+    }
 }
 function renderBuyChargesUI() {
     const container = document.querySelector('.attack-charges-container');
@@ -1147,6 +1152,10 @@ function renderBuyChargesUI() {
              <div class="talent-icon-wrap charges-icon-wrap">
                  ${getTalentIcon(type)}
                  <span class="talent-charges-badge">${data.charges}</span>
+             </div>
+             <div class="charges-info">
+                 <span class="charges-name">${getTalentName(type)}</span>
+                 <span class="charges-count">В наличии: ${data.charges} зар.</span>
              </div>
              <button onclick="buyCharges('${type}')">+5 за ${data.basePrice} 🪙</button>
          </div>

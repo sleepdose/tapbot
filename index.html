@@ -97,9 +97,18 @@
             <div id="tab-talents" class="tab-content">
                 <!-- Внутренние вкладки -->
                 <div class="talent-tabs">
-                    <button class="tab-btn active" data-tab="shop-charges">🛒 Заряды</button>
-                    <button class="tab-btn" data-tab="shop-upgrade">⬆️ Улучшение</button>
-                    <button class="tab-btn" data-tab="shop-craft">⚒️ Крафт</button>
+                    <button class="tab-btn active" data-tab="shop-charges">
+                        <span class="tab-icon">🛒</span>
+                        <span class="tab-label">Заряды</span>
+                    </button>
+                    <button class="tab-btn" data-tab="shop-upgrade">
+                        <span class="tab-icon">⬆️</span>
+                        <span class="tab-label">Улучшение</span>
+                    </button>
+                    <button class="tab-btn" data-tab="shop-craft">
+                        <span class="tab-icon">⚒️</span>
+                        <span class="tab-label">Крафт</span>
+                    </button>
                 </div>
 
                 <!-- Покупка зарядов -->
@@ -111,16 +120,37 @@
                 <div id="shop-upgrade" class="shop-tab">
                     <div class="talents-upgrade-container">
                         <div class="talent">
-                            <span><img src="img/talent_basic.png" alt="basic" class="talent-icon-sm"> ур. <span id="basicLevel">1</span> (урон <span id="basicDmg">10</span>)</span>
-                            <button class="upgrade-btn" data-talent="basic">75</button>
+                            <img src="img/talent_basic.png" alt="basic" class="talent-icon-sm">
+                            <div class="talent-info-block">
+                                <div class="talent-level-line">
+                                    <span class="talent-level-badge">УР <span id="basicLevel">1</span></span>
+                                    <span class="talent-stat-text">⚔️ Урон: <span id="basicDmg">10</span></span>
+                                </div>
+                                <div class="talent-bar-track"><div class="talent-bar-fill"></div></div>
+                            </div>
+                            <button class="upgrade-btn" data-talent="basic">75 🪙</button>
                         </div>
                         <div class="talent">
-                            <span><img src="img/talent_critical.png" alt="critical" class="talent-icon-sm"> ур. <span id="critLevel">1</span> (шанс <span id="critChanceUpgrade">20</span>%)</span>
-                            <button class="upgrade-btn" data-talent="critical">150</button>
+                            <img src="img/talent_critical.png" alt="critical" class="talent-icon-sm">
+                            <div class="talent-info-block">
+                                <div class="talent-level-line">
+                                    <span class="talent-level-badge">УР <span id="critLevel">1</span></span>
+                                    <span class="talent-stat-text">💥 Шанс: <span id="critChanceUpgrade">20</span>%</span>
+                                </div>
+                                <div class="talent-bar-track"><div class="talent-bar-fill"></div></div>
+                            </div>
+                            <button class="upgrade-btn" data-talent="critical">150 🪙</button>
                         </div>
                         <div class="talent">
-                            <span><img src="img/talent_poison.png" alt="poison" class="talent-icon-sm"> ур. <span id="poisonLevel">1</span> (урон <span id="poisonDmgUpgrade">3</span>)</span>
-                            <button class="upgrade-btn" data-talent="poison">200</button>
+                            <img src="img/talent_poison.png" alt="poison" class="talent-icon-sm">
+                            <div class="talent-info-block">
+                                <div class="talent-level-line">
+                                    <span class="talent-level-badge">УР <span id="poisonLevel">1</span></span>
+                                    <span class="talent-stat-text">☠️ Урон: <span id="poisonDmgUpgrade">3</span></span>
+                                </div>
+                                <div class="talent-bar-track"><div class="talent-bar-fill"></div></div>
+                            </div>
+                            <button class="upgrade-btn" data-talent="poison">200 🪙</button>
                         </div>
                     </div>
                 </div>
@@ -128,21 +158,26 @@
                 <!-- Крафт талантов -->
                 <div id="shop-craft" class="shop-tab">
                     <div class="crafting-area">
-                        <div class="craft-slots">
-                            <div class="craft-slot" data-talent=""></div>
-                            <div class="craft-slot" data-talent=""></div>
-                        </div>
-                        <div class="craft-result">
-                            <button id="sonicButton" style="display:none;"><img src="img/talent_sonic.png" alt="sonic" class="talent-icon-sm"></button>
-                            <button id="fireButton" style="display:none;"><img src="img/talent_fire.png" alt="fire" class="talent-icon-sm"></button>
-                            <button id="iceButton" style="display:none;"><img src="img/talent_ice.png" alt="ice" class="talent-icon-sm"></button>
+                        <div class="craft-workbench">
+                            <div class="craft-slots-row">
+                                <div class="craft-slot" data-talent=""></div>
+                                <div class="craft-plus">＋</div>
+                                <div class="craft-slot" data-talent=""></div>
+                            </div>
+                            <div class="craft-arrow">▶</div>
+                            <div class="craft-result">
+                                <button id="sonicButton" style="display:none;"><img src="img/talent_sonic.png" alt="sonic" class="talent-icon-sm"><span>Звуковой</span></button>
+                                <button id="fireButton" style="display:none;"><img src="img/talent_fire.png" alt="fire" class="talent-icon-sm"><span>Огненный</span></button>
+                                <button id="iceButton" style="display:none;"><img src="img/talent_ice.png" alt="ice" class="talent-icon-sm"><span>Ледяной</span></button>
+                                <div class="craft-result-empty">?</div>
+                            </div>
                         </div>
                         <div class="talent-pool">
-                            <h4>📦 Доступные таланты для крафта</h4>
+                            <h4>Таланты для крафта</h4>
                             <div class="talent-cards">
-                                <div class="talent-card" data-talent="basic"><img src="img/talent_basic.png" alt="basic" class="talent-icon-img"></div>
-                                <div class="talent-card" data-talent="critical"><img src="img/talent_critical.png" alt="critical" class="talent-icon-img"></div>
-                                <div class="talent-card" data-talent="poison"><img src="img/talent_poison.png" alt="poison" class="talent-icon-img"></div>
+                                <div class="talent-card" data-talent="basic"><img src="img/talent_basic.png" alt="basic" class="talent-icon-img"><span>Базовый</span></div>
+                                <div class="talent-card" data-talent="critical"><img src="img/talent_critical.png" alt="critical" class="talent-icon-img"><span>Крит</span></div>
+                                <div class="talent-card" data-talent="poison"><img src="img/talent_poison.png" alt="poison" class="talent-icon-img"><span>Яд</span></div>
                             </div>
                         </div>
                     </div>
