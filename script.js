@@ -27,9 +27,8 @@ tg.ready();
 // ===== КОНФИГУРАЦИЯ BACKEND API =====
 // API_SECRET должен совпадать с переменной API_SECRET на сервере bot.js
 // Для безопасности: не храните настоящий секрет в открытом репозитории!
-const BOT_API_SECRET = typeof process !== 'undefined' && process.env?.BOT_API_SECRET
-    ? process.env.BOT_API_SECRET
-    : ''; // Установите через переменную окружения или задайте здесь
+const BOT_API_SECRET = 'k07DAuWMpw4FZIzgordu6ViyT3ysoe0m';
+
 
 function getBotHeaders() {
     return {
