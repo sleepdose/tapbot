@@ -4899,3 +4899,160 @@ window.openTreasureModal   = openTreasureModal;
 window.closeTreasureModal  = closeTreasureModal;
 window.spinTreasure        = spinTreasure;
 window.switchChestTab      = switchChestTab;
+
+
+// =======================================================
+// РЕЙТИНГ УРОНА — LEADERBOARD
+// =======================================================
+
+function formatDamageNum(n) {
+    n = n || 0;
+    if (n >= 1000000000) return (n / 1000000000).toFixed(1) + 'B';
+    if (n >= 1000000)    return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000)       return (n / 1000).toFixed(1) + 'K';
+    return n.toString();
+}
+
+function buildAvatarHtml(photoUrl, name, level, big) {
+    const sz    = big ? 44 : 40;
+    const bSz   = big ? 17 : 15;
+    const fSz   = big ? 16 : 15;
+    const cls   = big ? 'lb-my-avatar' : 'lb-avatar';
+    const wCls  = big ? 'lb-my-avatar-wrap' : 'lb-avatar-wrap';
+    const bCls  = big ? 'lb-my-level-badge' : 'lb-level-badge';
+    const initial = (name ? name[0] : '?').toUpperCase();
+    const imgHtml = photoUrl
+        ? `<img src="${photoUrl}" alt="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          + `<span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">${initial}</span>`
+        : initial;
+    return `<div class="${wCls}"><div class="${cls}">${imgHtml}</div><span class="${bCls}">${level}</span></div>`;
+}
+
+async function loadLeaderboard() {
+    const listEl  = document.getElementById('leaderboard-list');
+    const mySection = document.getElementById('leaderboard-my-section');
+    const myCard  = document.getElementById('leaderboard-my-card');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="leaderboard-loading"><div class="lb-spinner"></div><span>Загрузка...</span></div>';
+    mySection.classList.add('hidden');
+
+    try {
+        console.log('[Leaderboard] Loading top players...');
+        const snap = await db.collection('users')
+            .orderBy('totalDamage', 'desc')
+            .limit(100)
+            .get();
+
+        const players = [];
+        snap.forEach(doc => {
+            const d = doc.data();
+            players.push({
+                id:          doc.id,
+                name:        d.name || 'Игрок',
+                photoUrl:    d.photoUrl || '',
+                level:       d.level || 1,
+                totalDamage: d.totalDamage || 0
+            });
+        });
+        console.log('[Leaderboard] Loaded', players.length, 'players');
+
+        const myId = store.docId;
+        let myRank = -1;
+        let myPlayer = null;
+
+        players.forEach((p, i) => {
+            if (p.id === myId) { myRank = i + 1; myPlayer = p; }
+        });
+
+        // Если не в топ-100 — загрузить отдельно
+        if (!myPlayer && myId) {
+            try {
+                const myDoc = await db.collection('users').doc(myId).get();
+                if (myDoc.exists) {
+                    const d = myDoc.data();
+                    myPlayer = {
+                        id: myDoc.id,
+                        name: d.name || 'Игрок',
+                        photoUrl: d.photoUrl || '',
+                        level: d.level || 1,
+                        totalDamage: d.totalDamage || 0
+                    };
+                    myRank = 100 + 1; // за пределами топ-100
+                }
+            } catch(e) { console.warn('[Leaderboard] Cannot load my doc', e); }
+        }
+
+        // Рендер списка
+        const MEDALS = ['🥇','🥈','🥉'];
+        let html = '';
+        players.forEach((p, i) => {
+            const rank     = i + 1;
+            const isMe     = p.id === myId;
+            const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+            const meClass   = isMe ? ' is-me' : '';
+            const rankLabel = rank <= 3 ? MEDALS[rank - 1] : rank;
+            const dmgFormatted = formatDamageNum(p.totalDamage);
+            const avatarHtml = buildAvatarHtml(p.photoUrl, p.name, p.level, false);
+            const meTag = isMe ? '<span class="lb-me-tag">ты</span>' : '';
+            const delay = Math.min(i * 0.03, 0.8);
+
+            html += `
+<div class="lb-row${rankClass}${meClass}" style="animation-delay:${delay}s">
+    <div class="lb-rank">${rankLabel}</div>
+    ${avatarHtml}
+    <div class="lb-info">
+        <div class="lb-name"><span>${p.name}</span>${meTag}</div>
+    </div>
+    <div class="lb-damage">
+        <span class="lb-damage-val">⚔️ ${dmgFormatted}</span>
+        <span class="lb-damage-lbl">ур. ${p.level}</span>
+    </div>
+</div>`;
+        });
+
+        if (players.length === 0) {
+            html = '<div style="text-align:center;padding:40px 0;color:var(--text-secondary);font-size:14px;">🏆<br>Рейтинг пока пуст</div>';
+        }
+
+        listEl.innerHTML = html;
+
+        // Карточка текущего игрока
+        if (myPlayer) {
+            const rankLabel = myRank > 100 ? '100+' : `#${myRank}`;
+            myCard.innerHTML = `
+<div class="lb-my-rank">${rankLabel}</div>
+${buildAvatarHtml(myPlayer.photoUrl, myPlayer.name, myPlayer.level, true)}
+<div class="lb-my-info">
+    <div class="lb-my-name">${myPlayer.name}</div>
+    <div class="lb-my-lvl">Уровень ${myPlayer.level}</div>
+</div>
+<div class="lb-my-dmg-wrap">
+    <span class="lb-my-dmg">${formatDamageNum(myPlayer.totalDamage)}</span>
+    <span class="lb-my-dmg-lbl">⚔️ урон</span>
+</div>`;
+            mySection.classList.remove('hidden');
+        }
+
+    } catch(e) {
+        console.error('[Leaderboard] Error:', e);
+        listEl.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-secondary);">Не удалось загрузить рейтинг 😔</div>';
+    }
+}
+
+function openLeaderboardModal() {
+    const modal = document.getElementById('leaderboard-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    hapticFeedback('light');
+    loadLeaderboard();
+}
+
+function closeLeaderboardModal() {
+    const modal = document.getElementById('leaderboard-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+}
+
+window.openLeaderboardModal  = openLeaderboardModal;
+window.closeLeaderboardModal = closeLeaderboardModal;

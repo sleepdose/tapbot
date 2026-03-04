@@ -42,6 +42,8 @@
             <div class="treasure-icon" onclick="openTreasureModal()">📦</div>
             <!-- Кнопка заданий -->
             <div class="tasks-icon" onclick="openTasksModal()">📋</div>
+            <!-- Кнопка рейтинга -->
+            <div class="rating-top-icon" onclick="openLeaderboardModal()">🏆</div>
         </div>
 
         <!-- ========== ГЛАВНЫЙ ЭКРАН ========== -->
@@ -459,6 +461,37 @@
             </div>
         </div>
 
+
+        <!-- ========== МОДАЛЬНОЕ ОКНО: РЕЙТИНГ УРОНА ========== -->
+        <div id="leaderboard-modal" class="modal hidden">
+            <div class="modal-content leaderboard-modal-content">
+                <div class="leaderboard-modal-header">
+                    <div class="leaderboard-header-deco"></div>
+                    <span class="leaderboard-header-icon">🏆</span>
+                    <h3 class="leaderboard-title">РЕЙТИНГ УРОНА</h3>
+                    <p class="leaderboard-subtitle">Лучшие воины Hiko Adventure</p>
+                </div>
+                <div class="leaderboard-list-wrap">
+                    <div id="leaderboard-list" class="leaderboard-list">
+                        <div class="leaderboard-loading">
+                            <div class="lb-spinner"></div>
+                            <span>Загрузка...</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="leaderboard-my-section" class="leaderboard-my-section hidden">
+                    <div class="leaderboard-my-label">
+                        <span class="lb-divider-line"></span>
+                        <span class="lb-my-label-text">Твоя позиция</span>
+                        <span class="lb-divider-line"></span>
+                    </div>
+                    <div id="leaderboard-my-card" class="leaderboard-my-card"></div>
+                </div>
+                <div class="modal-buttons" style="margin-top:14px;">
+                    <button onclick="closeLeaderboardModal()" class="glow-button">Закрыть</button>
+                </div>
+            </div>
+        </div>
         <!-- ========== МОДАЛЬНОЕ ОКНО: ЗАДАНИЯ (динамическое) ========== -->
         <div id="tasks-modal" class="modal hidden">
             <div class="modal-content tasks-modal-content">
