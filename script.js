@@ -1217,7 +1217,7 @@ function setupTalentsGlobalListeners() {
         if (!card) return;
         const emptySlot = Array.from(document.querySelectorAll('.craft-slot')).find(slot => !slot.dataset.talent);
         if (emptySlot) {
-            emptySlot.innerHTML = card.innerHTML;
+            emptySlot.innerHTML = `<div class="talent-icon-wrap">${getTalentIcon(card.dataset.talent)}</div>`;
             emptySlot.dataset.talent = card.dataset.talent;
             emptySlot.classList.add('filled');
             checkRecipe();
@@ -1358,13 +1358,9 @@ function startPoisonEffectFromData(effect, guildId) {
 
         showDamageEffect(damage, '☠️');
 
-        // Обновляем totalDamage текущего игрока при каждом тике яда
+        // Обновляем totalDamage только локально (Firestore обновит endBattle через increment)
         if (userId === store.docId && store.user) {
-            const newTotalDamage = (store.user.totalDamage || 0) + damage;
-            store.user.totalDamage = newTotalDamage;
-            updateUser({ totalDamage: newTotalDamage }).catch(err => {
-                console.error('[Poison] Не удалось сохранить totalDamage:', err);
-            });
+            store.user.totalDamage = (store.user.totalDamage || 0) + damage;
         }
 
         const updatedGuildDoc = await guildRef.get();
@@ -2735,13 +2731,9 @@ if (store.user && prevTotalDamage > (store.user.totalDamage || 0)) {
 
         store.lastTalentUse = now;
 
-        // Обновляем totalDamage локально и в Firestore сразу после удара
+        // Обновляем totalDamage только локально (Firestore обновит endBattle через increment)
         if (store.user && finalDamage > 0) {
-            const newTotalDamage = (store.user.totalDamage || 0) + finalDamage;
-            store.user.totalDamage = newTotalDamage;
-            updateUser({ totalDamage: newTotalDamage }).catch(err => {
-                console.error('[Battle] Не удалось сохранить totalDamage:', err);
-            });
+            store.user.totalDamage = (store.user.totalDamage || 0) + finalDamage;
         }
 
         showDamageEffect(finalDamage, talentIcon);
@@ -5056,3 +5048,26 @@ function closeLeaderboardModal() {
 
 window.openLeaderboardModal  = openLeaderboardModal;
 window.closeLeaderboardModal = closeLeaderboardModal;
+
+
+// ===== ПЕРЕМЕЩЕНИЕ КНОПКИ РЕЙТИНГА К ПЕРСОНАЖУ =====
+(function moveRatingButtonToCharacter() {
+    function doMove() {
+        const btn = document.querySelector('.rating-top-icon');
+        const charContainer = document.getElementById('character-container');
+        if (!btn || !charContainer) return;
+        // Убеждаемся, что character-container позиционирован
+        const style = window.getComputedStyle(charContainer);
+        if (style.position === 'static') {
+            charContainer.style.position = 'relative';
+        }
+        btn.classList.add('rating-btn-on-character');
+        charContainer.appendChild(btn);
+        console.log('[UI] Кнопка рейтинга перемещена к персонажу');
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', doMove);
+    } else {
+        doMove();
+    }
+})();

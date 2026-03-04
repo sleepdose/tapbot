@@ -6946,3 +6946,13 @@ html, body {
     color: var(--text-secondary);
     margin-top: 1px;
 }
+
+
+/* ===== КНОПКА РЕЙТИНГА НА ФОНЕ ПЕРСОНАЖА ===== */
+.rating-btn-on-character {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    margin: 0 !important;
+}
