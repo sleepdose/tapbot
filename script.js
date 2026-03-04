@@ -1191,6 +1191,12 @@ function updateTalentUI() {
             btn.textContent = cost;
             btn.disabled = user.money < cost;
         }
+        // Обновляем прогресс-бар таланта
+        const barFill = btn.closest('.talent')?.querySelector('.talent-bar-fill');
+        if (barFill) {
+            const pct = Math.min(100, Math.round((currentLevel / config.maxLevel) * 100));
+            barFill.style.width = pct + '%';
+        }
     });
 }
 function initTalentsTab() {
@@ -4131,7 +4137,16 @@ async function openVisitModal(userId) {
             const telegramId = userData.telegramId;
             if (telegramId) {
                 tgBtn.style.display = 'inline-flex';
-                tgBtn.href = `tg://user?id=${telegramId}`;
+                tgBtn.removeAttribute('href');
+                tgBtn.style.cursor = 'pointer';
+                tgBtn.onclick = (e) => {
+                    e.preventDefault();
+                    if (tg && typeof tg.openLink === 'function') {
+                        tg.openLink(`tg://user?id=${telegramId}`);
+                    } else {
+                        window.open(`tg://user?id=${telegramId}`, '_blank');
+                    }
+                };
             } else {
                 tgBtn.style.display = 'none';
             }
@@ -4976,29 +4991,27 @@ async function loadLeaderboard() {
         }
 
         // Рендер списка
-        const MEDALS = ['🥇','🥈','🥉'];
         let html = '';
         players.forEach((p, i) => {
             const rank     = i + 1;
             const isMe     = p.id === myId;
             const rankClass = rank <= 3 ? ` rank-${rank}` : '';
             const meClass   = isMe ? ' is-me' : '';
-            const rankLabel = rank <= 3 ? MEDALS[rank - 1] : rank;
             const dmgFormatted = formatDamageNum(p.totalDamage);
             const avatarHtml = buildAvatarHtml(p.photoUrl, p.name, p.level, false);
             const meTag = isMe ? '<span class="lb-me-tag">ты</span>' : '';
             const delay = Math.min(i * 0.03, 0.8);
+            const isVisitable = !isMe;
 
             html += `
-<div class="lb-row${rankClass}${meClass}" style="animation-delay:${delay}s">
-    <div class="lb-rank">${rankLabel}</div>
+<div class="lb-row${rankClass}${meClass}" style="animation-delay:${delay}s"${isVisitable ? ` onclick="openLeaderboardVisit('${p.id}')" style="animation-delay:${delay}s;cursor:pointer;"` : ''}>
+    <div class="lb-rank">${rank}</div>
     ${avatarHtml}
     <div class="lb-info">
         <div class="lb-name"><span>${p.name}</span>${meTag}</div>
     </div>
     <div class="lb-damage">
         <span class="lb-damage-val">⚔️ ${dmgFormatted}</span>
-        <span class="lb-damage-lbl">ур. ${p.level}</span>
     </div>
 </div>`;
         });
@@ -5020,7 +5033,7 @@ ${buildAvatarHtml(myPlayer.photoUrl, myPlayer.name, myPlayer.level, true)}
     <div class="lb-my-lvl">Уровень ${myPlayer.level}</div>
 </div>
 <div class="lb-my-dmg-wrap">
-    <span class="lb-my-dmg">${formatDamageNum(myPlayer.totalDamage)}</span>
+    <span class="lb-my-dmg">${myPlayer.totalDamage >= 1000 ? myPlayer.totalDamage.toLocaleString('ru-RU') : myPlayer.totalDamage}</span>
     <span class="lb-my-dmg-lbl">⚔️ урон</span>
 </div>`;
             mySection.classList.remove('hidden');
@@ -5031,6 +5044,12 @@ ${buildAvatarHtml(myPlayer.photoUrl, myPlayer.name, myPlayer.level, true)}
         listEl.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-secondary);">Не удалось загрузить рейтинг 😔</div>';
     }
 }
+
+function openLeaderboardVisit(userId) {
+    closeLeaderboardModal();
+    setTimeout(() => openVisitModal(userId), 150);
+}
+window.openLeaderboardVisit = openLeaderboardVisit;
 
 function openLeaderboardModal() {
     const modal = document.getElementById('leaderboard-modal');
