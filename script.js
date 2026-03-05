@@ -21,6 +21,15 @@ if (!window.Telegram || !window.Telegram.WebApp) {
 }
 
 const tg = window.Telegram.WebApp;
+// Helper: open Telegram or external links properly inside Telegram WebApp
+window._tgOpenLink = function(url) {
+    if (tg && typeof tg.openTelegramLink === 'function') {
+        tg.openTelegramLink(url);
+    } else {
+        window.open(url, '_blank');
+    }
+};
+
 tg.expand();
 tg.ready();
 
@@ -403,6 +412,7 @@ async function loadUserFromFirestore() {
         const newUser = {
             id: docId,
             name: tgUser?.first_name || 'Игрок',
+            username: tgUser?.username || '',
             telegramId: telegramId || '',
             photoUrl: currentPhotoUrl,
             energy: 100,
@@ -452,6 +462,12 @@ async function loadUserFromFirestore() {
 
     if (data.photoUrl !== currentPhotoUrl) {
         data.photoUrl = currentPhotoUrl;
+        needsUpdate = true;
+    }
+
+    const currentUsername = tgUser?.username || '';
+    if (data.username !== currentUsername) {
+        data.username = currentUsername;
         needsUpdate = true;
     }
 
@@ -511,7 +527,8 @@ async function loadUserFromFirestore() {
             musicEnabled: data.musicEnabled,
             equipped: data.equipped,
             skin: data.skin,
-            completedTasks: data.completedTasks // <-- сохраняем
+            completedTasks: data.completedTasks, // <-- сохраняем
+            username: data.username || ''
         };
         await userRef.update(updateData);
     }
@@ -2124,7 +2141,7 @@ async function renderGuildPage(guild) {
                  </div>
              ` : `
                  <p><strong>Описание:</strong> ${guild.description || '—'}</p>
-                 ${guild.chatLink ? `<p><strong>Чат/канал:</strong> <a href="${guild.chatLink}" target="_blank" style="color: #8ab3ff;">${guild.chatLink}</a></p>` : ''}
+                 ${guild.chatLink ? `<p><strong>Чат/канал:</strong> <a href="${guild.chatLink}" onclick="event.preventDefault(); window._tgOpenLink('${guild.chatLink}')" style="color: #8ab3ff; cursor: pointer;">${guild.chatLink}</a></p>` : ''}
                  ${expBarHtml}
              `}
 
@@ -3551,9 +3568,9 @@ window.shareReferralLink = function() {
     const link = input.value;
     const text = encodeURIComponent('Присоединяйся к Hiko: Battle Time! Сражайся с боссами, создавай гильдии и прокачивай героя 🎮⚔️');
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${text}`;
-    try {
+    if (tg && typeof tg.openTelegramLink === 'function') {
         tg.openTelegramLink(shareUrl);
-    } catch (e) {
+    } else {
         window.open(shareUrl, '_blank');
     }
     console.log('[Referral] Поделился ссылкой:', link);
@@ -4213,8 +4230,14 @@ async function openVisitModal(userId) {
                 tgBtn.style.cursor = 'pointer';
                 tgBtn.onclick = (e) => {
                     e.preventDefault();
-                    if (tg && typeof tg.openLink === 'function') {
-                        tg.openLink(`tg://user?id=${telegramId}`);
+                    // tg.openLink() is for external http/https URLs only, not tg:// protocol.
+                    // Use username if available (stored in userData), else fallback to tg:// deep link.
+                    if (userData.username) {
+                        if (tg && typeof tg.openTelegramLink === 'function') {
+                            tg.openTelegramLink(`https://t.me/${userData.username}`);
+                        } else {
+                            window.open(`https://t.me/${userData.username}`, '_blank');
+                        }
                     } else {
                         window.open(`tg://user?id=${telegramId}`, '_blank');
                     }
